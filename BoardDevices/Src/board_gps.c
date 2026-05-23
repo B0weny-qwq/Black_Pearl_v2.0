@@ -111,6 +111,7 @@ void board_gps_reset(void)
 void board_gps_poll(void)
 {
     ef_uart_rx_view_t view;
+    u8 rx_byte;
 
     if (board_gps_ready == 0U) {
         return;
@@ -118,13 +119,16 @@ void board_gps_poll(void)
     if (ef_uart_get_rx_view(BOARD_GPS_UART_PORT, &view) != SUCCESS) {
         return;
     }
-    if ((view.rx_buffer == 0) || (view.rx_buffer_size == 0U)) {
+    if (view.rx_buffer_size == 0U) {
         return;
     }
 
     if (view.write_index < board_gps_rx_read_index) {
         while (board_gps_rx_read_index < view.rx_buffer_size) {
-            (void)gnss_nmea_feed_byte(&board_gps_parser, view.rx_buffer[board_gps_rx_read_index]);
+            if (ef_uart_read_rx_byte(BOARD_GPS_UART_PORT, board_gps_rx_read_index, &rx_byte) != SUCCESS) {
+                break;
+            }
+            (void)gnss_nmea_feed_byte(&board_gps_parser, rx_byte);
             board_gps_rx_read_index++;
         }
         board_gps_rx_read_index = 0U;
@@ -132,7 +136,10 @@ void board_gps_poll(void)
     }
 
     while (board_gps_rx_read_index != view.write_index) {
-        (void)gnss_nmea_feed_byte(&board_gps_parser, view.rx_buffer[board_gps_rx_read_index]);
+        if (ef_uart_read_rx_byte(BOARD_GPS_UART_PORT, board_gps_rx_read_index, &rx_byte) != SUCCESS) {
+            break;
+        }
+        (void)gnss_nmea_feed_byte(&board_gps_parser, rx_byte);
         board_gps_rx_read_index++;
     }
 

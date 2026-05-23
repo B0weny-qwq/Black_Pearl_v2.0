@@ -44,6 +44,23 @@ void ef_spi_write_byte(u8 data)
     SPI_WriteByte(data);
 }
 
+u8 ef_spi_transfer_byte(u8 data)
+{
+    if (ESPI) {
+        B_SPI_Busy = 1;
+        SPDAT = data;
+        while (B_SPI_Busy) {
+        }
+        return SPDAT;
+    }
+
+    SPDAT = data;
+    while (SPIF == 0) {
+    }
+    SPI_ClearFlag();
+    return SPDAT;
+}
+
 u8 ef_spi_read_byte(void)
 {
     return SPI_ReadByte();

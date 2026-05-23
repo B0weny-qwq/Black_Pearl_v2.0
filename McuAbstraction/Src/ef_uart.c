@@ -103,32 +103,65 @@ u8 ef_uart_get_rx_view(u8 port, ef_uart_rx_view_t *view)
         return FAIL;
     }
 
-    view->rx_buffer = 0;
     view->rx_buffer_size = 0U;
     view->write_index = 0U;
 
     if (port == EF_UART_PORT_1) {
-        view->rx_buffer = RX1_Buffer;
         view->rx_buffer_size = COM_RX1_Lenth;
         view->write_index = COM1.RX_Cnt;
         return SUCCESS;
     }
     if (port == EF_UART_PORT_2) {
-        view->rx_buffer = RX2_Buffer;
         view->rx_buffer_size = COM_RX2_Lenth;
         view->write_index = COM2.RX_Cnt;
         return SUCCESS;
     }
     if (port == EF_UART_PORT_3) {
-        view->rx_buffer = RX3_Buffer;
         view->rx_buffer_size = COM_RX3_Lenth;
         view->write_index = COM3.RX_Cnt;
         return SUCCESS;
     }
     if (port == EF_UART_PORT_4) {
-        view->rx_buffer = RX4_Buffer;
         view->rx_buffer_size = COM_RX4_Lenth;
         view->write_index = COM4.RX_Cnt;
+        return SUCCESS;
+    }
+
+    return FAIL;
+}
+
+u8 ef_uart_read_rx_byte(u8 port, u8 index, u8 *data)
+{
+    if (data == 0) {
+        return FAIL;
+    }
+
+    if (port == EF_UART_PORT_1) {
+        if (index >= COM_RX1_Lenth) {
+            return FAIL;
+        }
+        *data = RX1_Buffer[index];
+        return SUCCESS;
+    }
+    if (port == EF_UART_PORT_2) {
+        if (index >= COM_RX2_Lenth) {
+            return FAIL;
+        }
+        *data = RX2_Buffer[index];
+        return SUCCESS;
+    }
+    if (port == EF_UART_PORT_3) {
+        if (index >= COM_RX3_Lenth) {
+            return FAIL;
+        }
+        *data = RX3_Buffer[index];
+        return SUCCESS;
+    }
+    if (port == EF_UART_PORT_4) {
+        if (index >= COM_RX4_Lenth) {
+            return FAIL;
+        }
+        *data = RX4_Buffer[index];
         return SUCCESS;
     }
 

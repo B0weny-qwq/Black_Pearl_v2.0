@@ -400,9 +400,9 @@
               <FilePath>..\BoardDevices\Src\board_console.c</FilePath>
             </File>
             <File>
-              <FileName>QMC6309.c</FileName>
+              <FileName>board_sensor_bus.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\BoardDevices\Src\QMC6309.c</FilePath>
+              <FilePath>..\BoardDevices\Src\board_sensor_bus.c</FilePath>
             </File>
             <File>
               <FileName>board_imu.c</FileName>
@@ -415,14 +415,24 @@
               <FilePath>..\BoardDevices\Inc\board_imu.h</FilePath>
             </File>
             <File>
-              <FileName>LT8920.c</FileName>
+              <FileName>board_mag.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\BoardDevices\Src\LT8920.c</FilePath>
+              <FilePath>..\BoardDevices\Src\board_mag.c</FilePath>
             </File>
             <File>
-              <FileName>KCT8206.c</FileName>
+              <FileName>board_mag.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\BoardDevices\Inc\board_mag.h</FilePath>
+            </File>
+            <File>
+              <FileName>board_lt8920.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\BoardDevices\Src\KCT8206.c</FilePath>
+              <FilePath>..\BoardDevices\Src\board_lt8920.c</FilePath>
+            </File>
+            <File>
+              <FileName>board_lt8920.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\BoardDevices\Inc\board_lt8920.h</FilePath>
             </File>
             <File>
               <FileName>board_spi_ps.c</FileName>
@@ -478,6 +488,46 @@
               <FileName>gnss_nmea.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\ChipDrivers\Inc\gnss_nmea.h</FilePath>
+            </File>
+            <File>
+              <FileName>QMI8658.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\ChipDrivers\Src\QMI8658.c</FilePath>
+            </File>
+            <File>
+              <FileName>QMI8658.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\ChipDrivers\Inc\QMI8658.h</FilePath>
+            </File>
+            <File>
+              <FileName>QMC6309.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\ChipDrivers\Src\QMC6309.c</FilePath>
+            </File>
+            <File>
+              <FileName>QMC6309.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\ChipDrivers\Inc\QMC6309.h</FilePath>
+            </File>
+            <File>
+              <FileName>LT8920.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\ChipDrivers\Src\LT8920.c</FilePath>
+            </File>
+            <File>
+              <FileName>LT8920.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\ChipDrivers\Inc\LT8920.h</FilePath>
+            </File>
+            <File>
+              <FileName>KCT8206.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\ChipDrivers\Src\KCT8206.c</FilePath>
+            </File>
+            <File>
+              <FileName>KCT8206.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\ChipDrivers\Inc\KCT8206.h</FilePath>
             </File>
           </Files>
         </Group>

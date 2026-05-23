@@ -26,7 +26,6 @@ typedef struct
 
 typedef struct
 {
-    const u8 *rx_buffer;   /**< Driver 层环形接收缓冲首地址。 */
     u16 rx_buffer_size;    /**< 接收缓冲总长度。 */
     u8 write_index;        /**< ISR 当前写指针，对应 Driver 层 RX_Cnt。 */
 } ef_uart_rx_view_t;
@@ -65,8 +64,8 @@ void ef_uart_write(u8 port, const u8 *data);
 /**
  * @brief 获取 UART 接收缓冲的只读视图。
  *
- * 该接口只暴露 Driver 层已经维护好的接收缓冲与写指针，便于 BoardDevices 做
- * 增量消费；不会修改底层缓冲状态，也不会重置 RX_Cnt。
+ * 该接口只暴露 Driver 层已经维护好的接收缓冲长度与写指针，便于 BoardDevices
+ * 做增量消费；不会修改底层缓冲状态，也不会重置 RX_Cnt。
  *
  * @param port UART 端口号，取值为 EF_UART_PORT_x。
  * @param view 输出视图，不能为 NULL。
@@ -74,5 +73,19 @@ void ef_uart_write(u8 port, const u8 *data);
  * @return FAIL 端口号非法或参数为空。
  */
 u8 ef_uart_get_rx_view(u8 port, ef_uart_rx_view_t *view);
+
+/**
+ * @brief 按索引读取 UART 接收缓冲中的 1 字节。
+ *
+ * 该接口用于 BoardDevices 按照自己的读指针消费 Driver 层接收缓冲，避免把
+ * `edata/xdata` 指针直接暴露到抽象层外部。
+ *
+ * @param port UART 端口号，取值为 EF_UART_PORT_x。
+ * @param index 读取索引，范围必须小于对应接收缓冲长度。
+ * @param data 输出字节，不能为 NULL。
+ * @return SUCCESS 读取成功。
+ * @return FAIL 端口号非法、参数为空或索引越界。
+ */
+u8 ef_uart_read_rx_byte(u8 port, u8 index, u8 *data);
 
 #endif

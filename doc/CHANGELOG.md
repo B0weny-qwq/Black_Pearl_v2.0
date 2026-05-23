@@ -29,13 +29,28 @@
     `LOGI/LOGW/LOGE/LOGD/log_printf`。
   - 新增 `Services/Inc/Log.h` 作为旧 include 兼容入口。
   - `logger` 使用 128 字节有界缓冲，超长日志截断，不再依赖 `vsprintf()`。
-  - `App/Src/app.c` 只负责 `board_console_init()` 和 `log_init()` 的高层顺序。
+  - `App/Src/app.c` 当前负责 `board_console_init()`、`log_init()`、设备 bring-up
+    和 GPS 初始化的高层顺序。
 - 更新 Keil 工程分组和 include path，加入 `Services`、`BoardDevices`、
   `McuAbstraction` 和 `logger` 相关文件。
-- 新增 `BoardDevices/Inc/board_imu.h`、`BoardDevices/Src/board_imu.c`，
-  预留 QMI8658 板级 IMU 入口；底层传输未接入。
 - 新增 `McuAbstraction/Inc/ef_iic.h`、`McuAbstraction/Src/ef_iic.c`，按
   STC DMA IIC 参考时序迁移寄存器连续读写封装，并加入超时返回。
+- 新增 `BoardDevices/Src/board_sensor_bus.c`、`BoardDevices/Src/board_sensor_bus.h`，
+  在 BoardDevices 私有层固定 P1.4/P1.5、400 kHz，复用 DMA IIC 访问。
+- 新增 `ChipDrivers/Inc/QMI8658.h`、`ChipDrivers/Src/QMI8658.c`，
+  完成 QMI8658 地址探测、最小初始化、状态读取和原始采样读取。
+- 将 `BoardDevices/Inc/board_imu.h`、`BoardDevices/Src/board_imu.c` 从占位推进为
+  实际板级绑定，初始化、周期服务和读数路径均返回显式状态码。
+- 新增 `BoardDevices/Inc/board_mag.h`、`BoardDevices/Src/board_mag.c`，
+  完成 QMC6309 板级磁力计绑定并复用 `board_sensor_bus`。
+- 将 `QMC6309`、`LT8920`、`KCT8206` 芯片驱动整理进 `ChipDrivers/`，
+  板级资源绑定收敛到 `BoardDevices/`。
+- 新增 `BoardDevices/Inc/board_lt8920.h`、`BoardDevices/Src/board_lt8920.c`，
+  完成 LT8920 + KCT8206 板级 bring-up、SPI 路由和寄存器校验诊断。
+- `McuAbstraction/Inc/ef_spi.h`、`McuAbstraction/Src/ef_spi.c` 补充
+  `ef_spi_transfer_byte()`，供 LT8920 全双工寄存器访问使用。
+- `App/Src/app.c` 在日志初始化后输出版本号，并串口打印 QMI8658、QMC6309、
+  LT8920 的初始化结果；LT8920 校验失败时追加寄存器诊断信息。
 - 从本地待迁移参考代码迁移低通滤波模块：
   - 新增 `Components/Inc/Filter.h`、`Components/Src/Filter.c`。
   - 保留旧 `Filter_*` API，供后续 QMI8658/QMC6309 读数路径直接接入。
@@ -50,4 +65,5 @@
   - 参考代码里的 UART2 桥接回显逻辑未迁入抽象层。
   - `Examples/` 和 `need to do/` 改为本地参考材料，不再纳入版本管理。
   - 更新 Keil 工程分组，将 `ef_spi.c` 放入 `McuAbstraction`，并加入
-    `board_spi_ps.c`。
+    `board_spi_ps.c`、`board_sensor_bus.c`、`board_mag.c`、`board_lt8920.c`、
+    `QMI8658.c` 以及迁移后的 `QMC6309`、`LT8920`、`KCT8206`。

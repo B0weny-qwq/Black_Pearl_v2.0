@@ -80,6 +80,17 @@ void ef_spi_set_mode(u8 mode);
 void ef_spi_write_byte(u8 data);
 
 /**
+ * @brief 发送 1 字节并返回同时收到的字节。
+ *
+ * 用于 LT8920 这类需要全双工寄存器访问的 SPI 外设。若 SPI 中断开启，
+ * 本函数会等待本次传输结束后再返回接收值。
+ *
+ * @param data 待发送字节。
+ * @return 同步收到的字节。
+ */
+u8 ef_spi_transfer_byte(u8 data);
+
+/**
  * @brief 读取 1 字节 SPI 数据。
  *
  * 本函数会发送 0xFF 产生时钟，并返回同时收到的数据。

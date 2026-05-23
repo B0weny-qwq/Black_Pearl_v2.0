@@ -17,6 +17,9 @@ Black_Pearl_v2.0/
 ├── Components/
 │   ├── Inc/
 │   └── Src/
+├── ChipDrivers/
+│   ├── Inc/
+│   └── Src/
 ├── Services/
 │   ├── Inc/
 │   └── Src/
@@ -33,6 +36,10 @@ Black_Pearl_v2.0/
 │   └── Src/
 ├── Startup/
 ├── RVMDK/
+├── .codex/
+│   └── skills/
+│       └── embedforge-project-standards/
+│           └── SKILL.md
 └── doc/
 ```
 
@@ -43,6 +50,10 @@ Black_Pearl_v2.0/
 - 负责 `main()`、应用生命周期和高层业务编排。
 - 当前调用链为 `platform_init()`、`app_init()`、`platform_scheduler_run()`、
   `app_loop()`。
+- 当前 `app_init()` 已接入 `board_console_init()`、`log_init()`、
+  `board_imu_init()`、`board_mag_init()`、`board_lt8920_init()` 和
+  `board_gps_init()`；`app_loop()` 当前周期调用 `board_gps_poll()` 和
+  `board_imu_service()`。
 - 不应依赖 STC vendor 头文件、裸寄存器或裸端口。
 
 `Platform/`
@@ -63,10 +74,23 @@ Black_Pearl_v2.0/
 - 当前已有 `ef_uart`、`ef_iic`、`ef_spi`，供 `BoardDevices/` 组合具体板级设备。
 - 这一层可以包含 STC 官方头文件，但不应该承载板级引脚和具体设备地址。
 
+`ChipDrivers/`
+
+- 保存外部芯片驱动和协议解析驱动，不直接绑定板级引脚、外设实例或任务调度。
+- 当前已有 `gnss_nmea`、`QMI8658`、`QMC6309`、`LT8920`、`KCT8206`。
+- 例如 `QMI8658` 只负责寄存器层读写和最小初始化，UART/IIC 端口与板级资源仍由
+  `BoardDevices/` 决定。
+
 `BoardDevices/`
 
 - 保存板级设备 API，例如 LED、按键、显示屏、电机、传感器、总线和通信口。
 - 当前已有 `board_console`，绑定 UART1/P3.1/P3.0 作为日志控制台。
+- 当前已有 `board_gps`，绑定 UART2/P1.0/P1.1，把接收字节流喂给 `gnss_nmea`
+  解析器。
+- 当前已有 `board_sensor_bus`，封装板级 DMA IIC 访问，当前固定使用 P1.4/P1.5。
+- 当前已有 `board_imu`，绑定 QMI8658 + `board_sensor_bus`，对上暴露板级 IMU 入口。
+- 当前已有 `board_mag`，绑定 QMC6309，并复用 `board_sensor_bus`。
+- 当前已有 `board_lt8920`，封装 LT8920 + KCT8206 的最小上电 bring-up。
 - 当前已有 `board_spi_ps`，绑定 SPI P2.2/P2.3/P2.4/P2.5，实现官方
   `APP_SPI_PS` 的对等主从切换模型。
 - 应隐藏引脚、通道、极性和 STC 驱动细节，不让 `App/` 直接接触硬件资源。
@@ -92,8 +116,13 @@ Black_Pearl_v2.0/
 
 - 保存 Keil 工程文件。
 - 当前有效分组包括 `Startup`、`Platform`、`App`、`BoardDevices`、
-  `Components`、`McuAbstraction`、`Services`、`Drivers`、`Drivers_ISR`、
-  `Drivers_LIB`。
+  `Components`、`ChipDrivers`、`McuAbstraction`、`Services`、`Drivers`、
+  `Drivers_ISR`、`Drivers_LIB`。
+
+`.codex/skills/embedforge-project-standards/`
+
+- 保存项目内自带的 EmbedForge 工程规范副本。
+- 用于在切换 Codex 环境、账号或主机时，仍能从仓库本身读取相同的工程约束。
 
 ## 依赖方向
 
@@ -101,9 +130,11 @@ Black_Pearl_v2.0/
 
 ```text
 App -> BoardDevices -> McuAbstraction -> Drivers -> Platform/STC registers
+App -> BoardDevices -> ChipDrivers -> McuAbstraction -> Drivers -> Platform/STC registers
 App -> Services -> BoardDevices
 App -> Components
 Platform -> Drivers/STC registers
+ChipDrivers -> McuAbstraction
 McuAbstraction -> Drivers -> Platform config/STC registers
 Drivers -> Platform config/STC registers
 ```
@@ -116,19 +147,17 @@ Drivers -> Platform config/STC registers
 
 ## 当前模块综述
 
-### UART1 控制台与日志
+### UART1 控制台、日志与 GPS
 
-旧版 `Code_boweny/Function/Log/` 已迁移为三段：
+当前接收链路已经拆分为板级串口、日志服务和 GNSS 解析三段：
 
 - `McuAbstraction/Inc/ef_uart.h`、`McuAbstraction/Src/ef_uart.c`：UART 统一封装。
-- `McuAbstraction/Inc/ef_iic.h`、`McuAbstraction/Src/ef_iic.c`：DMA IIC 统一封装，供
-  `BoardDevices/` 绑定具体板级传感器使用。
-- `Components/Inc/Filter.h`、`Components/Src/Filter.c`：三轴传感器一阶低通
-  滤波组件，保留旧 `Filter_*` 接口命名，便于后续接入 QMI8658/QMC6309。
 - `BoardDevices/Inc/board_console.h`、`BoardDevices/Src/board_console.c`：
   板级 console，绑定 UART1/P3.1/P3.0/115200 8N1。
-- `BoardDevices/Inc/board_imu.h`、`BoardDevices/Src/board_imu.c`：
-  QMI8658 板级 IMU 入口占位，底层传输未接入。
+- `BoardDevices/Inc/board_gps.h`、`BoardDevices/Src/board_gps.c`：
+  板级 GPS，绑定 UART2/P1.0/P1.1/115200，并周期轮询串口接收缓冲。
+- `ChipDrivers/Inc/gnss_nmea.h`、`ChipDrivers/Src/gnss_nmea.c`：
+  NMEA0183 解析器，只负责协议解析和状态快照维护。
 - `Services/Inc/logger.h`、`Services/Src/logger.c`：轻量日志服务。
 
 兼容入口：
@@ -142,9 +171,40 @@ Drivers -> Platform config/STC registers
 app_init()
   -> board_console_init()
   -> log_init()
+  -> 输出版本号
+  -> board_imu_init()
+  -> board_mag_init()
+  -> board_lt8920_init()
+  -> board_gps_init()
+app_loop()
+  -> board_gps_poll()
+  -> board_imu_service()
 ```
 
 `App/` 可以调用日志宏，但不能直接初始化 UART，也不能包含 `STC32G_UART.h`。
+设备 bring-up 本身不依赖日志初始化；若 `board_console_init()` 失败，只是日志被丢弃，
+不会阻止 IMU、磁力计和 LT8920 继续初始化。
+
+### 传感器总线、QMI8658/QMC6309/LT8920 与滤波
+
+- `McuAbstraction/Inc/ef_iic.h`、`McuAbstraction/Src/ef_iic.c`：DMA IIC 统一封装。
+- `BoardDevices/Src/board_sensor_bus.c`、`BoardDevices/Src/board_sensor_bus.h`：
+  板级传感器总线适配层，当前固定 P1.4/P1.5、400 kHz，并对上收敛成简单寄存器读写接口。
+- `ChipDrivers/Inc/QMI8658.h`、`ChipDrivers/Src/QMI8658.c`：QMI8658 寄存器层驱动，
+  已支持地址探测、初始化、状态读取和原始采样读取。
+- `BoardDevices/Inc/board_imu.h`、`BoardDevices/Src/board_imu.c`：
+  板级 IMU 接口，当前已绑定 `QMI8658` + `board_sensor_bus`，用于初始化、ready 刷新和原始采样读取。
+- `ChipDrivers/Inc/QMC6309.h`、`ChipDrivers/Src/QMC6309.c`：QMC6309 地磁计寄存器层驱动。
+- `BoardDevices/Inc/board_mag.h`、`BoardDevices/Src/board_mag.c`：
+  板级磁力计接口，当前已绑定 QMC6309，并复用 `board_sensor_bus`。
+- `McuAbstraction/Inc/ef_spi.h`、`McuAbstraction/Src/ef_spi.c`：
+  SPI 统一封装，当前额外提供 `ef_spi_transfer_byte()` 供 LT8920 全双工寄存器访问。
+- `ChipDrivers/Inc/LT8920.h`、`ChipDrivers/Src/LT8920.c`：LT8920 无线芯片寄存器层驱动。
+- `ChipDrivers/Inc/KCT8206.h`、`ChipDrivers/Src/KCT8206.c`：射频前端控制层。
+- `BoardDevices/Inc/board_lt8920.h`、`BoardDevices/Src/board_lt8920.c`：
+  板级 LT8920 bring-up，隐藏 SPI 路由、RST、ANT_SEL、RXEN、TXEN 和寄存器校验细节。
+- `Components/Inc/Filter.h`、`Components/Src/Filter.c`：三轴传感器一阶低通
+  滤波组件，保留旧 `Filter_*` 接口命名，便于后续接入 QMI8658/QMC6309。
 
 ### SPI-PS 对等通信
 

@@ -1,12 +1,13 @@
 /**
  * @file board_imu.h
- * @brief Black Pearl 板级 IMU 接口占位。
+ * @brief Black Pearl 板级 IMU 接口。
  *
  * 本文件属于 BoardDevices 层，面向 App 提供“板上 IMU”的稳定接口。
- * 当前只为 QMI8658 移植预留入口，还没有把 IIC 总线和芯片寄存器驱动接进来；
- * 因此这里不会暴露 IIC API、IIC 地址、STC 引脚宏或 QMI8658 寄存器定义。
+ * 当前板级实现绑定 QMI8658 + 传感器 IIC 总线，并对上提供稳定的初始化、
+ * 就绪判断和原始采样接口。这里不会暴露 IIC API、IIC 地址、STC 引脚宏或
+ * QMI8658 寄存器定义。
  *
- * 后续接入顺序建议保持：
+ * 依赖顺序保持：
  * App -> board_imu -> ChipDrivers/QMI8658 -> McuAbstraction/ef_iic -> STC 官方驱动。
  */
 
@@ -20,12 +21,11 @@
 /* BoardDevices 层返回值，负数表示错误，便于和 Drivers 层错误码区分。 */
 #define BOARD_IMU_OK                   0
 #define BOARD_IMU_ERR_PARAM            -1
-#define BOARD_IMU_ERR_NOT_BOUND        -2
+#define BOARD_IMU_ERR_DRIVER           -2
 #define BOARD_IMU_ERR_NOT_READY        -3
 #define BOARD_IMU_ERR_DATA             -4
 
-/* 简单状态机：未绑定 -> 初始化中 -> 可读取；错误态留给后续芯片驱动接入。 */
-#define BOARD_IMU_STATE_NOT_BOUND      0U
+#define BOARD_IMU_STATE_IDLE           0U
 #define BOARD_IMU_STATE_INIT           1U
 #define BOARD_IMU_STATE_READY          2U
 #define BOARD_IMU_STATE_ERROR          3U
@@ -60,15 +60,14 @@ typedef struct
 /**
  * @brief 初始化板级 IMU。
  *
- * 当前实现尚未绑定 QMI8658 传输层，因此会返回 BOARD_IMU_ERR_NOT_BOUND。
- * 后续接入芯片驱动后，此函数负责配置板级 IIC、初始化 QMI8658 并更新状态机。
+ * 本函数负责初始化板级传感器 IIC、绑定 QMI8658 芯片层并完成最小 bring-up。
  */
 int8 board_imu_init(void);
 
 /**
  * @brief 板级 IMU 周期服务函数。
  *
- * 当前占位实现只检查状态；后续可在这里处理 data-ready 标志、错误恢复或低速轮询。
+ * 当前实现会刷新一次 data-ready 标志。后续可在这里加入错误恢复或中断事件消费。
  */
 int8 board_imu_service(void);
 
@@ -87,7 +86,7 @@ void board_imu_clear_data_ready(void);
  * @param sample 输出缓冲，不能为 NULL。
  * @return BOARD_IMU_OK 读取成功。
  * @return BOARD_IMU_ERR_PARAM sample 为空。
- * @return BOARD_IMU_ERR_NOT_BOUND 当前还未接入底层 QMI8658。
+ * @return BOARD_IMU_ERR_DRIVER 板级总线或芯片层初始化失败。
  * @return BOARD_IMU_ERR_NOT_READY 已绑定但尚未进入 READY。
  * @return BOARD_IMU_ERR_DATA 底层读取或数据校验失败。
  */

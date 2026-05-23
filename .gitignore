@@ -1,0 +1,41 @@
+# Keil uVision user-specific files
+*.uvopt
+*.uvoptx
+*.uvguix.*
+
+# Keil build artifacts
+*.axf
+*.bin
+*.build_log.htm
+*.crf
+*.d
+*.dep
+*.hex
+*.htm
+*.iex
+*.lnp
+*.lst
+*.map
+*.o
+*.sbr
+
+# Keil output folders
+Objects/
+Listings/
+DebugConfig/
+
+# Project-local generated output
+RVMDK/list/
+
+# Generic temp and backup files
+*.bak
+*.log
+*.tmp
+*~
+
+# Editor/IDE metadata
+.idea/
+.vscode/
+
+# Python cache
+__pycache__/

@@ -3,7 +3,7 @@
 ## 基本信息
 
 - 工程名称：Black Pearl v2.0
-- 来源基线：Black Pearl v1.0 与 STC32G 官方示例
+- 来源基线：Black Pearl v1.0 与 STC32G 官方驱动资料
 - 工程目的：移植、解耦、重构
 - 架构级别：EmbedForge Level 1.5
 - Keil 工程：`RVMDK/STC32G-LIB.uvproj`
@@ -48,8 +48,6 @@ Keil 当前工程分组：
 - `Drivers_ISR`
 - `Drivers_LIB`
 
-`Examples/STC32G_Official/` 下的官方示例不参与当前构建。
-
 ## 当前应用生命周期
 
 ```text
@@ -69,7 +67,6 @@ main()
 
 ## 迁移数据记录
 
-- 官方 `APP_*` 示例文件已移动到 `Examples/STC32G_Official/`。
 - 旧 `User/` 层已移除。
 - `App/` 当前只保留最小生命周期壳。
 - `BoardDevices/` 当前已有 UART1 控制台，并预留 QMI8658 板级 IMU API；
@@ -79,11 +76,11 @@ main()
 - 旧版 LOG 模块已迁移为 `ef_uart`、`board_console`、`logger` 三层。
 - `ef_uart`、`ef_iic`、`ef_spi` 已从 `Drivers/` 拆分到 `McuAbstraction/`，
   便于和 STC 官方 SDK 文件分开查找。
-- `ef_iic` 已按官方 `APP_DMA_I2C` 示例迁移为 DMA IIC 封装：
+- `ef_iic` 已按 STC DMA IIC 参考时序迁移为 DMA IIC 封装：
   - 默认接口：`ef_iic_init()`、`ef_iic_write_regs()`、`ef_iic_read_regs()`。
   - 支持 P1.4/P1.5、P2.4/P2.5、P7.6/P7.7、P3.3/P3.2 四组 IIC 复用脚。
   - 读写过程带超时返回，不使用官方示例中的无限等待。
-- `Filter` 组件已从 `need to do/Function/Filter/` 迁移到 `Components/`：
+- `Filter` 组件已从本地待迁移参考代码迁移到 `Components/`：
   - 头文件：`Components/Inc/Filter.h`
   - 源文件：`Components/Src/Filter.c`
   - 保留 `Filter_ResetGyroLowPass()`、`Filter_ResetMagLowPass()`、
@@ -94,7 +91,8 @@ main()
   - TXD/RXD：P3.1/P3.0
   - 波特率：115200
   - 数据格式：8N1
-- 官方 `APP_SPI_PS` 已迁移为 `ef_spi` 和 `board_spi_ps` 两层。
+- SPI-PS 参考实现已迁移为 `ef_spi` 和 `board_spi_ps` 两层。
+- `Examples/` 和 `need to do/` 属于本地参考材料，不纳入版本管理。
 - SPI-PS 固定资源：
   - SS：P2.2
   - MOSI：P2.3

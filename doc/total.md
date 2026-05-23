@@ -1,7 +1,7 @@
 # 工程目录总览
 
 本工程采用 EmbedForge Level 1.5 风格组织，用于把 Black Pearl v1.0 代码
-迁移到更清晰、可维护、可复用的结构中，同时保留 STC 官方驱动和示例代码的
+迁移到更清晰、可维护、可复用的结构中，同时保留 STC 官方驱动和芯片资料的
 参考价值。
 
 ## 目录结构
@@ -28,8 +28,6 @@ Black_Pearl_v2.0/
 ├── McuAbstraction/
 │   ├── Inc/
 │   └── Src/
-├── Examples/
-│   └── STC32G_Official/
 ├── Platform/
 │   ├── Inc/
 │   └── Src/
@@ -57,7 +55,7 @@ Black_Pearl_v2.0/
 `Drivers/`
 
 - 保存 STC32G 官方外设驱动、ISR 和 STC 库文件。
-- 保留官方命名，便于对照和迁移官方示例。
+- 保留官方命名，便于对照芯片资料和旧版代码。
 
 `McuAbstraction/`
 
@@ -86,12 +84,6 @@ Black_Pearl_v2.0/
 - 服务层不能直接调用 STC 官方驱动或裸寄存器；硬件输出通过 `BoardDevices/`
   或抽象接口完成。
 
-`Examples/STC32G_Official/`
-
-- 保存 STC 官方示例代码，仅作为参考。
-- 不参与当前 Keil 构建。
-- 允许包含 vendor 头文件和官方 sample 风格的全局变量。
-
 `Startup/`
 
 - 保存启动和中断向量相关汇编文件。
@@ -116,11 +108,9 @@ McuAbstraction -> Drivers -> Platform config/STC registers
 Drivers -> Platform config/STC registers
 ```
 
-`Examples/` 不属于正式生产依赖路径。
-
 ## 迁移原则
 
-从 v1.0 或官方示例迁移代码时，不要把 sample 代码直接粘到 `App/`。应先
+从 v1.0 或本地参考代码迁移时，不要把 sample 代码直接粘到 `App/`。应先
 识别它实际代表的硬件能力，再放入 `BoardDevices/` 或 `Platform/`；`App/`
 只保留高层调用顺序和业务状态。
 
@@ -158,7 +148,7 @@ app_init()
 
 ### SPI-PS 对等通信
 
-官方 `APP_SPI_PS` 已拆为两层：
+SPI-PS 参考实现已拆为两层：
 
 - `McuAbstraction/Inc/ef_spi.h`、`McuAbstraction/Src/ef_spi.c`：SPI 统一封装。
 - `BoardDevices/Inc/board_spi_ps.h`、`BoardDevices/Src/board_spi_ps.c`：板级
@@ -177,4 +167,4 @@ app_init()
 - `board_spi_ps_send()` 负责抢主发送和发送后退回从机。
 - `board_spi_ps_service()` 负责推进从机接收超时判帧。
 - `board_spi_ps_read()` 负责读取并清空 ISR 接收缓冲。
-- UART2 回显桥接是官方示例应用逻辑，不放入板级 SPI-PS 抽象。
+- UART2 回显桥接是参考应用逻辑，不放入板级 SPI-PS 抽象。

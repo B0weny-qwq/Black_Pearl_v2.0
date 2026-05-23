@@ -27,6 +27,10 @@ DebugConfig/
 # Project-local generated output
 RVMDK/list/
 
+# Local reference material, not part of the tracked project
+Examples/
+need to do/
+
 # Generic temp and backup files
 *.bak
 *.log

@@ -75,9 +75,9 @@ void ef_spi_set_mode(u8 mode);
  *
  * 当前底层沿用 STC 官方阻塞发送行为；若 SPI 中断开启，会等待发送中断释放忙标志。
  *
- * @param data 待发送字节。
+ * @param byte 待发送字节。
  */
-void ef_spi_write_byte(u8 data);
+void ef_spi_write_byte(u8 byte);
 
 /**
  * @brief 发送 1 字节并返回同时收到的字节。
@@ -85,10 +85,10 @@ void ef_spi_write_byte(u8 data);
  * 用于 LT8920 这类需要全双工寄存器访问的 SPI 外设。若 SPI 中断开启，
  * 本函数会等待本次传输结束后再返回接收值。
  *
- * @param data 待发送字节。
+ * @param byte 待发送字节。
  * @return 同步收到的字节。
  */
-u8 ef_spi_transfer_byte(u8 data);
+u8 ef_spi_transfer_byte(u8 byte);
 
 /**
  * @brief 读取 1 字节 SPI 数据。

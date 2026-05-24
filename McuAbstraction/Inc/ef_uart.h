@@ -49,17 +49,17 @@ u8 ef_uart_init(const ef_uart_config_t *config);
  * 本函数会等待该字节发送完成。
  *
  * @param port UART 端口号，取值为 EF_UART_PORT_x。
- * @param data 待发送字节。
+ * @param byte 待发送字节。
  */
-void ef_uart_write_byte(u8 port, u8 data);
+void ef_uart_write_byte(u8 port, u8 byte);
 
 /**
  * @brief 发送以 `\0` 结束的字符串。
  *
  * @param port UART 端口号，取值为 EF_UART_PORT_x。
- * @param data 待发送字符串；为 NULL 时直接返回。
+ * @param text 待发送字符串；为 NULL 时直接返回。
  */
-void ef_uart_write(u8 port, const u8 *data);
+void ef_uart_write(u8 port, const u8 *text);
 
 /**
  * @brief 获取 UART 接收缓冲的只读视图。
@@ -82,10 +82,10 @@ u8 ef_uart_get_rx_view(u8 port, ef_uart_rx_view_t *view);
  *
  * @param port UART 端口号，取值为 EF_UART_PORT_x。
  * @param index 读取索引，范围必须小于对应接收缓冲长度。
- * @param data 输出字节，不能为 NULL。
+ * @param out_byte 输出字节，不能为 NULL。
  * @return SUCCESS 读取成功。
  * @return FAIL 端口号非法、参数为空或索引越界。
  */
-u8 ef_uart_read_rx_byte(u8 port, u8 index, u8 *data);
+u8 ef_uart_read_rx_byte(u8 port, u8 index, u8 *out_byte);
 
 #endif

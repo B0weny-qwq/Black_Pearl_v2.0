@@ -43,8 +43,14 @@
 #define QMI8658_POWER_UP_DELAY_MS       500U
 #define QMI8658_INIT_RETRY_MAX          3U
 #define QMI8658_INIT_RETRY_DELAY_MS     200U
+#define QMI8658_ID_RETRY_MAX            5U
+#define QMI8658_ID_RETRY_DELAY_MS       2U
 #define QMI8658_ENABLE_DELAY_MS         30U
 #define QMI8658_READY_TIMEOUT_MS        200U
+#define QMI8658_VERIFY_RETRY_MAX        2U
+#define QMI8658_VERIFY_RETRY_DELAY_MS   2U
+#define QMI8658_CONFIG_RETRY_MAX        1U
+#define QMI8658_CONFIG_RETRY_DELAY_MS   5U
 
 #define QMI8658_OK                      0
 #define QMI8658_ERR_PARAM              -1
@@ -58,20 +64,19 @@
  * @brief 写一个 QMI8658 寄存器。
  * @return 0 表示总线写成功，非 0 表示总线失败。
  */
-typedef int8 (*qmi8658_write_reg_fn)(void *ctx, u8 addr, u8 reg, u8 value);
+typedef int8 (*qmi8658_write_reg_fn)(u8 addr, u8 reg, u8 value);
 
 /**
  * @brief 连续读取 QMI8658 寄存器。
  * @return 0 表示总线读成功，非 0 表示总线失败。
  */
-typedef int8 (*qmi8658_read_regs_fn)(void *ctx, u8 addr, u8 start_reg, u8 *buf, u8 len);
+typedef int8 (*qmi8658_read_regs_fn)(u8 addr, u8 start_reg, u8 *buf, u8 len);
 
 /** @brief 可选毫秒延时回调，用于上电等待和 ready 轮询。 */
-typedef void (*qmi8658_delay_ms_fn)(void *ctx, u16 ms);
+typedef void (*qmi8658_delay_ms_fn)(u16 ms);
 
 typedef struct
 {
-    void *ctx;
     qmi8658_write_reg_fn write_reg;
     qmi8658_read_regs_fn read_regs;
     qmi8658_delay_ms_fn delay_ms;
@@ -100,8 +105,31 @@ typedef struct
     u8 addr;
     u8 initialized;
     u8 data_ready;
+    int8 last_error;
+    u8 last_id;
+    u8 last_ctrl1;
+    u8 last_ctrl2;
+    u8 last_ctrl3;
+    u8 last_ctrl5;
+    u8 last_ctrl7;
     u8 last_status0;
+    u8 last_cfg_retry;
+    u8 last_cfg_reg;
+    u8 last_cfg_write;
+    u8 last_cfg_read;
+    int8 last_cfg_ret;
 } qmi8658_t;
+
+typedef struct
+{
+    u8 who_am_i;
+    u8 ctrl1;
+    u8 ctrl2;
+    u8 ctrl3;
+    u8 ctrl5;
+    u8 ctrl7;
+    u8 status0;
+} qmi8658_diag_regs_t;
 
 /** @brief 绑定总线回调，并重置本地状态。 */
 int8 QMI8658_Bind(qmi8658_t *dev, const qmi8658_bus_t *bus);
@@ -133,6 +161,9 @@ int8 QMI8658_ReadStatus0(qmi8658_t *dev, u8 *status0);
 /** @brief 读取一帧温度/加速度/陀螺原始数据。 */
 int8 QMI8658_ReadRawSample(qmi8658_t *dev, qmi8658_sample_t *sample);
 
+/** @brief 读取关键诊断寄存器，供 bring-up 失败排查使用。 */
+int8 QMI8658_ReadDiagRegs(qmi8658_t *dev, qmi8658_diag_regs_t *regs);
+
 /** @brief 返回芯片是否已经完成初始化。 */
 u8 QMI8658_IsReady(const qmi8658_t *dev);
 
@@ -141,5 +172,11 @@ u8 QMI8658_HasDataReady(const qmi8658_t *dev);
 
 /** @brief 清除本地数据就绪标志。 */
 void QMI8658_ClearDataReady(qmi8658_t *dev);
+
+/** @brief 返回最近一次芯片层错误码。 */
+int8 QMI8658_GetLastError(const qmi8658_t *dev);
+
+/** @brief 返回最近一次探测/读取到的芯片 ID。 */
+u8 QMI8658_GetLastID(const qmi8658_t *dev);
 
 #endif

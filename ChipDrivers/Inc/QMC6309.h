@@ -59,7 +59,7 @@
  * @param value  待写入字节。
  * @return 0 表示总线写成功，非 0 表示总线失败。
  */
-typedef int8 (*qmc6309_write_reg_fn)(void *ctx, u8 addr, u8 reg, u8 value);
+typedef int8 (*qmc6309_write_reg_fn)(u8 addr, u8 reg, u8 value);
 
 /**
  * @brief 连续读取 QMC6309 寄存器。
@@ -70,14 +70,14 @@ typedef int8 (*qmc6309_write_reg_fn)(void *ctx, u8 addr, u8 reg, u8 value);
  * @param len        读取字节数。
  * @return 0 表示总线读成功，非 0 表示总线失败。
  */
-typedef int8 (*qmc6309_read_regs_fn)(void *ctx, u8 addr, u8 start_reg, u8 *buf, u8 len);
+typedef int8 (*qmc6309_read_regs_fn)(u8 addr, u8 start_reg, u8 *buf, u8 len);
 
 /**
  * @brief 可选阻塞延时回调，用于初始化、复位和轮询等待。
  * @param ctx  外部 I2C 上下文。
  * @param ms   延时时间，单位 ms。
  */
-typedef void (*qmc6309_delay_ms_fn)(void *ctx, u16 ms);
+typedef void (*qmc6309_delay_ms_fn)(u16 ms);
 
 /**
  * @brief QMC6309 芯片层需要的外部回调。
@@ -87,7 +87,6 @@ typedef void (*qmc6309_delay_ms_fn)(void *ctx, u16 ms);
  */
 typedef struct
 {
-    void *ctx;
     qmc6309_write_reg_fn write_reg;
     qmc6309_read_regs_fn read_regs;
     qmc6309_delay_ms_fn delay_ms;

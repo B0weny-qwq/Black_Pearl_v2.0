@@ -47,9 +47,9 @@ static int16 Filter_UpdateAxis(int32 *state, int16 input, u8 shift)
     return (int16)(*state >> FILTER_LPF_STATE_Q);
 }
 
-static s8 Filter_LowPassApply(filter_low_pass_3axis_t *ctx, u8 shift,
-                              int16 in_x, int16 in_y, int16 in_z,
-                              int16 *out_x, int16 *out_y, int16 *out_z)
+static int8 Filter_LowPassApply(filter_low_pass_3axis_t *ctx, u8 shift,
+                                int16 in_x, int16 in_y, int16 in_z,
+                                int16 *out_x, int16 *out_y, int16 *out_z)
 {
     if ((ctx == 0) || (out_x == 0) || (out_y == 0) || (out_z == 0)) {
         return -1;
@@ -93,15 +93,15 @@ void Filter_ResetMagLowPass(void)
     Filter_ResetState(&filter_mag_ctx);
 }
 
-s8 Filter_GyroLowPass(int16 in_x, int16 in_y, int16 in_z,
-                      int16 *out_x, int16 *out_y, int16 *out_z)
+int8 Filter_GyroLowPass(int16 in_x, int16 in_y, int16 in_z,
+                        int16 *out_x, int16 *out_y, int16 *out_z)
 {
     return Filter_LowPassApply(&filter_gyro_ctx, FILTER_GYRO_LPF_SHIFT,
                                in_x, in_y, in_z, out_x, out_y, out_z);
 }
 
-s8 Filter_MagLowPass(int16 in_x, int16 in_y, int16 in_z,
-                     int16 *out_x, int16 *out_y, int16 *out_z)
+int8 Filter_MagLowPass(int16 in_x, int16 in_y, int16 in_z,
+                       int16 *out_x, int16 *out_y, int16 *out_z)
 {
     return Filter_LowPassApply(&filter_mag_ctx, FILTER_MAG_LPF_SHIFT,
                                in_x, in_y, in_z, out_x, out_y, out_z);

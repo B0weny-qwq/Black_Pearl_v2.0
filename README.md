@@ -24,10 +24,17 @@ Keil 工程以及芯片资料对应。
 - 平台调度：`Platform/Src/platform_scheduler.c`
 - 板级控制台：`BoardDevices/Src/board_console.c`
 - 板级 GPS：`BoardDevices/Src/board_gps.c`，当前已接入 UART2 接收和 NMEA 解析轮询。
-- 板级 IMU：`BoardDevices/Src/board_imu.c`，当前已完成 QMI8658 板级绑定，支持初始化、ready 刷新和原始采样读取。
+- 板级 IMU：`BoardDevices/Src/board_imu.c`，当前已完成 QMI8658 板级绑定和板上移植验证，支持初始化、ready 刷新和原始采样读取。
 - 板级磁力计：`BoardDevices/Src/board_mag.c`，当前已完成 QMC6309 板级绑定并复用传感器 IIC 总线。
-- 板级传感器总线：`BoardDevices/Src/board_sensor_bus.c`，当前封装 DMA IIC，固定 P1.4/P1.5、400 kHz，供传感器链路复用。
+- 板级传感器总线：`BoardDevices/Src/board_sensor_bus.c`，当前封装 DMA IIC，固定 P1.4/P1.5、100 kHz，供传感器链路复用。
 - 板级 LT8920：`BoardDevices/Src/board_lt8920.c`，当前已封装 LT8920 + KCT8206 的最小 bring-up 和寄存器校验。
+- 板级无线链路：`BoardDevices/Src/board_wireless.c`，当前在 LT8920/KCT8206 之上提供 RX/TX、配对信道发送、payload 队列和天线扫描。
+- 板级电源采样：`BoardDevices/Src/board_power.c`，当前隐藏 ADC/GPIO 细节，对上提供电池原始值、毫伏值和 `0..4` 电量等级。
+- 板级存储：`BoardDevices/Src/board_storage.c`，当前隐藏 STC EEPROM/IAP 细节，供服务层保存少量配置。
+- 参数服务：`Services/Src/parameter_store.c`，当前通过 `board_storage` 保存 AutoDrive 返航开关和返航点配置。
+- 船端协议状态机：`App/Src/ship_protocol.c`，当前接入无线配对、旧帧截取、`0x11/0x13/0x14/0x15` 分发、`0x12` GPS/status 回包和 `0x16` AutoDrive 诊断上报。
+- 船体控制状态机：`App/Src/ship_control.c`，当前拥有电机输出控制权，负责手动开环/航向保持、E 键巡航、GPS 对齐/导航输出和超时停机。
+- GPS AutoDrive 状态机：`App/Src/autodrive.c`，当前负责返航、去定点、对齐阶段、钓点表、配置加载保存和诊断快照。
 - 板级 SPI-PS：`BoardDevices/Src/board_spi_ps.c`
 - 芯片驱动层：`ChipDrivers/Src/`，当前含 `gnss_nmea`、`QMI8658`、`QMC6309`、`LT8920`、`KCT8206`
 - 算法组件：`Components/Src/Filter.c`、`Components/Src/PID.c`
@@ -117,19 +124,26 @@ main()
      -> log_init()
      -> app_bring_up_devices()
         -> 输出版本号
+        -> board_gps_init()
         -> board_imu_init()
         -> board_mag_init()
-        -> board_lt8920_init()
-     -> board_gps_init()
+        -> board_power_init()
+        -> board_wireless_init()
+        -> ship_protocol_init()
+        -> board_motor_init()
   -> loop
      -> platform_scheduler_run()
      -> app_loop()
         -> board_gps_poll()
-        -> board_imu_service()
+        -> board_wireless_poll()
+        -> ship_protocol_run_scheduler()
+        -> board_wireless_search_signal_poll()
+        -> app_ahrs_poll()
+        -> board_motor_service()
 ```
 
 其中 `log_init()` 仅在 `board_console_init()` 成功时执行；设备 bring-up 本身不依赖
-日志初始化，控制台异常时仍会继续初始化 IMU、磁力计和 LT8920。
+日志初始化，控制台异常时仍会继续初始化 IMU、磁力计和无线链路。
 
 日志输出格式保持旧版口径：
 
@@ -145,10 +159,10 @@ main()
 - `McuAbstraction/Inc/ef_iic.h`、`McuAbstraction/Src/ef_iic.c`：IIC 统一封装，当前采用
   STC DMA IIC 参考时序实现寄存器连续读写。
 - `BoardDevices/Src/board_sensor_bus.c`、`BoardDevices/Src/board_sensor_bus.h`：
-  板级传感器总线私有适配层，当前固定使用 P1.4/P1.5、400 kHz，不对 `App/`
+  板级传感器总线私有适配层，当前固定使用 P1.4/P1.5、100 kHz，不对 `App/`
   暴露 IIC 细节。
 - `ChipDrivers/Inc/QMI8658.h`、`ChipDrivers/Src/QMI8658.c`：QMI8658 寄存器层驱动，
-  已支持地址探测、最小初始化、状态读取和原始数据读取。
+  已支持地址探测、可靠上电等待、ready 轮询、状态读取和原始数据读取；当前移植已在板上验证成功。
 - `BoardDevices/Inc/board_imu.h`、`BoardDevices/Src/board_imu.c`：板级 IMU 接口，
   当前已绑定 `QMI8658` + `board_sensor_bus`，初始化和读数都返回显式状态码。
 - `ChipDrivers/Inc/QMC6309.h`、`ChipDrivers/Src/QMC6309.c`：QMC6309 地磁计寄存器层驱动。
@@ -161,6 +175,29 @@ main()
   KCT8206 射频前端控制层。
 - `BoardDevices/Inc/board_lt8920.h`、`BoardDevices/Src/board_lt8920.c`：板级
   LT8920 bring-up，隐藏 SPI 路由、RST、ANT_SEL、RXEN、TXEN 和默认寄存器校验。
+- `BoardDevices/Inc/board_wireless.h`、`BoardDevices/Src/board_wireless.c`：板级
+  LT8920 无线链路管理层，状态命名为 `BOARD_WIRELESS_MODE_IDLE/RX/TX`，对上提供
+  `board_wireless_poll()`、`board_wireless_send()`、`board_wireless_receive()`、
+  `board_wireless_set_channel()` 和天线搜索接口。
+- `BoardDevices/Inc/board_power.h`、`BoardDevices/Src/board_power.c`：板级
+  电池采样接口，隐藏 `P0.0 / ADC_CH8`、ADC 初始化和等级换算。
+- `BoardDevices/Inc/board_storage.h`、`BoardDevices/Src/board_storage.c`：板级
+  EEPROM/IAP 存储接口，App 和 Services 不直接包含 STC EEPROM 驱动。
+- `Services/Inc/parameter_store.h`、`Services/Src/parameter_store.c`：轻量参数服务，
+  当前用于保存 AutoDrive 配置字节。
+- `App/Inc/ship_protocol.h`、`App/Src/ship_protocol.c`：船端协议状态机，状态命名为
+  `SHIP_PROTOCOL_STATE_BOOT_WAIT/PAIR_SEND/PAIR_WAIT_RSP/WORK_RX`。当前固定配对信道
+  `0x7F`，seed 为 `65 65 A0 65`，发送 10 次 `PAIR_REQ(0x10)` 后进入响应窗口和
+  工作 RX；seed 派生 `work_rx=13`、`work_tx=77`、`key=32/30`、
+  `reg36=0x2020`、`reg39=0x1E1E`。RF payload 按旧格式
+  `AA | len | cmd | payload | xor | BB` 截帧，合法 `0x0F/0x11/0x13/0x14/0x15`
+  分发后发送 `GPS_REPORT(0x12)`；`0x16` 作为 AutoDrive 主动诊断上报，不替代 `0x12`。
+- `App/Inc/ship_control.h`、`App/Src/ship_control.c`：船体控制状态机，协议层只提交
+  手动输入、巡航请求和 GPS 导航请求；最终左右电机输出统一从这里写入 `board_motor`。
+- `App/Inc/autodrive.h`、`App/Src/autodrive.c`：GPS 自动驾驶状态机，`0x13/0x14/0x15`
+  会进入这里完成返航点保存、钓点表查重、点位启动、对齐、运行、到达和诊断快照。
+- `App/Inc/autodrive_config.h`、`App/Src/autodrive_config.c`：AutoDrive 配置适配层，
+  通过 `parameter_store` 保存返航开关和返航点，不直接调用 STC EEPROM。
 - `Components/Inc/Filter.h`、`Components/Src/Filter.c`：三轴传感器一阶低通
   滤波组件，保留旧版 `Filter_*` API，供 IMU/地磁计读数链路复用。
 
@@ -185,3 +222,44 @@ SS 高电平表示总线空闲
 ```
 
 原始参考代码中的 UART2 桥接回显属于 sample app 行为，未放入 SPI-PS 抽象层。
+
+## v1.1 AHRS/MAG port note
+
+- `Components/Inc/AHRS.h` and `Components/Src/AHRS.c` port the v1.1 quaternion AHRS solver. It keeps the 17 ms IMU period, 100 ms MAG period, 50 ms dt clamp, gyro bias learning, acc reference, Mahony acc/mag correction, and `deg*100` state outputs.
+- `Components/Inc/HeadingEstimator.h` and `Components/Src/HeadingEstimator.c` port the v1.1 heading estimator. It integrates gyro Z as the primary heading source and slowly fuses magnetic heading while the platform is static.
+- `Components/Inc/MagCompass.h` and `Components/Src/MagCompass.c` split the v1.1 QMC6309 compass solver out of `User/MainLoop.c`, including axis mapping, install offset `219.30 deg`, direction sign `-1`, norm gate, jump gate, IIR filter, and 5-sample ready gate.
+- `Platform/Src/platform_scheduler.c` now exposes `platform_scheduler_get_tick_ms()` from the 1 kHz Timer0 tick, so `App` can feed AHRS with real `dt_ms`.
+- `App/Src/app.c` now polls IMU roughly every 17 ms and MAG roughly every 100 ms, feeds `AHRS_UpdateRaw6Axis()`, `AHRS_UpdateRawMag()`, `MagCompass_Update()`, and `Heading_Update()`, then exposes attitude/heading snapshots through `app_get_*` getters. Current static gating uses AHRS gyro-bias/acc/gyro-still checks; v1.1 motor-stop gating is left for the later control-layer port.
+
+## 2026-05 state-machine wireless/control note
+
+The current tree now aligns the old wireless/control behavior with the v2 layered structure:
+
+- `App/Src/app.c` now performs `board_gps_init()` during bring-up and logs the init return code at startup.
+- `BoardDevices/Src/board_gps.c` and `ChipDrivers/Src/gnss_nmea.c` already expose the old upper-layer dependent GPS fields, including:
+  - `legacy_coord_valid`
+  - `legacy_lon1`, `legacy_lon2`, `legacy_lat1`, `legacy_lat2`
+  - `lat_deg1e7`, `lon_deg1e7`
+  - `course_deg_x100`
+  - `satellites_used_gsa`
+- `App/Src/ship_protocol.c` `0x12` payload now follows the old report semantics:
+  - satellite count prefers `satellites_used_gsa`
+  - heading uses integer degrees from `course_deg_x100 / 100`
+  - coordinates prefer the old split legacy fields and fall back to runtime conversion from `deg1e7`
+  - `payload[13]` comes from `board_power`
+  - `payload[14]` comes from `AutoDrive_InActive()`
+  - transmit channel uses the old work TX path `rf_channel[2]`
+- `0x11` now feeds `ShipControl_UpdateManualInput()` after boot/heading guards, and E-key cruise uses heading hold.
+- `0x13/0x14/0x15` now dispatch to `AutoDrive_SetReturnPositionRaw()`,
+  `AutoDrive_SetFishPositionRaw()`, and `AutoDrive_SetSwitchRaw()`.
+- `0x14` logs fish-point result codes and matched indexes; unknown points are stored only while the RAM table has space.
+- `0x16` sends the 36-byte AutoDrive diagnostic payload on state/reason changes or periodic diagnostic cadence.
+
+Power reporting is also aligned back to the old discrete behavior for the current board:
+
+- The actual board voltage-detect pin is `P0.0 / ADC_CH8`.
+- ADC/GPIO access is inside `BoardDevices/Src/board_power.c`; `App/` only calls `board_power_read()`.
+- Power sampling runs inside the 10 ms `ship_protocol_run_scheduler()` path, but the battery sample itself is down-sampled with `SHIP_POWER_SAMPLE_DIVIDER = 100`, so the effective ADC update period is about `1000 ms`.
+- The computed sampling period is stored in global runtime state as `ship_protocol_rt.power_sample_period_ms`.
+- `0x12 payload[13]` now carries the real old-style power level `0..4`, not raw ADC counts.
+- Low-power latch calls `AutoDrive_TriggerReturnWithReason(AUTODRIVE_DIAG_REASON_LOW_POWER)`.

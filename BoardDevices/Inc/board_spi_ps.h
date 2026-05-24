@@ -45,13 +45,13 @@ u8 board_spi_ps_is_idle(void);
  * 函数会在 SS 空闲时拉低本端 SS、切换为主机、阻塞发送指定字节，然后释放 SS 并
  * 退回从机模式。若 SS 当前为低，说明对端可能正在发送，本函数直接返回忙。
  *
- * @param data 待发送数据，不能为 NULL。
+ * @param buffer 待发送数据，不能为 NULL。
  * @param len 待发送长度，不能为 0。
  * @return BOARD_SPI_PS_OK 发送完成。
  * @return BOARD_SPI_PS_ERR_PARAM 参数非法。
  * @return BOARD_SPI_PS_ERR_BUSY 总线忙。
  */
-int8 board_spi_ps_send(const u8 *data, u8 len);
+int8 board_spi_ps_send(const u8 *buffer, u8 len);
 
 /**
  * @brief 推进 SPI-PS 从机接收帧超时判断。

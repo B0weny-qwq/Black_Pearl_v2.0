@@ -45,8 +45,8 @@ void Filter_ResetMagLowPass(void);
  *
  * 输入和输出都保持 `int16` 原始量纲，不在组件层引入浮点换算。
  */
-s8 Filter_GyroLowPass(int16 in_x, int16 in_y, int16 in_z,
-                      int16 *out_x, int16 *out_y, int16 *out_z);
+int8 Filter_GyroLowPass(int16 in_x, int16 in_y, int16 in_z,
+                        int16 *out_x, int16 *out_y, int16 *out_z);
 
 /**
  * @brief 对三轴地磁原始数据执行低通滤波。
@@ -58,7 +58,7 @@ s8 Filter_GyroLowPass(int16 in_x, int16 in_y, int16 in_z,
  * @param out_z 滤波后 Z 轴输出指针。
  * @return 0 表示成功，-1 表示空指针或输入帧无效。
  */
-s8 Filter_MagLowPass(int16 in_x, int16 in_y, int16 in_z,
-                     int16 *out_x, int16 *out_y, int16 *out_z);
+int8 Filter_MagLowPass(int16 in_x, int16 in_y, int16 in_z,
+                       int16 *out_x, int16 *out_y, int16 *out_z);
 
 #endif

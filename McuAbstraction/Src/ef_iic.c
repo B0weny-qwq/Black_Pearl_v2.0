@@ -1,40 +1,243 @@
 #include "ef_iic.h"
-#include "STC32G_DMA.h"
 #include "STC32G_GPIO.h"
 #include "STC32G_I2C.h"
 #include "STC32G_NVIC.h"
 #include "STC32G_Switch.h"
+#include "stc32g.h"
 
 /*
- * STC32G 官方 APP_DMA_I2C 示例采用硬件 IIC + IIC DMA：
- * - TX DMA 源缓冲格式：[dev_w][reg][data0..dataN-1]
- * - RX DMA 前置命令：dev_w -> reg -> repeated-start dev_r
- * - RX DMA 只负责收 data0..dataN-1
+ * STC32G 当前使用纯硬件 IIC 主机命令流：
+ * - write: START -> dev_w -> reg -> data... -> STOP
+ * - read:  START -> dev_w -> reg -> START -> dev_r -> data... -> STOP
  *
- * 本文件保留该硬件路径，但把裸寄存器、DMA 标志和命令字封在 MCU 抽象层。
- * 上层只看到 7-bit 地址 + 8-bit 寄存器地址 + 连续数据，不直接接触官方 SDK。
+ * 对外继续统一使用 7-bit 设备地址 + 8-bit 寄存器地址语义，
+ * 上层不需要直接接触 STC 官方 I2C 命令字。
  */
 
-/* TX 最多发送：设备地址 1 字节 + 寄存器地址 1 字节 + payload 255 字节。 */
-#define EF_IIC_TX_BUF_LEN        257U
-#define EF_IIC_RX_BUF_LEN        EF_IIC_DMA_MAX_LEN
-
-/* I2CMSST bit6 = MSIF，主机命令完成标志；DMA_I2C_CR bit2 = ACKERR。 */
+/* I2CMSST bit6 = MSIF，主机命令完成标志；bit1 = MSACKI，从机 ACK 输入。 */
 #define EF_IIC_MSIF_MASK         0x40U
-#define EF_IIC_ACKERR_MASK       0x04U
+#define EF_IIC_MSACKI_MASK       0x02U
+#define EF_IIC_RECOVER_PULSES    16U
+#define EF_IIC_RECOVER_DELAY_US  5U
+#define EF_IIC_BUS_FREE_DELAY_US 5U
 
-/*
- * DMA 只能稳定访问 xdata 区域，因此收发缓冲固定放在 xdata。
- * 这里不做多实例，符合当前 STC32G 只有一组硬件 IIC 的使用方式。
- */
-static u8 xdata ef_iic_tx_buf[EF_IIC_TX_BUF_LEN];
-static u8 xdata ef_iic_rx_buf[EF_IIC_RX_BUF_LEN];
 static u16 ef_iic_timeout = EF_IIC_DEFAULT_TIMEOUT;
 static u8 ef_iic_ready = 0U;
+static u8 ef_iic_pin_group = EF_IIC_PIN_P14_P15;
+static u8 ef_iic_speed = EF_IIC_SPEED_100K;
+static ef_iic_diag_t ef_iic_last_diag = {
+    EF_IIC_OP_NONE,
+    EF_IIC_STAGE_IDLE,
+    EF_IIC_OK,
+    0U,
+    0U,
+    0U,
+    0U,
+    0U,
+    0U,
+    EF_IIC_OK
+};
+
+static void ef_iic_config_pins(u8 pin_group);
+static int8 ef_iic_bus_recover_internal(void);
+
+static void ef_iic_delay_recover(void)
+{
+    u8 ticks;
+
+    ticks = (u8)(MAIN_Fosc / 2000000UL);
+    while (ticks > 0U) {
+        ticks--;
+    }
+}
+
+static void ef_iic_delay_recover_n(u8 count)
+{
+    while (count > 0U) {
+        ef_iic_delay_recover();
+        count--;
+    }
+}
+
+static void ef_iic_set_sda(u8 pin_group, u8 level)
+{
+    if (pin_group == EF_IIC_PIN_P14_P15) {
+        P14 = (level != 0U) ? 1 : 0;
+    } else if (pin_group == EF_IIC_PIN_P24_P25) {
+        P24 = (level != 0U) ? 1 : 0;
+    } else if (pin_group == EF_IIC_PIN_P76_P77) {
+        P76 = (level != 0U) ? 1 : 0;
+    } else {
+        P33 = (level != 0U) ? 1 : 0;
+    }
+}
+
+static void ef_iic_set_scl(u8 pin_group, u8 level)
+{
+    if (pin_group == EF_IIC_PIN_P14_P15) {
+        P15 = (level != 0U) ? 1 : 0;
+    } else if (pin_group == EF_IIC_PIN_P24_P25) {
+        P25 = (level != 0U) ? 1 : 0;
+    } else if (pin_group == EF_IIC_PIN_P76_P77) {
+        P77 = (level != 0U) ? 1 : 0;
+    } else {
+        P32 = (level != 0U) ? 1 : 0;
+    }
+}
+
+static u8 ef_iic_get_sda(u8 pin_group)
+{
+    if (pin_group == EF_IIC_PIN_P14_P15) {
+        return (P14 != 0U) ? 1U : 0U;
+    }
+    if (pin_group == EF_IIC_PIN_P24_P25) {
+        return (P24 != 0U) ? 1U : 0U;
+    }
+    if (pin_group == EF_IIC_PIN_P76_P77) {
+        return (P76 != 0U) ? 1U : 0U;
+    }
+    return (P33 != 0U) ? 1U : 0U;
+}
+
+static u8 ef_iic_get_scl(u8 pin_group)
+{
+    if (pin_group == EF_IIC_PIN_P14_P15) {
+        return (P15 != 0U) ? 1U : 0U;
+    }
+    if (pin_group == EF_IIC_PIN_P24_P25) {
+        return (P25 != 0U) ? 1U : 0U;
+    }
+    if (pin_group == EF_IIC_PIN_P76_P77) {
+        return (P77 != 0U) ? 1U : 0U;
+    }
+    return (P32 != 0U) ? 1U : 0U;
+}
+
+static u8 ef_iic_get_bus_state(void)
+{
+    u8 state;
+
+    state = 0U;
+    if (Get_MSBusy_Status() != 0U) {
+        state |= 0x01U;
+    }
+    if (ef_iic_get_sda(ef_iic_pin_group) == 0U) {
+        state |= 0x02U;
+    }
+    if (ef_iic_get_scl(ef_iic_pin_group) == 0U) {
+        state |= 0x04U;
+    }
+    return state;
+}
+
+static void ef_iic_diag_begin(u8 op, u8 dev_addr, u8 reg_addr)
+{
+    ef_iic_last_diag.op = op;
+    ef_iic_last_diag.stage = EF_IIC_STAGE_IDLE;
+    ef_iic_last_diag.ret = EF_IIC_OK;
+    ef_iic_last_diag.dev_addr = dev_addr;
+    ef_iic_last_diag.reg_addr = reg_addr;
+    ef_iic_last_diag.msst = I2CMSST;
+    ef_iic_last_diag.mscr = I2CMSCR;
+    ef_iic_last_diag.bus_state_before = ef_iic_get_bus_state();
+    ef_iic_last_diag.bus_state_after = ef_iic_last_diag.bus_state_before;
+    ef_iic_last_diag.recover_ret = EF_IIC_OK;
+}
+
+static void ef_iic_diag_record(u8 stage, int8 ret)
+{
+    ef_iic_last_diag.stage = stage;
+    ef_iic_last_diag.ret = ret;
+    ef_iic_last_diag.msst = I2CMSST;
+    ef_iic_last_diag.mscr = I2CMSCR;
+    ef_iic_last_diag.bus_state_after = ef_iic_get_bus_state();
+}
+
+static void ef_iic_restore_hardware(void)
+{
+    I2C_InitTypeDef i2c_init;
+
+    I2C_Function(DISABLE);
+    I2C_Master();
+    I2CMSST = 0x00U;
+    I2CMSCR = 0x00U;
+    ef_iic_config_pins(ef_iic_pin_group);
+
+    i2c_init.I2C_Mode = I2C_Mode_Master;
+    i2c_init.I2C_Enable = ENABLE;
+    i2c_init.I2C_MS_WDTA = DISABLE;
+    i2c_init.I2C_Speed = ef_iic_speed;
+    I2C_Init(&i2c_init);
+    I2CMSST = 0x00U;
+    I2CMSCR = 0x00U;
+    NVIC_I2C_Init(I2C_Mode_Master, DISABLE, Priority_0);
+}
+
+static int8 ef_iic_bus_recover_internal(void)
+{
+    u8 pulse_count;
+    u8 bus_state;
+    int8 recover_ret;
+
+    ef_iic_last_diag.op = EF_IIC_OP_RECOVER;
+    ef_iic_last_diag.stage = EF_IIC_STAGE_RECOVER;
+    ef_iic_last_diag.bus_state_before = ef_iic_get_bus_state();
+    ef_iic_last_diag.msst = I2CMSST;
+    ef_iic_last_diag.mscr = I2CMSCR;
+
+    bus_state = ef_iic_get_bus_state();
+    if ((bus_state & 0x06U) == 0U) {
+        I2CMSST = 0x00U;
+        I2CMSCR = 0x00U;
+        ef_iic_restore_hardware();
+        recover_ret = (ef_iic_get_bus_state() == 0U) ? EF_IIC_OK : EF_IIC_ERR_BUSY;
+        ef_iic_last_diag.ret = recover_ret;
+        ef_iic_last_diag.recover_ret = recover_ret;
+        ef_iic_last_diag.bus_state_after = ef_iic_get_bus_state();
+        ef_iic_last_diag.msst = I2CMSST;
+        ef_iic_last_diag.mscr = I2CMSCR;
+        return recover_ret;
+    }
+
+    I2C_Function(DISABLE);
+    I2C_Master();
+    I2CMSST = 0x00U;
+    I2CMSCR = 0x00U;
+    ef_iic_config_pins(ef_iic_pin_group);
+
+    ef_iic_set_sda(ef_iic_pin_group, 1U);
+    ef_iic_set_scl(ef_iic_pin_group, 1U);
+    ef_iic_delay_recover_n(EF_IIC_RECOVER_DELAY_US);
+
+    for (pulse_count = 0U; pulse_count < EF_IIC_RECOVER_PULSES; pulse_count++) {
+        ef_iic_set_scl(ef_iic_pin_group, 0U);
+        ef_iic_delay_recover_n(EF_IIC_RECOVER_DELAY_US);
+        ef_iic_set_scl(ef_iic_pin_group, 1U);
+        ef_iic_delay_recover_n(EF_IIC_RECOVER_DELAY_US);
+        if (ef_iic_get_sda(ef_iic_pin_group) != 0U) {
+            break;
+        }
+    }
+
+    ef_iic_set_sda(ef_iic_pin_group, 0U);
+    ef_iic_delay_recover_n(EF_IIC_RECOVER_DELAY_US);
+    ef_iic_set_scl(ef_iic_pin_group, 1U);
+    ef_iic_delay_recover_n(EF_IIC_RECOVER_DELAY_US);
+    ef_iic_set_sda(ef_iic_pin_group, 1U);
+    ef_iic_delay_recover_n(EF_IIC_RECOVER_DELAY_US);
+
+    ef_iic_restore_hardware();
+    recover_ret = (ef_iic_get_bus_state() == 0U) ? EF_IIC_OK : EF_IIC_ERR_BUSY;
+    ef_iic_last_diag.ret = recover_ret;
+    ef_iic_last_diag.recover_ret = recover_ret;
+    ef_iic_last_diag.bus_state_after = ef_iic_get_bus_state();
+    ef_iic_last_diag.msst = I2CMSST;
+    ef_iic_last_diag.mscr = I2CMSCR;
+    return recover_ret;
+}
 
 static u16 ef_iic_get_timeout(void)
 {
-    /* 允许调用者传 0 使用默认值，避免因为未初始化字段导致立即超时。 */
     return (ef_iic_timeout == 0U) ? EF_IIC_DEFAULT_TIMEOUT : ef_iic_timeout;
 }
 
@@ -42,7 +245,6 @@ static int8 ef_iic_wait_master_idle(void)
 {
     u16 timeout;
 
-    /* 事务开始前必须等主机状态机空闲，否则新的 START/STOP 命令会被打断。 */
     timeout = ef_iic_get_timeout();
     while (Get_MSBusy_Status() != 0U) {
         if (timeout == 0U) {
@@ -54,14 +256,52 @@ static int8 ef_iic_wait_master_idle(void)
     return EF_IIC_OK;
 }
 
+static int8 ef_iic_prepare_transaction(u8 op, u8 dev_addr, u8 reg_addr)
+{
+    int8 ret;
+
+    ef_iic_diag_begin(op, dev_addr, reg_addr);
+    ef_iic_last_diag.stage = EF_IIC_STAGE_PREPARE;
+
+    if (ef_iic_get_bus_state() != 0U) {
+        ret = ef_iic_bus_recover_internal();
+        ef_iic_last_diag.op = op;
+        ef_iic_last_diag.stage = EF_IIC_STAGE_PREPARE;
+        ef_iic_last_diag.dev_addr = dev_addr;
+        ef_iic_last_diag.reg_addr = reg_addr;
+        ef_iic_last_diag.recover_ret = ret;
+        if (ret != EF_IIC_OK) {
+            ef_iic_diag_record(EF_IIC_STAGE_PREPARE, ret);
+            return ret;
+        }
+    }
+
+    ret = ef_iic_wait_master_idle();
+    if (ret != EF_IIC_OK) {
+        ef_iic_diag_record(EF_IIC_STAGE_PREPARE, ret);
+        return ret;
+    }
+    if (ef_iic_get_bus_state() != 0U) {
+        ret = ef_iic_bus_recover_internal();
+        ef_iic_last_diag.op = op;
+        ef_iic_last_diag.stage = EF_IIC_STAGE_PREPARE;
+        ef_iic_last_diag.dev_addr = dev_addr;
+        ef_iic_last_diag.reg_addr = reg_addr;
+        ef_iic_last_diag.recover_ret = ret;
+        if (ret != EF_IIC_OK) {
+            ef_iic_diag_record(EF_IIC_STAGE_PREPARE, ret);
+            return ret;
+        }
+    }
+
+    ef_iic_diag_record(EF_IIC_STAGE_PREPARE, EF_IIC_OK);
+    return EF_IIC_OK;
+}
+
 static int8 ef_iic_wait_done(void)
 {
     u16 timeout;
 
-    /*
-     * STC IIC 主机每执行一个 I2CMSCR 命令后置 I2CMSST.MSIF。
-     * 轮询完成后必须手动清 MSIF，否则下一条短命令会误判为已完成。
-     */
     timeout = ef_iic_get_timeout();
     while ((I2CMSST & EF_IIC_MSIF_MASK) == 0U) {
         if (timeout == 0U) {
@@ -74,103 +314,178 @@ static int8 ef_iic_wait_done(void)
     return EF_IIC_OK;
 }
 
-static int8 ef_iic_send_cmd_data(u8 cmd, u8 data)
+static int8 ef_iic_start(void)
 {
-    /*
-     * 用于 DMA 读之前的短命令阶段，对应官方示例 SendCmdData()。
-     * cmd 直接使用官方命令字：0x09 = START+SEND+ACK，0x0A = SEND+ACK。
-     */
-    I2CTXD = data;
-    I2CMSCR = cmd;
+    I2CMSCR = I2C_CMD_START;
     return ef_iic_wait_done();
 }
 
-static int8 ef_iic_check_ack_error(void)
+static int8 ef_iic_stop(void)
 {
-    /*
-     * ACKERR 由硬件/DMA 在地址或数据阶段未收到 ACK 时置位。
-     * 读取后立即清除，避免污染下一次事务的错误判断。
-     */
-    if ((DMA_I2C_CR & EF_IIC_ACKERR_MASK) != 0U) {
-        DMA_I2C_CR &= (u8)(~EF_IIC_ACKERR_MASK);
-        return EF_IIC_ERR_NACK;
+    I2CMSCR = I2C_CMD_STOP;
+    return ef_iic_wait_done();
+}
+
+static int8 ef_iic_send_data_byte(u8 byte)
+{
+    I2CTXD = byte;
+    I2CMSCR = I2C_CMD_SEND;
+    return ef_iic_wait_done();
+}
+
+static int8 ef_iic_recv_ack(u8 *nack)
+{
+    I2CMSCR = I2C_CMD_RACK;
+    if (ef_iic_wait_done() != EF_IIC_OK) {
+        return EF_IIC_ERR_TIMEOUT;
     }
 
+    if (nack != 0) {
+        *nack = ((I2CMSST & EF_IIC_MSACKI_MASK) != 0U) ? 1U : 0U;
+    }
     return EF_IIC_OK;
 }
 
-static int8 ef_iic_wait_dma_tx_done(void)
+static int8 ef_iic_recv_data(u8 *byte)
 {
-    u16 timeout;
-
-    /* DmaI2CTFlag 在 DMA I2CT 中断里清零；这里保留超时兜底，避免死等。 */
-    timeout = ef_iic_get_timeout();
-    while (DmaI2CTFlag != 0) {
-        if (timeout == 0U) {
-            DmaI2CTFlag = 0;
-            I2C_DMA_Disable();
-            return EF_IIC_ERR_TIMEOUT;
-        }
-        timeout--;
+    I2CMSCR = I2C_CMD_RDATA;
+    if (ef_iic_wait_done() != EF_IIC_OK) {
+        return EF_IIC_ERR_TIMEOUT;
     }
 
+    if (byte != 0) {
+        *byte = I2CRXD;
+    }
     return EF_IIC_OK;
 }
 
-static int8 ef_iic_wait_dma_rx_done(void)
+static int8 ef_iic_send_master_ack(u8 nack)
 {
-    u16 timeout;
+    I2CMSST = (nack != 0U) ? 0x01U : 0x00U;
+    I2CMSCR = I2C_CMD_SACK;
+    return ef_iic_wait_done();
+}
 
-    /* DmaI2CRFlag 在 DMA I2CR 中断里清零；超时时关闭 IIC DMA 并交给上层重试。 */
-    timeout = ef_iic_get_timeout();
-    while (DmaI2CRFlag != 0) {
-        if (timeout == 0U) {
-            DmaI2CRFlag = 0;
-            I2C_DMA_Disable();
-            return EF_IIC_ERR_TIMEOUT;
-        }
-        timeout--;
+static int8 ef_iic_finish_stop(u8 stage)
+{
+    int8 ret;
+    int8 recover_ret;
+    u8 op;
+    u8 dev_addr;
+    u8 reg_addr;
+
+    ret = ef_iic_stop();
+    if (ret != EF_IIC_OK) {
+        ef_iic_diag_record(stage, ret);
+        op = ef_iic_last_diag.op;
+        dev_addr = ef_iic_last_diag.dev_addr;
+        reg_addr = ef_iic_last_diag.reg_addr;
+        recover_ret = ef_iic_bus_recover_internal();
+        ef_iic_last_diag.op = op;
+        ef_iic_last_diag.dev_addr = dev_addr;
+        ef_iic_last_diag.reg_addr = reg_addr;
+        ef_iic_last_diag.recover_ret = recover_ret;
+        ef_iic_diag_record(stage, ret);
+        return ret;
     }
 
+    ef_iic_delay_recover_n(EF_IIC_BUS_FREE_DELAY_US);
+    if (ef_iic_get_bus_state() != 0U) {
+        op = ef_iic_last_diag.op;
+        dev_addr = ef_iic_last_diag.dev_addr;
+        reg_addr = ef_iic_last_diag.reg_addr;
+        recover_ret = ef_iic_bus_recover_internal();
+        ef_iic_last_diag.op = op;
+        ef_iic_last_diag.dev_addr = dev_addr;
+        ef_iic_last_diag.reg_addr = reg_addr;
+        ef_iic_last_diag.recover_ret = recover_ret;
+        if (recover_ret != EF_IIC_OK) {
+            ef_iic_diag_record(stage, recover_ret);
+            return recover_ret;
+        }
+    }
+
+    ef_iic_diag_record(stage, EF_IIC_OK);
     return EF_IIC_OK;
+}
+
+static int8 ef_iic_abort_transaction(u8 stage, int8 ret)
+{
+    int8 stop_ret;
+    int8 recover_ret;
+    u8 op;
+    u8 dev_addr;
+    u8 reg_addr;
+
+    ef_iic_diag_record(stage, ret);
+    stop_ret = ef_iic_stop();
+    ef_iic_delay_recover_n(EF_IIC_BUS_FREE_DELAY_US);
+    if ((stop_ret != EF_IIC_OK) || (ef_iic_get_bus_state() != 0U)) {
+        op = ef_iic_last_diag.op;
+        dev_addr = ef_iic_last_diag.dev_addr;
+        reg_addr = ef_iic_last_diag.reg_addr;
+        recover_ret = ef_iic_bus_recover_internal();
+        ef_iic_last_diag.op = op;
+        ef_iic_last_diag.dev_addr = dev_addr;
+        ef_iic_last_diag.reg_addr = reg_addr;
+        ef_iic_last_diag.recover_ret = recover_ret;
+    }
+    ef_iic_diag_record(stage, ret);
+    return ret;
+}
+
+static int8 ef_iic_abort_nack(u8 stage)
+{
+    int8 stop_ret;
+
+    stop_ret = ef_iic_finish_stop(stage);
+    if (stop_ret != EF_IIC_OK) {
+        return stop_ret;
+    }
+
+    ef_iic_diag_record(stage, EF_IIC_ERR_NACK);
+    return EF_IIC_ERR_NACK;
 }
 
 static void ef_iic_config_pins(u8 pin_group)
 {
     EAXSFR();
 
-    /*
-     * 硬件 IIC 线按开漏配置。P3.3/P3.2 的宏名顺序来自 STC 官方 I2C_P33_P32。
-     */
     if (pin_group == EF_IIC_PIN_P14_P15) {
         P1_MODE_OUT_OD(GPIO_Pin_4 | GPIO_Pin_5);
         P1_PULL_UP_ENABLE(GPIO_Pin_4 | GPIO_Pin_5);
+        P14 = 1;
+        P15 = 1;
         I2C_SW(I2C_P14_P15);
     } else if (pin_group == EF_IIC_PIN_P24_P25) {
         P2_MODE_OUT_OD(GPIO_Pin_4 | GPIO_Pin_5);
         P2_PULL_UP_ENABLE(GPIO_Pin_4 | GPIO_Pin_5);
+        P24 = 1;
+        P25 = 1;
         I2C_SW(I2C_P24_P25);
     } else if (pin_group == EF_IIC_PIN_P76_P77) {
         P7_MODE_OUT_OD(GPIO_Pin_6 | GPIO_Pin_7);
         P7_PULL_UP_ENABLE(GPIO_Pin_6 | GPIO_Pin_7);
+        P76 = 1;
+        P77 = 1;
         I2C_SW(I2C_P76_P77);
     } else {
         P3_MODE_OUT_OD(GPIO_Pin_2 | GPIO_Pin_3);
         P3_PULL_UP_ENABLE(GPIO_Pin_2 | GPIO_Pin_3);
+        P33 = 1;
+        P32 = 1;
         I2C_SW(I2C_P33_P32);
     }
 }
 
 static u8 ef_iic_pin_group_is_valid(u8 pin_group)
 {
-    /* 当前只允许官方硬件 IIC 支持的四组复用脚。 */
     return (pin_group <= EF_IIC_PIN_P33_P32) ? 1U : 0U;
 }
 
 int8 ef_iic_init(const ef_iic_config_t *config)
 {
     I2C_InitTypeDef i2c_init;
-    DMA_I2C_InitTypeDef dma_init;
 
     if (config == 0) {
         return EF_IIC_ERR_PARAM;
@@ -181,15 +496,15 @@ int8 ef_iic_init(const ef_iic_config_t *config)
 
     ef_iic_ready = 0U;
     ef_iic_timeout = (config->timeout == 0U) ? EF_IIC_DEFAULT_TIMEOUT : config->timeout;
-
-    /* 引脚先切到目标复用，随后再打开 IIC 功能，避免初始化期间误产生总线动作。 */
-    ef_iic_config_pins(config->pin_group);
+    ef_iic_pin_group = config->pin_group;
+    ef_iic_speed = config->speed;
 
     I2C_Function(DISABLE);
+    I2C_Master();
     I2CMSST = 0x00U;
     I2CMSCR = 0x00U;
+    ef_iic_config_pins(config->pin_group);
 
-    /* 主机模式不启用 IIC 中断，DMA 完成由 DMA I2CT/I2CR 中断清标志。 */
     i2c_init.I2C_Mode = I2C_Mode_Master;
     i2c_init.I2C_Enable = ENABLE;
     i2c_init.I2C_MS_WDTA = DISABLE;
@@ -197,160 +512,202 @@ int8 ef_iic_init(const ef_iic_config_t *config)
     I2C_Init(&i2c_init);
     NVIC_I2C_Init(I2C_Mode_Master, DISABLE, Priority_0);
 
-    /*
-     * STC DMA 长度寄存器采用“寄存器值 + 1 = 实际传输字节数”的习惯。
-     * 这里初始化为最大容量，单次事务前再通过 SET_I2CT/R_DMA_LEN() 缩小长度。
-     */
-    dma_init.DMA_TX_Length = EF_IIC_DMA_MAX_LEN + 1U;
-    dma_init.DMA_TX_Buffer = (u16)ef_iic_tx_buf;
-    dma_init.DMA_RX_Length = EF_IIC_DMA_MAX_LEN - 1U;
-    dma_init.DMA_RX_Buffer = (u16)ef_iic_rx_buf;
-    dma_init.DMA_TX_Enable = ENABLE;
-    dma_init.DMA_RX_Enable = ENABLE;
-    DMA_I2C_Inilize(&dma_init);
-
-    NVIC_DMA_I2CT_Init(ENABLE, Priority_0, Priority_0);
-    NVIC_DMA_I2CR_Init(ENABLE, Priority_0, Priority_0);
-    DMA_I2CR_CLRFIFO();
-    I2C_DMA_Disable();
-
     ef_iic_ready = 1U;
+    (void)ef_iic_bus_recover_internal();
     return EF_IIC_OK;
 }
 
-int8 ef_iic_write_regs(u8 dev_addr, u8 reg_addr, const u8 *data, u8 len)
+int8 ef_iic_write_regs(u8 dev_addr, u8 reg_addr, const u8 *buffer, u8 len)
 {
     u8 i;
+    u8 nack;
     int8 ret;
 
     if (ef_iic_ready == 0U) {
         return EF_IIC_ERR_NOT_INIT;
     }
-    if ((data == 0) || (len == 0U)) {
+    if ((buffer == 0) || (len == 0U)) {
         return EF_IIC_ERR_PARAM;
     }
     if (len > EF_IIC_DMA_MAX_LEN) {
         return EF_IIC_ERR_LENGTH;
     }
 
-    ret = ef_iic_wait_master_idle();
+    ret = ef_iic_prepare_transaction(EF_IIC_OP_WRITE, dev_addr, reg_addr);
     if (ret != EF_IIC_OK) {
         return ret;
     }
 
-    /* 每次事务开始前清 ACKERR，确保本次返回值只反映本次 IIC 访问。 */
-    DMA_I2C_CR &= (u8)(~EF_IIC_ACKERR_MASK);
+    nack = 0U;
 
-    /*
-     * 0x89: START + DMA SEND + ACK check，沿用官方 DMA IIC 示例命令字。
-     * dev_addr 传入 7-bit 地址，这里左移后形成写地址字节。
-     */
-    ef_iic_tx_buf[0] = (u8)(dev_addr << 1);
-    ef_iic_tx_buf[1] = reg_addr;
+    ret = ef_iic_start();
+    if (ret != EF_IIC_OK) {
+        return ef_iic_abort_transaction(EF_IIC_STAGE_START, ret);
+    }
+    ef_iic_diag_record(EF_IIC_STAGE_START, EF_IIC_OK);
+
+    ret = ef_iic_send_data_byte((u8)(dev_addr << 1));
+    if (ret != EF_IIC_OK) {
+        return ef_iic_abort_transaction(EF_IIC_STAGE_DEV_W, ret);
+    }
+    ef_iic_diag_record(EF_IIC_STAGE_DEV_W, EF_IIC_OK);
+
+    ret = ef_iic_recv_ack(&nack);
+    if (ret != EF_IIC_OK) {
+        return ef_iic_abort_transaction(EF_IIC_STAGE_DEV_W_ACK, ret);
+    }
+    if (nack != 0U) {
+        return ef_iic_abort_nack(EF_IIC_STAGE_DEV_W_ACK);
+    }
+    ef_iic_diag_record(EF_IIC_STAGE_DEV_W_ACK, EF_IIC_OK);
+
+    ret = ef_iic_send_data_byte(reg_addr);
+    if (ret != EF_IIC_OK) {
+        return ef_iic_abort_transaction(EF_IIC_STAGE_REG, ret);
+    }
+    ef_iic_diag_record(EF_IIC_STAGE_REG, EF_IIC_OK);
+
+    ret = ef_iic_recv_ack(&nack);
+    if (ret != EF_IIC_OK) {
+        return ef_iic_abort_transaction(EF_IIC_STAGE_REG_ACK, ret);
+    }
+    if (nack != 0U) {
+        return ef_iic_abort_nack(EF_IIC_STAGE_REG_ACK);
+    }
+    ef_iic_diag_record(EF_IIC_STAGE_REG_ACK, EF_IIC_OK);
+
     for (i = 0U; i < len; i++) {
-        ef_iic_tx_buf[(u16)i + 2U] = data[i];
+        ret = ef_iic_send_data_byte(buffer[i]);
+        if (ret != EF_IIC_OK) {
+            return ef_iic_abort_transaction(EF_IIC_STAGE_DATA, ret);
+        }
+        ef_iic_diag_record(EF_IIC_STAGE_DATA, EF_IIC_OK);
+
+        ret = ef_iic_recv_ack(&nack);
+        if (ret != EF_IIC_OK) {
+            return ef_iic_abort_transaction(EF_IIC_STAGE_DATA_ACK, ret);
+        }
+        if (nack != 0U) {
+            return ef_iic_abort_nack(EF_IIC_STAGE_DATA_ACK);
+        }
+        ef_iic_diag_record(EF_IIC_STAGE_DATA_ACK, EF_IIC_OK);
     }
 
-    DmaI2CTFlag = 1;
-    I2C_MSCMD(0x89U);
-    I2C_DMA_Enable();
-    /*
-     * 写事务实际发送 dev_w + reg + len 个数据字节。
-     * 官方示例对 `number` 个数据字节配置 `number + 1`，硬件按 +1 规则完成
-     * 总计 `number + 2` 字节发送，这里保持同样写法。
-     */
-    SET_I2CT_DMA_LEN((u16)len + 1U);
-    SET_I2C_DMA_ST((u16)len + 1U);
-    DMA_I2CT_TRIG();
-
-    ret = ef_iic_wait_dma_tx_done();
-    I2C_DMA_Disable();
-    if (ret != EF_IIC_OK) {
-        return ret;
-    }
-    return ef_iic_check_ack_error();
+    return ef_iic_finish_stop(EF_IIC_STAGE_STOP);
 }
 
-int8 ef_iic_read_regs(u8 dev_addr, u8 reg_addr, u8 *data, u8 len)
+int8 ef_iic_read_regs(u8 dev_addr, u8 reg_addr, u8 *buffer, u8 len)
 {
     u8 i;
+    u8 nack;
     int8 ret;
 
     if (ef_iic_ready == 0U) {
         return EF_IIC_ERR_NOT_INIT;
     }
-    if ((data == 0) || (len == 0U)) {
+    if ((buffer == 0) || (len == 0U)) {
         return EF_IIC_ERR_PARAM;
     }
     if (len > EF_IIC_DMA_MAX_LEN) {
         return EF_IIC_ERR_LENGTH;
     }
 
-    ret = ef_iic_wait_master_idle();
+    ret = ef_iic_prepare_transaction(EF_IIC_OP_READ, dev_addr, reg_addr);
     if (ret != EF_IIC_OK) {
         return ret;
     }
 
-    /* RX 事务前先关 DMA，短命令阶段只通过 I2CTXD/I2CMSCR 发送地址和寄存器。 */
-    I2C_DMA_Disable();
-    DMA_I2C_CR &= (u8)(~EF_IIC_ACKERR_MASK);
+    nack = 0U;
 
-    /*
-     * 读事务前置阶段：
-     * 0x09 发送 START + 数据 + ACK 检查。
-     * 0x0A 发送数据 + ACK 检查。
-     */
-    ret = ef_iic_send_cmd_data(0x09U, (u8)(dev_addr << 1));
+    ret = ef_iic_start();
     if (ret != EF_IIC_OK) {
-        return ret;
+        return ef_iic_abort_transaction(EF_IIC_STAGE_START, ret);
     }
-    ret = ef_iic_check_ack_error();
-    if (ret != EF_IIC_OK) {
-        return ret;
-    }
-    ret = ef_iic_send_cmd_data(0x0AU, reg_addr);
-    if (ret != EF_IIC_OK) {
-        return ret;
-    }
-    ret = ef_iic_check_ack_error();
-    if (ret != EF_IIC_OK) {
-        return ret;
-    }
-    ret = ef_iic_send_cmd_data(0x09U, (u8)((dev_addr << 1) | 0x01U));
-    if (ret != EF_IIC_OK) {
-        return ret;
-    }
-    ret = ef_iic_check_ack_error();
-    if (ret != EF_IIC_OK) {
-        return ret;
-    }
+    ef_iic_diag_record(EF_IIC_STAGE_START, EF_IIC_OK);
 
-    DmaI2CRFlag = 1;
-    /*
-     * 0x8B: START + DMA RECEIVE + ACK/NAK 自动处理，沿用官方示例命令字。
-     * len=1 时配置 0，正好对应 STC DMA 的“寄存器值 + 1”计数规则。
-     */
-    I2C_MSCMD(0x8BU);
-    I2C_DMA_Enable();
-    SET_I2CR_DMA_LEN((u16)len - 1U);
-    SET_I2C_DMA_ST((u16)len - 1U);
-    DMA_I2CR_TRIG();
-
-    ret = ef_iic_wait_dma_rx_done();
-    I2C_DMA_Disable();
+    ret = ef_iic_send_data_byte((u8)(dev_addr << 1));
     if (ret != EF_IIC_OK) {
-        return ret;
+        return ef_iic_abort_transaction(EF_IIC_STAGE_DEV_W, ret);
     }
-    ret = ef_iic_check_ack_error();
-    if (ret != EF_IIC_OK) {
-        return ret;
-    }
+    ef_iic_diag_record(EF_IIC_STAGE_DEV_W, EF_IIC_OK);
 
-    /* RX DMA 收到的数据先落到 xdata 缓冲，再复制到调用者提供的普通指针。 */
+    ret = ef_iic_recv_ack(&nack);
+    if (ret != EF_IIC_OK) {
+        return ef_iic_abort_transaction(EF_IIC_STAGE_DEV_W_ACK, ret);
+    }
+    if (nack != 0U) {
+        return ef_iic_abort_nack(EF_IIC_STAGE_DEV_W_ACK);
+    }
+    ef_iic_diag_record(EF_IIC_STAGE_DEV_W_ACK, EF_IIC_OK);
+
+    ret = ef_iic_send_data_byte(reg_addr);
+    if (ret != EF_IIC_OK) {
+        return ef_iic_abort_transaction(EF_IIC_STAGE_REG, ret);
+    }
+    ef_iic_diag_record(EF_IIC_STAGE_REG, EF_IIC_OK);
+
+    ret = ef_iic_recv_ack(&nack);
+    if (ret != EF_IIC_OK) {
+        return ef_iic_abort_transaction(EF_IIC_STAGE_REG_ACK, ret);
+    }
+    if (nack != 0U) {
+        return ef_iic_abort_nack(EF_IIC_STAGE_REG_ACK);
+    }
+    ef_iic_diag_record(EF_IIC_STAGE_REG_ACK, EF_IIC_OK);
+
+    ret = ef_iic_start();
+    if (ret != EF_IIC_OK) {
+        return ef_iic_abort_transaction(EF_IIC_STAGE_RESTART, ret);
+    }
+    ef_iic_diag_record(EF_IIC_STAGE_RESTART, EF_IIC_OK);
+
+    ret = ef_iic_send_data_byte((u8)((dev_addr << 1) | 0x01U));
+    if (ret != EF_IIC_OK) {
+        return ef_iic_abort_transaction(EF_IIC_STAGE_DEV_R, ret);
+    }
+    ef_iic_diag_record(EF_IIC_STAGE_DEV_R, EF_IIC_OK);
+
+    ret = ef_iic_recv_ack(&nack);
+    if (ret != EF_IIC_OK) {
+        return ef_iic_abort_transaction(EF_IIC_STAGE_DEV_R_ACK, ret);
+    }
+    if (nack != 0U) {
+        return ef_iic_abort_nack(EF_IIC_STAGE_DEV_R_ACK);
+    }
+    ef_iic_diag_record(EF_IIC_STAGE_DEV_R_ACK, EF_IIC_OK);
+
     for (i = 0U; i < len; i++) {
-        data[i] = ef_iic_rx_buf[i];
+        ret = ef_iic_recv_data(&buffer[i]);
+        if (ret != EF_IIC_OK) {
+            return ef_iic_abort_transaction(EF_IIC_STAGE_READ_DATA, ret);
+        }
+        ef_iic_diag_record(EF_IIC_STAGE_READ_DATA, EF_IIC_OK);
+
+        ret = ef_iic_send_master_ack((((u8)(i + 1U) < len) ? 0U : 1U));
+        if (ret != EF_IIC_OK) {
+            return ef_iic_abort_transaction(EF_IIC_STAGE_MASTER_ACK, ret);
+        }
+        ef_iic_diag_record(EF_IIC_STAGE_MASTER_ACK, EF_IIC_OK);
     }
 
+    return ef_iic_finish_stop(EF_IIC_STAGE_STOP);
+}
+
+int8 ef_iic_bus_recover(void)
+{
+    if (ef_iic_ready == 0U) {
+        return EF_IIC_ERR_NOT_INIT;
+    }
+    return ef_iic_bus_recover_internal();
+}
+
+int8 ef_iic_get_last_diag(ef_iic_diag_t *diag)
+{
+    if (diag == 0) {
+        return EF_IIC_ERR_PARAM;
+    }
+
+    *diag = ef_iic_last_diag;
     return EF_IIC_OK;
 }
 

@@ -15,7 +15,7 @@ static int8 QMC6309_CheckDevice(qmc6309_t *dev)
 static void QMC6309_Delay(qmc6309_t *dev, u16 ms)
 {
     if ((dev != 0) && (dev->bus.delay_ms != 0)) {
-        dev->bus.delay_ms(dev->bus.ctx, ms);
+        dev->bus.delay_ms(ms);
     }
 }
 
@@ -58,7 +58,7 @@ int8 QMC6309_WriteReg(qmc6309_t *dev, u8 reg, u8 value)
         return ret;
     }
 
-    return (dev->bus.write_reg(dev->bus.ctx, dev->addr, reg, value) == 0) ? QMC6309_OK : QMC6309_ERR_BUS;
+    return (dev->bus.write_reg(dev->addr, reg, value) == 0) ? QMC6309_OK : QMC6309_ERR_BUS;
 }
 
 int8 QMC6309_ReadRegs(qmc6309_t *dev, u8 start_reg, u8 *buf, u8 len)
@@ -73,7 +73,7 @@ int8 QMC6309_ReadRegs(qmc6309_t *dev, u8 start_reg, u8 *buf, u8 len)
         return QMC6309_ERR_PARAM;
     }
 
-    return (dev->bus.read_regs(dev->bus.ctx, dev->addr, start_reg, buf, len) == 0) ? QMC6309_OK : QMC6309_ERR_BUS;
+    return (dev->bus.read_regs(dev->addr, start_reg, buf, len) == 0) ? QMC6309_OK : QMC6309_ERR_BUS;
 }
 
 int8 QMC6309_ReadReg(qmc6309_t *dev, u8 reg, u8 *value)

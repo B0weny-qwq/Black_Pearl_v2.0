@@ -1,20 +1,18 @@
 #include "board_console.h"
+#include "ef_board_resources.h"
 #include "ef_uart.h"
 #include "STC32G_GPIO.h"
 #include "STC32G_Switch.h"
-
-#define BOARD_CONSOLE_UART_PORT      EF_UART_PORT_1
-#define BOARD_CONSOLE_UART_BAUDRATE  115200UL
 
 u8 board_console_init(void)
 {
     ef_uart_config_t config;
 
-    P3_MODE_IO_PU(GPIO_Pin_0 | GPIO_Pin_1);
-    UART1_SW(UART1_SW_P30_P31);
+    P3_MODE_IO_PU(EF_BOARD_CONSOLE_RX_PIN_MASK | EF_BOARD_CONSOLE_TX_PIN_MASK);
+    UART1_SW(EF_BOARD_CONSOLE_UART_MUX);
 
-    config.port = BOARD_CONSOLE_UART_PORT;
-    config.baudrate = BOARD_CONSOLE_UART_BAUDRATE;
+    config.port = EF_BOARD_CONSOLE_UART_PORT;
+    config.baudrate = EF_BOARD_CONSOLE_UART_BAUDRATE;
     config.rx_enable = ENABLE;
 
     if (ef_uart_init(&config) == SUCCESS) {
@@ -26,10 +24,10 @@ u8 board_console_init(void)
 
 void board_console_write(const u8 *text)
 {
-    ef_uart_write(BOARD_CONSOLE_UART_PORT, text);
+    ef_uart_write(EF_BOARD_CONSOLE_UART_PORT, text);
 }
 
-void board_console_write_byte(u8 data)
+void board_console_write_byte(u8 byte)
 {
-    ef_uart_write_byte(BOARD_CONSOLE_UART_PORT, data);
+    ef_uart_write_byte(EF_BOARD_CONSOLE_UART_PORT, byte);
 }

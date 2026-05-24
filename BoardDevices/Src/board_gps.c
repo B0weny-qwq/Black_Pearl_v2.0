@@ -1,11 +1,9 @@
 #include "board_gps.h"
+#include "ef_board_resources.h"
 #include "gnss_nmea.h"
 #include "ef_uart.h"
 #include "STC32G_GPIO.h"
 #include "STC32G_Switch.h"
-
-#define BOARD_GPS_UART_PORT      EF_UART_PORT_2
-#define BOARD_GPS_UART_BAUDRATE  115200UL
 
 static gnss_nmea_t board_gps_parser;
 static board_gps_state_t board_gps_state;
@@ -77,12 +75,12 @@ int8 board_gps_init(void)
 {
     ef_uart_config_t config;
 
-    P1_MODE_IN_HIZ(GPIO_Pin_0);
-    P1_MODE_IO_PU(GPIO_Pin_1);
-    UART2_SW(UART2_SW_P10_P11);
+    P1_MODE_IN_HIZ(EF_BOARD_GNSS_RX_PIN_MASK);
+    P1_MODE_IO_PU(EF_BOARD_GNSS_TX_PIN_MASK);
+    UART2_SW(EF_BOARD_GNSS_UART_MUX);
 
-    config.port = BOARD_GPS_UART_PORT;
-    config.baudrate = BOARD_GPS_UART_BAUDRATE;
+    config.port = EF_BOARD_GNSS_UART_PORT;
+    config.baudrate = EF_BOARD_GNSS_UART_BAUDRATE;
     config.rx_enable = ENABLE;
 
     if (ef_uart_init(&config) != SUCCESS) {
@@ -116,7 +114,7 @@ void board_gps_poll(void)
     if (board_gps_ready == 0U) {
         return;
     }
-    if (ef_uart_get_rx_view(BOARD_GPS_UART_PORT, &view) != SUCCESS) {
+    if (ef_uart_get_rx_view(EF_BOARD_GNSS_UART_PORT, &view) != SUCCESS) {
         return;
     }
     if (view.rx_buffer_size == 0U) {
@@ -125,7 +123,7 @@ void board_gps_poll(void)
 
     if (view.write_index < board_gps_rx_read_index) {
         while (board_gps_rx_read_index < view.rx_buffer_size) {
-            if (ef_uart_read_rx_byte(BOARD_GPS_UART_PORT, board_gps_rx_read_index, &rx_byte) != SUCCESS) {
+            if (ef_uart_read_rx_byte(EF_BOARD_GNSS_UART_PORT, board_gps_rx_read_index, &rx_byte) != SUCCESS) {
                 break;
             }
             (void)gnss_nmea_feed_byte(&board_gps_parser, rx_byte);
@@ -136,7 +134,7 @@ void board_gps_poll(void)
     }
 
     while (board_gps_rx_read_index != view.write_index) {
-        if (ef_uart_read_rx_byte(BOARD_GPS_UART_PORT, board_gps_rx_read_index, &rx_byte) != SUCCESS) {
+        if (ef_uart_read_rx_byte(EF_BOARD_GNSS_UART_PORT, board_gps_rx_read_index, &rx_byte) != SUCCESS) {
             break;
         }
         (void)gnss_nmea_feed_byte(&board_gps_parser, rx_byte);

@@ -39,22 +39,22 @@ void ef_spi_set_mode(u8 mode)
     }
 }
 
-void ef_spi_write_byte(u8 data)
+void ef_spi_write_byte(u8 byte)
 {
-    SPI_WriteByte(data);
+    SPI_WriteByte(byte);
 }
 
-u8 ef_spi_transfer_byte(u8 data)
+u8 ef_spi_transfer_byte(u8 byte)
 {
     if (ESPI) {
         B_SPI_Busy = 1;
-        SPDAT = data;
+        SPDAT = byte;
         while (B_SPI_Busy) {
         }
         return SPDAT;
     }
 
-    SPDAT = data;
+    SPDAT = byte;
     while (SPIF == 0) {
     }
     SPI_ClearFlag();

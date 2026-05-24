@@ -72,28 +72,28 @@ u8 ef_uart_init(const ef_uart_config_t *config)
     return FAIL;
 }
 
-void ef_uart_write_byte(u8 port, u8 data)
+void ef_uart_write_byte(u8 port, u8 byte)
 {
     if (port == EF_UART_PORT_1) {
-        TX1_write2buff(data);
+        TX1_write2buff(byte);
     } else if (port == EF_UART_PORT_2) {
-        TX2_write2buff(data);
+        TX2_write2buff(byte);
     } else if (port == EF_UART_PORT_3) {
-        TX3_write2buff(data);
+        TX3_write2buff(byte);
     } else if (port == EF_UART_PORT_4) {
-        TX4_write2buff(data);
+        TX4_write2buff(byte);
     }
 }
 
-void ef_uart_write(u8 port, const u8 *data)
+void ef_uart_write(u8 port, const u8 *text)
 {
-    if (data == 0) {
+    if (text == 0) {
         return;
     }
 
-    while (*data != '\0') {
-        ef_uart_write_byte(port, *data);
-        data++;
+    while (*text != '\0') {
+        ef_uart_write_byte(port, *text);
+        text++;
     }
 }
 
@@ -130,9 +130,9 @@ u8 ef_uart_get_rx_view(u8 port, ef_uart_rx_view_t *view)
     return FAIL;
 }
 
-u8 ef_uart_read_rx_byte(u8 port, u8 index, u8 *data)
+u8 ef_uart_read_rx_byte(u8 port, u8 index, u8 *out_byte)
 {
-    if (data == 0) {
+    if (out_byte == 0) {
         return FAIL;
     }
 
@@ -140,28 +140,28 @@ u8 ef_uart_read_rx_byte(u8 port, u8 index, u8 *data)
         if (index >= COM_RX1_Lenth) {
             return FAIL;
         }
-        *data = RX1_Buffer[index];
+        *out_byte = RX1_Buffer[index];
         return SUCCESS;
     }
     if (port == EF_UART_PORT_2) {
         if (index >= COM_RX2_Lenth) {
             return FAIL;
         }
-        *data = RX2_Buffer[index];
+        *out_byte = RX2_Buffer[index];
         return SUCCESS;
     }
     if (port == EF_UART_PORT_3) {
         if (index >= COM_RX3_Lenth) {
             return FAIL;
         }
-        *data = RX3_Buffer[index];
+        *out_byte = RX3_Buffer[index];
         return SUCCESS;
     }
     if (port == EF_UART_PORT_4) {
         if (index >= COM_RX4_Lenth) {
             return FAIL;
         }
-        *data = RX4_Buffer[index];
+        *out_byte = RX4_Buffer[index];
         return SUCCESS;
     }
 

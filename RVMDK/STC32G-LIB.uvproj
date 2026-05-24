@@ -64,13 +64,13 @@
             <nStopU2X>0</nStopU2X>
           </BeforeCompile>
           <BeforeMake>
-            <RunUserProg1>0</RunUserProg1>
+            <RunUserProg1>1</RunUserProg1>
             <RunUserProg2>0</RunUserProg2>
-            <UserProg1Name />
+            <UserProg1Name>python ..\tools\gen_board_resources.py</UserProg1Name>
             <UserProg2Name />
             <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
             <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
-            <nStopB1X>0</nStopB1X>
+            <nStopB1X>1</nStopB1X>
             <nStopB2X>0</nStopB2X>
           </BeforeMake>
           <AfterMake>
@@ -269,7 +269,7 @@
               <MiscControls />
               <Define />
               <Undefine />
-              <IncludePath>..\Platform\Inc;..\Drivers\Inc;..\McuAbstraction\Inc;..\BoardDevices\Inc;..\Components\Inc;..\ChipDrivers\Inc;..\Services\Inc;..\App\Inc</IncludePath>
+              <IncludePath>..\build\generated;..\Platform\Inc;..\Drivers\Inc;..\McuAbstraction\Inc;..\BoardDevices\Inc;..\Components\Inc;..\ChipDrivers\Inc;..\Services\Inc;..\App\Inc</IncludePath>
             </VariousControls>
           </C251>
           <Ax51>
@@ -389,6 +389,46 @@
               <FileType>1</FileType>
               <FilePath>..\App\Src\app.c</FilePath>
             </File>
+            <File>
+              <FileName>ship_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\ship_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>autodrive.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\autodrive.c</FilePath>
+            </File>
+            <File>
+              <FileName>autodrive_config.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\autodrive_config.c</FilePath>
+            </File>
+            <File>
+              <FileName>ship_protocol.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\ship_protocol.c</FilePath>
+            </File>
+            <File>
+              <FileName>ship_control.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\App\Inc\ship_control.h</FilePath>
+            </File>
+            <File>
+              <FileName>autodrive.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\App\Inc\autodrive.h</FilePath>
+            </File>
+            <File>
+              <FileName>autodrive_config.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\App\Inc\autodrive_config.h</FilePath>
+            </File>
+            <File>
+              <FileName>ship_protocol.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\App\Inc\ship_protocol.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -415,6 +455,36 @@
               <FilePath>..\BoardDevices\Inc\board_imu.h</FilePath>
             </File>
             <File>
+              <FileName>board_motor.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\BoardDevices\Src\board_motor.c</FilePath>
+            </File>
+            <File>
+              <FileName>board_motor.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\BoardDevices\Inc\board_motor.h</FilePath>
+            </File>
+            <File>
+              <FileName>board_power.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\BoardDevices\Src\board_power.c</FilePath>
+            </File>
+            <File>
+              <FileName>board_power.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\BoardDevices\Inc\board_power.h</FilePath>
+            </File>
+            <File>
+              <FileName>board_storage.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\BoardDevices\Src\board_storage.c</FilePath>
+            </File>
+            <File>
+              <FileName>board_storage.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\BoardDevices\Inc\board_storage.h</FilePath>
+            </File>
+            <File>
               <FileName>board_mag.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\BoardDevices\Src\board_mag.c</FilePath>
@@ -433,6 +503,16 @@
               <FileName>board_lt8920.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\BoardDevices\Inc\board_lt8920.h</FilePath>
+            </File>
+            <File>
+              <FileName>board_wireless.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\BoardDevices\Src\board_wireless.c</FilePath>
+            </File>
+            <File>
+              <FileName>board_wireless.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\BoardDevices\Inc\board_wireless.h</FilePath>
             </File>
             <File>
               <FileName>board_spi_ps.c</FileName>
@@ -473,6 +553,36 @@
               <FileName>Filter.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\Components\Inc\Filter.h</FilePath>
+            </File>
+            <File>
+              <FileName>AHRS.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Src\AHRS.c</FilePath>
+            </File>
+            <File>
+              <FileName>AHRS.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Components\Inc\AHRS.h</FilePath>
+            </File>
+            <File>
+              <FileName>HeadingEstimator.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Src\HeadingEstimator.c</FilePath>
+            </File>
+            <File>
+              <FileName>HeadingEstimator.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Components\Inc\HeadingEstimator.h</FilePath>
+            </File>
+            <File>
+              <FileName>MagCompass.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Components\Src\MagCompass.c</FilePath>
+            </File>
+            <File>
+              <FileName>MagCompass.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Components\Inc\MagCompass.h</FilePath>
             </File>
           </Files>
         </Group>
@@ -798,6 +908,16 @@
               <FileName>logger.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Services\Src\logger.c</FilePath>
+            </File>
+            <File>
+              <FileName>parameter_store.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Services\Src\parameter_store.c</FilePath>
+            </File>
+            <File>
+              <FileName>parameter_store.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Services\Inc\parameter_store.h</FilePath>
             </File>
           </Files>
         </Group>

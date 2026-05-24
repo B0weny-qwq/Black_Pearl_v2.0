@@ -13,9 +13,11 @@
 Services/
 ├── Inc/
 │   ├── logger.h    # 新日志 API
-│   └── Log.h       # 旧 include 兼容入口
+│   ├── Log.h       # 旧 include 兼容入口
+│   └── parameter_store.h
 └── Src/
-    └── logger.c    # 日志实现
+    ├── logger.c    # 日志实现
+    └── parameter_store.c
 ```
 
 底层输出链路：
@@ -88,3 +90,37 @@ message\r\n
 - 不要在 `App/` 里包含 `STC32G_UART.h` 或调用 `PrintString1()`。
 - STC32G 无 FPU，日志格式不要使用 `%f`；当前 logger 会把不支持的格式按原样
   输出，浮点小数应先转成整数部分和小数部分。
+
+## parameter_store 参数服务
+
+`parameter_store` 是当前工程的轻量配置服务，只保存 App 层传入的配置字节，
+不理解 AutoDrive 结构体语义。底层链路为：
+
+```text
+AutoDriveCfg_Save/Load -> parameter_store -> board_storage -> STC32G_EEPROM
+```
+
+当前用途：
+
+- 保存自动返航开关 `auto_ret_onoff`。
+- 保存 10 字节旧格式返航点。
+- 通过 `ADCFG load ok/default`、`ADCFG save ok/fail` 日志确认配置读写结果。
+
+服务层仍然不直接包含 STC EEPROM 头文件；EEPROM/IAP 细节只允许出现在
+`BoardDevices/Src/board_storage.c`。
+
+## 当前联调日志关键词
+
+无线、控制和 AutoDrive 联调时，重点看这些 tag/关键词：
+
+- `[SHIP] scheduler init`：协议状态机初始化。
+- `[SHIP] pair req sent` / `[SHIP] pair ok` / `[SHIP] enter work-state`：配对和工作信道。
+- `[SHIP] rc cmd=0x11`：手动遥控帧输入。
+- `[SHIP] manual boot block` / `[SHIP] manual boot ready`：开机保护和航向 ready 门控。
+- `[DATA] cruise enter` / `[DATA] cruise exit` / `[SHIP] cruise reject`：E 键巡航。
+- `[CTRL] out mode=`：最终左右电机输出，含 mode、motion、base、diff、left、right。
+- `[SHIP] 0x14 rx fl=`：去定点命令诊断，含 frame/payload/xor/result/index。
+- `[SHIP] tx cmd=0x12`：旧遥控器固定状态回包。
+- `[SHIP] tx cmd=0x16`：AutoDrive 主动诊断上报。
+- `[ADCFG] load` / `[ADCFG] save`：返航配置读写。
+- `[SHIP] adc raw=` / `[SHIP] low power latched`：电源采样和低电返航触发。

@@ -1,0 +1,300 @@
+project:
+  name: Black_Pearl_v2.0
+  level: 1.5
+  description: STC32G state-machine boat control project with board-level device wrappers.
+
+mcu:
+  vendor: STC
+  family: STC32G
+  main_clock_hz: 24000000
+  config_header: Platform/Inc/config.h
+
+layers:
+  platform: Platform
+  mcu_abstraction: McuAbstraction
+  drivers: Drivers
+  chip_drivers: ChipDrivers
+  board_devices: BoardDevices
+  components: Components
+  app: App
+
+pin_groups:
+  uart1_console:
+    function: UART1
+    mux: UART1_SW_P30_P31
+    pins:
+      rx: P3.0
+      tx: P3.1
+    owner: BoardDevices/Src/board_console.c
+
+  uart2_gnss:
+    function: UART2
+    mux: UART2_SW_P10_P11
+    pins:
+      rx: P1.0
+      tx: P1.1
+    owner: BoardDevices/Src/board_gps.c
+
+  i2c_sensor_bus:
+    function: I2C
+    mux: I2C_P14_P15
+    pins:
+      scl: P1.4
+      sda: P1.5
+    owner: BoardDevices/Src/board_sensor_bus.c
+
+  spi_lt8920:
+    function: SPI
+    mux: SPI_P35_P34_P33_P32
+    pins:
+      cs: P3.5
+      sclk: P3.2
+      mosi: P3.4
+      miso: P3.3
+    owner: BoardDevices/Src/board_lt8920.c
+
+  motor_pwm3:
+    function: PWM3
+    mux: PWM3_USE_P24P25
+    pins:
+      pwm3p: P2.4
+      pwm3n: P2.5
+    owner: motor_pwm_current_design
+    status: reserved
+
+  motor_pwm4:
+    function: PWM4
+    mux: PWM4_USE_P26P27
+    pins:
+      pwm4p: P2.6
+      pwm4n: P2.7
+    owner: BoardDevices/Src/board_motor.c
+    status: reserved
+
+gpio_signals:
+  lt8920_reset:
+    pin: P5.0
+    direction: output
+    active_level: high
+    owner: BoardDevices/Src/board_lt8920.c
+
+  kct8206_ant_sel:
+    pin: P5.1
+    direction: output
+    levels:
+      ant1: low
+      ant2: high
+    owner: BoardDevices/Src/board_lt8920.c
+
+  kct8206_rxen:
+    pin: P1.3
+    direction: output
+    active_level: high
+    owner: BoardDevices/Src/board_lt8920.c
+
+  kct8206_txen:
+    pin: P5.4
+    direction: output
+    active_level: high
+    owner: BoardDevices/Src/board_lt8920.c
+
+buses:
+  console_uart:
+    type: uart
+    port: UART1
+    pin_group: uart1_console
+    baudrate: 115200
+    rx_enable: true
+    irq: UART1
+    priority: 1
+
+  gnss_uart:
+    type: uart
+    port: UART2
+    pin_group: uart2_gnss
+    baudrate: 115200
+    rx_enable: true
+    irq: UART2
+    priority: 1
+
+  sensor_i2c:
+    type: i2c
+    pin_group: i2c_sensor_bus
+    mode: master
+    speed_hz: 100000
+    timeout: default
+
+  radio_spi:
+    type: spi
+    pin_group: spi_lt8920
+    mode: master
+    ss_control: software
+    first_bit: msb
+    cpol: low
+    cpha: second_edge
+    clock_divider: fosc_16
+    irq_enable: false
+
+devices:
+  console:
+    type: board_console
+    bus: console_uart
+    api:
+      header: BoardDevices/Inc/board_console.h
+      source: BoardDevices/Src/board_console.c
+
+  gnss:
+    type: nmea_receiver
+    bus: gnss_uart
+    parser: gnss_nmea
+    api:
+      header: BoardDevices/Inc/board_gps.h
+      source: BoardDevices/Src/board_gps.c
+    chip_driver:
+      header: ChipDrivers/Inc/gnss_nmea.h
+      source: ChipDrivers/Src/gnss_nmea.c
+
+  imu:
+    type: qmi8658
+    bus: sensor_i2c
+    i2c_addresses:
+      primary: 0x6B
+      alternate: 0x6A
+    api:
+      header: BoardDevices/Inc/board_imu.h
+      source: BoardDevices/Src/board_imu.c
+    chip_driver:
+      header: ChipDrivers/Inc/QMI8658.h
+      source: ChipDrivers/Src/QMI8658.c
+
+  magnetometer:
+    type: qmc6309
+    bus: sensor_i2c
+    i2c_addresses:
+      primary: 0x7C
+      alternate: 0x0C
+    api:
+      header: BoardDevices/Inc/board_mag.h
+      source: BoardDevices/Src/board_mag.c
+    chip_driver:
+      header: ChipDrivers/Inc/QMC6309.h
+      source: ChipDrivers/Src/QMC6309.c
+
+  radio:
+    type: lt8920
+    bus: radio_spi
+    reset: lt8920_reset
+    defaults:
+      channel: 0x30
+      sync_word: 0x03800380
+      verify_default_profile: true
+    api:
+      header: BoardDevices/Inc/board_lt8920.h
+      source: BoardDevices/Src/board_lt8920.c
+    chip_driver:
+      header: ChipDrivers/Inc/LT8920.h
+      source: ChipDrivers/Src/LT8920.c
+
+  radio_frontend:
+    type: kct8206
+    control_signals:
+      rxen: kct8206_rxen
+      txen: kct8206_txen
+      ant_sel: kct8206_ant_sel
+    defaults:
+      antenna: ant1
+      state_after_init: idle
+    chip_driver:
+      header: ChipDrivers/Inc/KCT8206.h
+      source: ChipDrivers/Src/KCT8206.c
+
+  motor:
+    type: dual_dc_motor_pwm
+    left_pwm: motor_pwm3
+    right_pwm: motor_pwm4
+    api:
+      header: BoardDevices/Inc/board_motor.h
+      source: BoardDevices/Src/board_motor.c
+
+  power:
+    type: battery_adc
+    adc_channel: ADC_CH8
+    pin: P0.0
+    api:
+      header: BoardDevices/Inc/board_power.h
+      source: BoardDevices/Src/board_power.c
+
+  storage:
+    type: eeprom_iap
+    api:
+      header: BoardDevices/Inc/board_storage.h
+      source: BoardDevices/Src/board_storage.c
+
+services:
+  logger:
+    api:
+      header: Services/Inc/logger.h
+      source: Services/Src/logger.c
+
+  parameter_store:
+    storage: storage
+    api:
+      header: Services/Inc/parameter_store.h
+      source: Services/Src/parameter_store.c
+
+disabled_devices:
+  spi_peer_link:
+    type: spi_ps
+    enabled: false
+    reason: P2.4/P2.5 are reserved for motor PWM3, and the current app does not initialize the SPI-PS peer link.
+    legacy_reference:
+      api_header: BoardDevices/Inc/board_spi_ps.h
+      api_source: BoardDevices/Src/board_spi_ps.c
+      old_mux: SPI_P22_P23_P24_P25
+      old_pins:
+        ss: P2.2
+        mosi: P2.3
+        miso: P2.4
+        sclk: P2.5
+
+resource_conflicts:
+  - name: spi_ps_conflicts_with_motor_pwm3
+    resource: pins
+    users:
+      - motor_pwm3
+      - disabled_devices.spi_peer_link
+    rule: SPI-PS P2.4/P2.5 must stay disabled while PWM3 uses P2.4/P2.5.
+
+  - name: single_hardware_spi_mux
+    resource: SPI
+    users:
+      - radio_spi
+    rule: Current firmware only enables the LT8920 SPI mux on P3.2-P3.5.
+
+init_sequence:
+  platform:
+    - platform_clock_config
+    - Timer_config
+    - Switch_config
+    - global_interrupt_enable
+  app:
+    - board_console_init
+    - log_init
+    - board_gps_init
+    - board_imu_init
+    - board_mag_init
+    - board_power_init
+    - board_wireless_init
+    - ship_protocol_init
+    - board_motor_init
+  loop:
+    - board_gps_poll
+    - board_wireless_poll
+    - ship_protocol_run_scheduler
+    - board_wireless_search_signal_poll
+    - app_ahrs_poll
+    - board_motor_service
+
+build:
+  keil_project: RVMDK/STC32G-LIB.uvproj
+  generated_target: RVMDK/list/STC32G-LIB.build_log.htm

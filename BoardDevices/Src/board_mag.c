@@ -22,25 +22,19 @@ static u8 board_mag_normalize_addr(u8 addr)
     return addr;
 }
 
-static int8 board_mag_write_reg(void *ctx, u8 addr, u8 reg, u8 value)
+static int8 board_mag_write_reg(u8 addr, u8 reg, u8 value)
 {
-    (void)ctx;
-
     addr = board_mag_normalize_addr(addr);
     return board_sensor_bus_write_reg(addr, reg, value);
 }
 
-static int8 board_mag_read_regs(void *ctx, u8 addr, u8 start_reg, u8 *buf, u8 len)
+static int8 board_mag_read_regs(u8 addr, u8 start_reg, u8 *buf, u8 len)
 {
-    (void)ctx;
-
-    addr = board_mag_normalize_addr(addr);
-    return board_sensor_bus_read_regs(addr, start_reg, buf, len);
+    return board_sensor_bus_read_regs(board_mag_normalize_addr(addr), start_reg, buf, len);
 }
 
-static void board_mag_delay_ms(void *ctx, u16 ms)
+static void board_mag_delay_ms(u16 ms)
 {
-    (void)ctx;
     board_sensor_bus_delay_ms(ms);
 }
 
@@ -57,7 +51,6 @@ int8 board_mag_init(void)
         return BOARD_MAG_ERR_DRIVER;
     }
 
-    bus.ctx = 0;
     bus.write_reg = board_mag_write_reg;
     bus.read_regs = board_mag_read_regs;
     bus.delay_ms = board_mag_delay_ms;

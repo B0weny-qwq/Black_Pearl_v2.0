@@ -26,9 +26,14 @@ DebugConfig/
 
 # Project-local generated output
 RVMDK/list/
+build/*
+!build/generated/
+build/generated/*
+!build/generated/ef_board_resources.h
 
 # Local reference material, not part of the tracked project
 Examples/
+old/
 need to do/
 
 # Generic temp and backup files

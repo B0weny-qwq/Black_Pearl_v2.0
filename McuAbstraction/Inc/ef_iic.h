@@ -28,6 +28,29 @@
 #define EF_IIC_ERR_NACK           -5
 #define EF_IIC_ERR_NOT_INIT       -6
 
+#define EF_IIC_OP_NONE            0U
+#define EF_IIC_OP_WRITE           1U
+#define EF_IIC_OP_READ            2U
+#define EF_IIC_OP_RECOVER         3U
+
+#define EF_IIC_STAGE_IDLE         0U
+#define EF_IIC_STAGE_PREPARE      1U
+#define EF_IIC_STAGE_START        2U
+#define EF_IIC_STAGE_DEV_W        3U
+#define EF_IIC_STAGE_DEV_W_ACK    4U
+#define EF_IIC_STAGE_REG          5U
+#define EF_IIC_STAGE_REG_ACK      6U
+#define EF_IIC_STAGE_DATA         7U
+#define EF_IIC_STAGE_DATA_ACK     8U
+#define EF_IIC_STAGE_RESTART      9U
+#define EF_IIC_STAGE_DEV_R        10U
+#define EF_IIC_STAGE_DEV_R_ACK    11U
+#define EF_IIC_STAGE_READ_DATA    12U
+#define EF_IIC_STAGE_MASTER_ACK   13U
+#define EF_IIC_STAGE_STOP         14U
+#define EF_IIC_STAGE_ABORT        15U
+#define EF_IIC_STAGE_RECOVER      16U
+
 /* STC32G 硬件 IIC 可切换的四组复用脚，命名顺序跟官方 I2C_SW() 参数保持一致。 */
 #define EF_IIC_PIN_P14_P15        0U
 #define EF_IIC_PIN_P24_P25        1U
@@ -56,6 +79,20 @@ typedef struct
     u16 timeout;       /* 轮询超时计数，0 表示使用 EF_IIC_DEFAULT_TIMEOUT。 */
 } ef_iic_config_t;
 
+typedef struct
+{
+    u8 op;
+    u8 stage;
+    int8 ret;
+    u8 dev_addr;
+    u8 reg_addr;
+    u8 msst;
+    u8 mscr;
+    u8 bus_state_before;
+    u8 bus_state_after;
+    int8 recover_ret;
+} ef_iic_diag_t;
+
 /*
  * 初始化 STC 硬件 IIC 和 IIC DMA。
  *
@@ -74,7 +111,7 @@ int8 ef_iic_init(const ef_iic_config_t *config);
  *
  * dev_addr: 7-bit 设备地址。
  * reg_addr: 起始寄存器地址。
- * data/len: 要写入的数据和长度，len 范围 1..EF_IIC_DMA_MAX_LEN。
+ * buffer/len: 要写入的数据和长度，len 范围 1..EF_IIC_DMA_MAX_LEN。
  *
  * 返回值：
  * - EF_IIC_OK：传输完成。
@@ -83,19 +120,37 @@ int8 ef_iic_init(const ef_iic_config_t *config);
  * - EF_IIC_ERR_BUSY / EF_IIC_ERR_TIMEOUT：总线或 DMA 等待超时。
  * - EF_IIC_ERR_NACK：设备地址、寄存器地址或数据阶段未收到 ACK。
  */
-int8 ef_iic_write_regs(u8 dev_addr, u8 reg_addr, const u8 *data, u8 len);
+int8 ef_iic_write_regs(u8 dev_addr, u8 reg_addr, const u8 *buffer, u8 len);
 
 /*
  * 从 8-bit 寄存器地址读取连续数据。
  *
  * dev_addr: 7-bit 设备地址。
  * reg_addr: 起始寄存器地址。
- * data/len: 接收缓冲和长度，len 范围 1..EF_IIC_DMA_MAX_LEN。
+ * buffer/len: 接收缓冲和长度，len 范围 1..EF_IIC_DMA_MAX_LEN。
  *
  * 返回值同 ef_iic_write_regs()。读 1 字节时仍然走 DMA，底层按 STC DMA
  * “寄存器值 + 1 = 实际字节数”的规则配置长度。
  */
-int8 ef_iic_read_regs(u8 dev_addr, u8 reg_addr, u8 *data, u8 len);
+int8 ef_iic_read_regs(u8 dev_addr, u8 reg_addr, u8 *buffer, u8 len);
+
+/*
+ * 对当前硬件 IIC 总线做一次恢复。
+ *
+ * 典型流程：
+ * - 关闭硬件 IIC/DMA
+ * - 切回 GPIO 开漏并释放 SDA/SCL
+ * - 额外输出若干个 SCL 脉冲，尝试让从机释放 SDA
+ * - 发送一次 STOP，再恢复硬件 IIC
+ *
+ * 返回值：
+ * - EF_IIC_OK：恢复后总线空闲，SDA/SCL 已释放
+ * - EF_IIC_ERR_NOT_INIT：尚未调用 ef_iic_init()
+ * - EF_IIC_ERR_BUSY：恢复后总线仍未释放
+ */
+int8 ef_iic_bus_recover(void);
+
+int8 ef_iic_get_last_diag(ef_iic_diag_t *diag);
 
 /* 查询 STC IIC 主机状态机是否忙。1 表示忙，0 表示空闲。 */
 u8 ef_iic_is_busy(void);

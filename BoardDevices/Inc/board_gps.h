@@ -1,9 +1,10 @@
 /**
  * @file board_gps.h
- * @brief Black Pearl 板级 GPS 设备接口。
+ * @brief Black Pearl board-level GPS device interface.
  *
- * 本文件属于 BoardDevices 层。负责隐藏 UART2 端口、引脚复用和 GNSS 解析器
- * 绑定细节，对上提供简单的初始化、轮询和状态查询接口。
+ * This file belongs to the BoardDevices layer. It hides the UART2 port,
+ * pin routing, and GNSS parser binding details, and exposes a simple
+ * initialization, polling, and state query interface to upper layers.
  */
 
 #ifndef __BOARD_GPS_H__

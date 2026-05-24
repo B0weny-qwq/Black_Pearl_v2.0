@@ -20,6 +20,7 @@ typedef struct
 static PLATFORM_TASK_COMPONENTS Platform_Tasks[1];
 
 static u8 Platform_Tasks_Max = 0;
+static volatile u32 Platform_TickMs = 0UL;
 
 //========================================================================
 // 函数: platform_scheduler_tick
@@ -31,6 +32,7 @@ static u8 Platform_Tasks_Max = 0;
 void platform_scheduler_tick(void)
 {
 	u8 i;
+	Platform_TickMs++;
 	for(i=0; i<Platform_Tasks_Max; i++)
 	{
 		if(Platform_Tasks[i].TIMCount)    /* If the time is not 0 */
@@ -64,6 +66,18 @@ void platform_scheduler_run(void)
 			Platform_Tasks[i].Hook();  /* Run task */
 		}
 	}
+}
+
+u32 platform_scheduler_get_tick_ms(void)
+{
+	u32 now_ms;
+	u8 ea_state;
+
+	ea_state = EA;
+	EA = 0;
+	now_ms = Platform_TickMs;
+	EA = ea_state;
+	return now_ms;
 }
 
 

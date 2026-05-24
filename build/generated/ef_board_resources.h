@@ -1,0 +1,63 @@
+/* DO NOT EDIT. Generated from embedforge.yaml by tools/gen_board_resources.py. */
+#ifndef __EF_BOARD_RESOURCES_H__
+#define __EF_BOARD_RESOURCES_H__
+
+#define EF_BOARD_MAIN_CLOCK_HZ             24000000UL
+
+/* Console UART */
+#define EF_BOARD_CONSOLE_UART_PORT         EF_UART_PORT_1
+#define EF_BOARD_CONSOLE_UART_BAUDRATE     115200UL
+#define EF_BOARD_CONSOLE_UART_MUX          UART1_SW_P30_P31
+#define EF_BOARD_CONSOLE_RX_PIN_MASK       GPIO_Pin_0
+#define EF_BOARD_CONSOLE_TX_PIN_MASK       GPIO_Pin_1
+
+/* GNSS UART */
+#define EF_BOARD_GNSS_UART_PORT            EF_UART_PORT_2
+#define EF_BOARD_GNSS_UART_BAUDRATE        115200UL
+#define EF_BOARD_GNSS_UART_MUX             UART2_SW_P10_P11
+#define EF_BOARD_GNSS_RX_PIN_MASK          GPIO_Pin_0
+#define EF_BOARD_GNSS_TX_PIN_MASK          GPIO_Pin_1
+
+/* Shared sensor I2C */
+#define EF_BOARD_SENSOR_I2C_PIN_GROUP      EF_IIC_PIN_P14_P15
+#define EF_BOARD_SENSOR_I2C_MUX            I2C_P14_P15
+#define EF_BOARD_SENSOR_I2C_SPEED          EF_IIC_SPEED_100K
+#define EF_BOARD_SENSOR_I2C_SPEED_HZ       100000UL
+#define EF_BOARD_SENSOR_I2C_SCL_PIN_MASK   GPIO_Pin_4
+#define EF_BOARD_SENSOR_I2C_SDA_PIN_MASK   GPIO_Pin_5
+
+/* LT8920 SPI */
+#define EF_BOARD_LT8920_SPI_MUX            SPI_P35_P34_P33_P32
+#define EF_BOARD_LT8920_SPI_SPEED          EF_SPI_SPEED_FOSC_16
+#define EF_BOARD_LT8920_SPI_CS_PIN_MASK    GPIO_Pin_5
+#define EF_BOARD_LT8920_SPI_SCLK_PIN_MASK  GPIO_Pin_2
+#define EF_BOARD_LT8920_SPI_MOSI_PIN_MASK  GPIO_Pin_4
+#define EF_BOARD_LT8920_SPI_MISO_PIN_MASK  GPIO_Pin_3
+#define EF_BOARD_LT8920_CS_BIT             P35
+#define EF_BOARD_LT8920_RESET_PIN_MASK     GPIO_Pin_0
+#define EF_BOARD_LT8920_RESET_BIT          P50
+#define EF_BOARD_LT8920_DEFAULT_CHANNEL    0x30U
+#define EF_BOARD_LT8920_DEFAULT_SYNC_WORD  0x03800380UL
+
+/* KCT8206 frontend GPIO */
+#define EF_BOARD_KCT8206_ANT_SEL_PIN_MASK  GPIO_Pin_1
+#define EF_BOARD_KCT8206_ANT_SEL_BIT       P51
+#define EF_BOARD_KCT8206_RXEN_PIN_MASK     GPIO_Pin_3
+#define EF_BOARD_KCT8206_RXEN_BIT          P13
+#define EF_BOARD_KCT8206_TXEN_PIN_MASK     GPIO_Pin_4
+#define EF_BOARD_KCT8206_TXEN_BIT          P54
+
+/* Motor PWM3 reserved pins */
+#define EF_BOARD_MOTOR_PWM3_MUX            PWM3_USE_P24P25
+#define EF_BOARD_MOTOR_PWM3P_PIN_MASK      GPIO_Pin_4
+#define EF_BOARD_MOTOR_PWM3N_PIN_MASK      GPIO_Pin_5
+
+/* Motor PWM4 reserved pins */
+#define EF_BOARD_MOTOR_PWM4_MUX            PWM4_USE_P26P27
+#define EF_BOARD_MOTOR_PWM4P_PIN_MASK      GPIO_Pin_6
+#define EF_BOARD_MOTOR_PWM4N_PIN_MASK      GPIO_Pin_7
+
+/* SPI-PS peer link is not active in the current firmware. */
+#define EF_BOARD_SPI_PS_ENABLED            0U
+
+#endif

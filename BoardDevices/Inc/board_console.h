@@ -38,8 +38,8 @@ void board_console_write(const u8 *text);
 /**
  * @brief 输出 1 字节到板级控制台。
  *
- * @param data 待发送字节。
+ * @param byte 待发送字节。
  */
-void board_console_write_byte(u8 data);
+void board_console_write_byte(u8 byte);
 
 #endif

@@ -57,6 +57,32 @@ typedef struct
     u8 has_temp;
 } board_imu_sample_t;
 
+typedef struct
+{
+    int8 chip_error;
+    u8 i2c_addr;
+    u8 who_am_i;
+    u8 ctrl1;
+    u8 ctrl2;
+    u8 ctrl3;
+    u8 ctrl5;
+    u8 ctrl7;
+    u8 status0;
+    u8 cfg_retry;
+    u8 cfg_reg;
+    u8 cfg_write;
+    u8 cfg_read;
+    int8 cfg_ret;
+    u8 i2c_op;
+    u8 i2c_stage;
+    int8 i2c_ret;
+    u8 i2c_state_before;
+    u8 i2c_state_after;
+    int8 i2c_recover_ret;
+    u8 i2c_msst;
+    u8 i2c_mscr;
+} board_imu_diag_t;
+
 /**
  * @brief 初始化板级 IMU。
  *
@@ -94,5 +120,8 @@ int8 board_imu_read(board_imu_sample_t *sample);
 
 /** @brief 获取当前板级 IMU 状态机状态。 */
 u8 board_imu_get_state(void);
+
+/** @brief 获取最近一次 IMU 初始化/访问的诊断信息。 */
+int8 board_imu_get_diag(board_imu_diag_t *diag);
 
 #endif

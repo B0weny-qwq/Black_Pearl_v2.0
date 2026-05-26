@@ -124,3 +124,21 @@ AutoDriveCfg_Save/Load -> parameter_store -> board_storage -> STC32G_EEPROM
 - `[SHIP] tx cmd=0x16`：AutoDrive 主动诊断上报。
 - `[ADCFG] load` / `[ADCFG] save`：返航配置读写。
 - `[SHIP] adc raw=` / `[SHIP] low power latched`：电源采样和低电返航触发。
+
+## 当前事件/日志对齐
+
+- `[SHIP] key edge key=`：按键边沿日志。A/E/unknown 保持 `KEY_EDGE`；B/C/D 分别记录
+  `B-noop`、`C-noop`、`D-noop`，并发布 `SHIP_PROTOCOL_EVENT_KEY_ACTION`。
+- B/C/D 的 `key_action` 分别为 `SHIP_PROTOCOL_KEY_ACTION_B_NOOP`、
+  `SHIP_PROTOCOL_KEY_ACTION_C_NOOP`、`SHIP_PROTOCOL_KEY_ACTION_D_NOOP`，不驱动硬件。
+- A 仍保持现有 `A-light` 日志和 `KEY_EDGE` 语义；当前没有 `board_light` 或 GPIO 调用。
+- `[SHIP] adc raw=` 对应电源采样。有效采样发布 `POWER_SAMPLE`，电量等级变化发布
+  `POWER_LEVEL_CHANGED`。
+- `[SHIP] low power latched` 只会在 `power_level == 0`、超过 `600` 个 scheduler tick、
+  AutoDrive 为 close、手动油门小于 `10` 后出现，并发布 `LOW_POWER_LATCHED`。
+- `[EVT] ship ...` 来自 `app_ship_event_poll()`，它每轮从 8 深度协议事件队列 FIFO
+  drain 事件；高频 throttle/power sample 默认不额外刷日志。
+- `[SPI-PS] init ok` 表示 `app_loop()` 会轮询 `board_spi_ps_service()`；完整 RX 帧或截断帧会发布
+  `SPI_PS_FRAME_RX`。SPI-PS 初始化失败时保持静默。
+- `[SPI-PS] disabled: shared SPI resource with LT8920` 表示生成配置仍标记 SPI-PS 与 LT8920
+  共用 STC SPI 外设，`board_spi_ps_init()` 已用资源护栏阻止误启用。

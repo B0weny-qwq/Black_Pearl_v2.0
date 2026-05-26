@@ -34,6 +34,7 @@
 #define SHIP_POWER_LEVEL_3               3U
 #define SHIP_POWER_LEVEL_4               4U
 #define SHIP_LOWPOWER_CHECK_TICKS        600U
+#define SHIP_LOWPOWER_ACCEL_MAX          10U
 #define SHIP_POWER_SAMPLE_DIVIDER        100U
 #define SHIP_POWER_LOG_PERIOD_MS         1000UL
 #define SHIP_ADC_LOG_ENABLE              1
@@ -111,6 +112,11 @@ typedef struct
     u32 power_sample_period_ms;
     ship_protocol_power_sample_t power_sample;
     ship_protocol_event_snapshot_t event;
+    ship_protocol_event_snapshot_t event_queue[SHIP_PROTOCOL_EVENT_QUEUE_DEPTH];
+    u8 event_queue_head;
+    u8 event_queue_tail;
+    u8 event_queue_count;
+    u16 event_queue_dropped;
 } ship_protocol_runtime_t;
 
 static ship_protocol_runtime_t ship_protocol_rt;
@@ -131,6 +137,13 @@ static void ship_protocol_service_power_sample(void);
 static void ship_protocol_low_power_check(void);
 static u8 ship_protocol_get_autodrive_status(void);
 static void ship_protocol_log_power_sample(const ship_protocol_power_sample_t *sample, u8 force_log);
+static void ship_protocol_publish_event(ship_protocol_event_type_t type,
+                                        ship_protocol_event_state_t state,
+                                        u8 cmd,
+                                        u8 payload_len);
+static void ship_protocol_event_queue_reset(void);
+static void ship_protocol_event_queue_push(const ship_protocol_event_snapshot_t *event);
+static void ship_protocol_clear_point_event(void);
 
 static u8 ship_protocol_xor(const u8 *buf, u8 len)
 {
@@ -215,6 +228,87 @@ static u32 ship_protocol_abs_int32(int32 value)
     return (u32)value;
 }
 
+static void ship_protocol_clear_spi_ps_event(void)
+{
+    u8 i;
+
+    ship_protocol_rt.event.spi_ps.status = 0;
+    ship_protocol_rt.event.spi_ps.len = 0U;
+    ship_protocol_rt.event.spi_ps.stored_len = 0U;
+    for (i = 0U; i < SHIP_PROTOCOL_SPI_PS_EVENT_DATA_MAX; i++) {
+        ship_protocol_rt.event.spi_ps.bytes[i] = 0U;
+    }
+}
+
+static void ship_protocol_clear_event_payload(void)
+{
+    ship_protocol_rt.event.switch_state = 0U;
+    ship_protocol_rt.event.point_valid = 0U;
+    ship_protocol_rt.event.key_action = SHIP_PROTOCOL_KEY_ACTION_NONE;
+    ship_protocol_rt.event.power.raw = 0U;
+    ship_protocol_rt.event.power.adc_mv = 0U;
+    ship_protocol_rt.event.power.bat_mv = 0UL;
+    ship_protocol_rt.event.power.level = SHIP_POWER_LEVEL_0;
+    ship_protocol_rt.event.power.valid = 0U;
+    ship_protocol_clear_spi_ps_event();
+}
+
+static void ship_protocol_fill_power_event(const ship_protocol_power_sample_t *sample)
+{
+    if (sample == 0) {
+        ship_protocol_rt.event.power.raw = 0U;
+        ship_protocol_rt.event.power.adc_mv = 0U;
+        ship_protocol_rt.event.power.bat_mv = 0UL;
+        ship_protocol_rt.event.power.level = ship_protocol_rt.power_level;
+        ship_protocol_rt.event.power.valid = 0U;
+        return;
+    }
+
+    ship_protocol_rt.event.power.raw = sample->raw;
+    ship_protocol_rt.event.power.adc_mv = sample->adc_mv;
+    ship_protocol_rt.event.power.bat_mv = sample->bat_mv;
+    ship_protocol_rt.event.power.level = sample->report;
+    ship_protocol_rt.event.power.valid = sample->valid;
+}
+
+static void ship_protocol_event_queue_reset(void)
+{
+    u8 i;
+
+    ship_protocol_rt.event_queue_head = 0U;
+    ship_protocol_rt.event_queue_tail = 0U;
+    ship_protocol_rt.event_queue_count = 0U;
+    ship_protocol_rt.event_queue_dropped = 0U;
+    for (i = 0U; i < SHIP_PROTOCOL_EVENT_QUEUE_DEPTH; i++) {
+        ship_protocol_rt.event_queue[i].type = SHIP_PROTOCOL_EVENT_NONE;
+        ship_protocol_rt.event_queue[i].state = SHIP_PROTOCOL_EVENT_STATE_IDLE;
+        ship_protocol_rt.event_queue[i].pending = 0U;
+    }
+}
+
+static void ship_protocol_event_queue_push(const ship_protocol_event_snapshot_t *event)
+{
+    if (event == 0) {
+        return;
+    }
+
+    if (ship_protocol_rt.event_queue_count >= SHIP_PROTOCOL_EVENT_QUEUE_DEPTH) {
+        ship_protocol_rt.event_queue_head++;
+        if (ship_protocol_rt.event_queue_head >= SHIP_PROTOCOL_EVENT_QUEUE_DEPTH) {
+            ship_protocol_rt.event_queue_head = 0U;
+        }
+        ship_protocol_rt.event_queue_count--;
+        ship_protocol_rt.event_queue_dropped++;
+    }
+
+    ship_protocol_rt.event_queue[ship_protocol_rt.event_queue_tail] = *event;
+    ship_protocol_rt.event_queue_tail++;
+    if (ship_protocol_rt.event_queue_tail >= SHIP_PROTOCOL_EVENT_QUEUE_DEPTH) {
+        ship_protocol_rt.event_queue_tail = 0U;
+    }
+    ship_protocol_rt.event_queue_count++;
+}
+
 static void ship_protocol_to_legacy_nmea_coord(u32 abs_deg1e7, u16 *coord1, u16 *coord2)
 {
     u32 degrees;
@@ -261,15 +355,31 @@ static void ship_protocol_read_power_sample(ship_protocol_power_sample_t *sample
 
 static void ship_protocol_service_power_sample(void)
 {
+    u8 previous_level;
+
     if (ship_protocol_rt.power_sample_divider_count < SHIP_POWER_SAMPLE_DIVIDER) {
         ship_protocol_rt.power_sample_divider_count++;
         return;
     }
 
     ship_protocol_rt.power_sample_divider_count = 0U;
+    previous_level = ship_protocol_rt.power_level;
     ship_protocol_read_power_sample(&ship_protocol_rt.power_sample);
     if (ship_protocol_rt.power_sample.valid != 0U) {
         ship_protocol_rt.power_level = ship_protocol_rt.power_sample.report;
+        ship_protocol_clear_event_payload();
+        ship_protocol_fill_power_event(&ship_protocol_rt.power_sample);
+        if (ship_protocol_rt.power_level != previous_level) {
+            ship_protocol_publish_event(SHIP_PROTOCOL_EVENT_POWER_LEVEL_CHANGED,
+                                        SHIP_PROTOCOL_EVENT_STATE_POWER,
+                                        0U,
+                                        0U);
+        } else {
+            ship_protocol_publish_event(SHIP_PROTOCOL_EVENT_POWER_SAMPLE,
+                                        SHIP_PROTOCOL_EVENT_STATE_POWER,
+                                        0U,
+                                        0U);
+        }
     }
 }
 
@@ -314,8 +424,16 @@ static void ship_protocol_low_power_check(void)
             ship_protocol_rt.lowpower_check_ticks++;
         }
         if ((ship_protocol_rt.lowpower_return_latched == 0U) &&
-            (ship_protocol_rt.lowpower_check_ticks > SHIP_LOWPOWER_CHECK_TICKS)) {
+            (ship_protocol_rt.lowpower_check_ticks > SHIP_LOWPOWER_CHECK_TICKS) &&
+            (AutoDrive_GetMode() == AUTO_DRIVE_CLOSE) &&
+            (ShipControl_GetManualAccelerator() < SHIP_LOWPOWER_ACCEL_MAX)) {
             ship_protocol_rt.lowpower_return_latched = 1U;
+            ship_protocol_clear_event_payload();
+            ship_protocol_fill_power_event(&ship_protocol_rt.power_sample);
+            ship_protocol_publish_event(SHIP_PROTOCOL_EVENT_LOW_POWER_LATCHED,
+                                        SHIP_PROTOCOL_EVENT_STATE_POWER,
+                                        0U,
+                                        0U);
             LOGW(SHIP_TAG, "low power latched ticks=%u p=%u",
                  ship_protocol_rt.lowpower_check_ticks,
                  (u16)ship_protocol_rt.power_level);
@@ -695,12 +813,13 @@ static void ship_protocol_publish_event(ship_protocol_event_type_t type,
     ship_protocol_rt.event.pending = 1U;
     ship_protocol_rt.event.sequence++;
     ship_protocol_rt.event.tick_ms = ship_protocol_rt.tick_ms;
+    ship_protocol_event_queue_push(&ship_protocol_rt.event);
 }
 
 static void ship_protocol_publish_error_event(u8 cmd, u8 payload_len)
 {
-    ship_protocol_rt.event.switch_state = 0U;
-    ship_protocol_rt.event.point_valid = 0U;
+    ship_protocol_clear_event_payload();
+    ship_protocol_clear_point_event();
     ship_protocol_publish_event(SHIP_PROTOCOL_EVENT_FRAME_ERROR,
                                 SHIP_PROTOCOL_EVENT_STATE_ERROR,
                                 cmd,
@@ -756,6 +875,20 @@ static int16 ship_protocol_raw_ud_to_input(u8 front_back)
 static int16 ship_protocol_raw_lr_to_input(u8 left_right)
 {
     return (int16)((int16)left_right - (int16)SHIP_AXIS_CENTER);
+}
+
+static ship_protocol_key_action_t ship_protocol_key_to_action(u8 key)
+{
+    switch (key) {
+    case SHIP_PROTOCOL_KEY_B_UNUSED:
+        return SHIP_PROTOCOL_KEY_ACTION_B_NOOP;
+    case SHIP_PROTOCOL_KEY_C_UNUSED:
+        return SHIP_PROTOCOL_KEY_ACTION_C_NOOP;
+    case SHIP_PROTOCOL_KEY_D_UNUSED:
+        return SHIP_PROTOCOL_KEY_ACTION_D_NOOP;
+    default:
+        return SHIP_PROTOCOL_KEY_ACTION_NONE;
+    }
 }
 
 static const char *ship_protocol_fish_result_name(u8 result)
@@ -832,6 +965,7 @@ static void ship_protocol_log_goto_point(const u8 *frame,
 static void ship_protocol_handle_key_edge(u8 key)
 {
     const char *name;
+    ship_protocol_key_action_t key_action;
     int16 throttle_input;
     int16 steering_input;
     int16 yaw_rate_dps;
@@ -842,13 +976,13 @@ static void ship_protocol_handle_key_edge(u8 key)
         name = "A-light";
         break;
     case SHIP_PROTOCOL_KEY_B_UNUSED:
-        name = "B-unused";
+        name = "B-noop";
         break;
     case SHIP_PROTOCOL_KEY_C_UNUSED:
-        name = "C-unused";
+        name = "C-noop";
         break;
     case SHIP_PROTOCOL_KEY_D_UNUSED:
-        name = "D-unused";
+        name = "D-noop";
         break;
     case SHIP_PROTOCOL_KEY_E_RESERVED:
         name = "E-reserved";
@@ -861,11 +995,29 @@ static void ship_protocol_handle_key_edge(u8 key)
         break;
     }
 
+    key_action = ship_protocol_key_to_action(key);
+    ship_protocol_rt.event.throttle.lr = ship_protocol_rt.lr;
+    ship_protocol_rt.event.throttle.ud = ship_protocol_rt.ud;
+    ship_protocol_rt.event.throttle.key = ship_protocol_rt.key;
     ship_protocol_rt.event.throttle.key_event = key;
-    ship_protocol_publish_event(SHIP_PROTOCOL_EVENT_KEY_EDGE,
-                                SHIP_PROTOCOL_EVENT_STATE_KEY_EDGE,
-                                SHIP_CMD_THROTTLE,
-                                3U);
+    ship_protocol_rt.event.throttle.throttle_input =
+        ship_protocol_raw_ud_to_input(ship_protocol_rt.ud);
+    ship_protocol_rt.event.throttle.steering_input =
+        ship_protocol_raw_lr_to_input(ship_protocol_rt.lr);
+    ship_protocol_clear_event_payload();
+    ship_protocol_clear_point_event();
+    ship_protocol_rt.event.key_action = key_action;
+    if (key_action != SHIP_PROTOCOL_KEY_ACTION_NONE) {
+        ship_protocol_publish_event(SHIP_PROTOCOL_EVENT_KEY_ACTION,
+                                    SHIP_PROTOCOL_EVENT_STATE_KEY_ACTION,
+                                    SHIP_CMD_THROTTLE,
+                                    3U);
+    } else {
+        ship_protocol_publish_event(SHIP_PROTOCOL_EVENT_KEY_EDGE,
+                                    SHIP_PROTOCOL_EVENT_STATE_KEY_EDGE,
+                                    SHIP_CMD_THROTTLE,
+                                    3U);
+    }
     LOGI(SHIP_TAG, "key edge key=0x%02X action=%s", (u16)key, name);
 
     if (key != SHIP_PROTOCOL_KEY_E_RESERVED) {
@@ -984,6 +1136,7 @@ static void ship_protocol_handle_throttle(const u8 *payload, u8 payload_len)
     ship_protocol_rt.event.throttle.key_changed =
         (ship_protocol_rt.key != ship_protocol_rt.last_key) ? 1U : 0U;
 
+    ship_protocol_clear_event_payload();
     ship_protocol_clear_point_event();
     ship_protocol_publish_event(SHIP_PROTOCOL_EVENT_THROTTLE,
                                 SHIP_PROTOCOL_EVENT_STATE_THROTTLE_ACTIVE,
@@ -1053,6 +1206,7 @@ static void ship_protocol_handle_return_home(const u8 *payload, u8 payload_len)
         return;
     }
 
+    ship_protocol_clear_event_payload();
     ship_protocol_parse_point_payload(payload, &ship_protocol_rt.event.point);
     ship_protocol_rt.event.switch_state = 0U;
     ship_protocol_rt.event.point_valid = 1U;
@@ -1086,6 +1240,7 @@ static u8 ship_protocol_handle_fish_point(const u8 *payload,
         return AUTODRIVE_FISH_CMD_INVALID;
     }
 
+    ship_protocol_clear_event_payload();
     ship_protocol_parse_point_payload(payload, &ship_protocol_rt.event.point);
     ship_protocol_rt.event.switch_state = 0U;
     ship_protocol_rt.event.point_valid = 1U;
@@ -1113,6 +1268,7 @@ static void ship_protocol_handle_return_switch(const u8 *payload, u8 payload_len
         return;
     }
 
+    ship_protocol_clear_event_payload();
     ship_protocol_rt.event.switch_state = payload[0];
     ship_protocol_clear_point_event();
     if (payload_len >= (u8)(1U + SHIP_PROTOCOL_POINT_PAYLOAD_LEN)) {
@@ -1460,7 +1616,9 @@ void ship_protocol_init(void)
     ship_protocol_rt.event.throttle.key_event = SHIP_KEY_NULL;
     ship_protocol_rt.event.throttle.throttle_input = 0;
     ship_protocol_rt.event.throttle.steering_input = 0;
+    ship_protocol_clear_event_payload();
     ship_protocol_clear_point_event();
+    ship_protocol_event_queue_reset();
 
     ship_protocol_parse_index = 0U;
     ship_protocol_parse_expected_len = 0U;
@@ -1535,6 +1693,31 @@ u8 ship_protocol_is_paired(void)
     return ship_protocol_rt.paired;
 }
 
+void ship_protocol_publish_spi_ps_frame(const u8 *buffer, u8 len, int8 status)
+{
+    u8 i;
+    u8 stored_len;
+
+    stored_len = len;
+    if (stored_len > SHIP_PROTOCOL_SPI_PS_EVENT_DATA_MAX) {
+        stored_len = SHIP_PROTOCOL_SPI_PS_EVENT_DATA_MAX;
+    }
+
+    ship_protocol_clear_event_payload();
+    ship_protocol_rt.event.spi_ps.status = status;
+    ship_protocol_rt.event.spi_ps.len = len;
+    ship_protocol_rt.event.spi_ps.stored_len = stored_len;
+    for (i = 0U; i < stored_len; i++) {
+        ship_protocol_rt.event.spi_ps.bytes[i] =
+            (buffer != 0) ? buffer[i] : 0U;
+    }
+
+    ship_protocol_publish_event(SHIP_PROTOCOL_EVENT_SPI_PS_FRAME_RX,
+                                SHIP_PROTOCOL_EVENT_STATE_SPI_PS,
+                                0U,
+                                len);
+}
+
 u8 ship_protocol_get_event_snapshot(ship_protocol_event_snapshot_t *snapshot)
 {
     if (snapshot == 0) {
@@ -1547,15 +1730,24 @@ u8 ship_protocol_get_event_snapshot(ship_protocol_event_snapshot_t *snapshot)
 
 u8 ship_protocol_take_event(ship_protocol_event_snapshot_t *snapshot)
 {
-    if ((snapshot == 0) || (ship_protocol_rt.event.pending == 0U)) {
+    if ((snapshot == 0) || (ship_protocol_rt.event_queue_count == 0U)) {
         return 0U;
     }
 
-    *snapshot = ship_protocol_rt.event;
-    ship_protocol_rt.event.pending = 0U;
-    ship_protocol_rt.event.state = SHIP_PROTOCOL_EVENT_STATE_IDLE;
-    ship_protocol_rt.event.type = SHIP_PROTOCOL_EVENT_NONE;
-    ship_protocol_rt.event.cmd = 0U;
-    ship_protocol_rt.event.payload_len = 0U;
+    *snapshot = ship_protocol_rt.event_queue[ship_protocol_rt.event_queue_head];
+    ship_protocol_rt.event_queue[ship_protocol_rt.event_queue_head].pending = 0U;
+    ship_protocol_rt.event_queue_head++;
+    if (ship_protocol_rt.event_queue_head >= SHIP_PROTOCOL_EVENT_QUEUE_DEPTH) {
+        ship_protocol_rt.event_queue_head = 0U;
+    }
+    ship_protocol_rt.event_queue_count--;
+
+    if (ship_protocol_rt.event_queue_count == 0U) {
+        ship_protocol_rt.event.pending = 0U;
+        ship_protocol_rt.event.state = SHIP_PROTOCOL_EVENT_STATE_IDLE;
+        ship_protocol_rt.event.type = SHIP_PROTOCOL_EVENT_NONE;
+        ship_protocol_rt.event.cmd = 0U;
+        ship_protocol_rt.event.payload_len = 0U;
+    }
     return 1U;
 }

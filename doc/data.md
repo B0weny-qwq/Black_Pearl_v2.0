@@ -68,6 +68,7 @@ main()
       -> board_power_init()
       -> board_wireless_init()
       -> ship_protocol_init()
+      -> board_spi_ps_init()
       -> board_motor_init()
   -> loop:
       -> platform_scheduler_run()
@@ -76,6 +77,7 @@ main()
           -> board_wireless_poll()
           -> ship_protocol_run_scheduler()
           -> board_wireless_search_signal_poll()
+          -> app_spi_ps_poll()
           -> app_ahrs_poll()
           -> board_motor_service()
 ```
@@ -184,8 +186,10 @@ main()
   - `GPS_REPORT(0x12)` payload[14]：自动驾驶状态，来自 `AutoDrive_InActive()`，
     `0=无自动驾驶`、`1=返航`、`2=去定点/钓点`
   - `0x11`：payload[0]=`lr`，payload[1]=`ud`，payload[2]=`key`；解析后生成
-    `SHIP_PROTOCOL_EVENT_THROTTLE`，按键变化时生成 `SHIP_PROTOCOL_EVENT_KEY_EDGE`；
-    通过开机/航向 ready 保护后提交给 `ShipControl_UpdateManualInput()`
+    `SHIP_PROTOCOL_EVENT_THROTTLE`；A/E/unknown 按键变化仍生成 `SHIP_PROTOCOL_EVENT_KEY_EDGE`；
+    B/C/D 按键变化生成 `SHIP_PROTOCOL_EVENT_KEY_ACTION`，并通过 `key_action` 区分
+    `B_NOOP` / `C_NOOP` / `D_NOOP`；通过开机/航向 ready 保护后提交给
+    `ShipControl_UpdateManualInput()`
   - `0x13`：payload[0..9] 为返航点，格式 `ew lon1 lon2 ns lat1 lat2`，其中
     `lon1/lon2/lat1/lat2` 均为大端 u16；解析后生成 `SHIP_PROTOCOL_EVENT_RETURN_HOME`，
     并调用 `AutoDrive_SetReturnPositionRaw()`
@@ -197,9 +201,10 @@ main()
     格式同 `0x13`；解析后生成 `SHIP_PROTOCOL_EVENT_RETURN_SWITCH`。旧工程默认/关闭值为
     `0x30`，当前会调用 `AutoDrive_SetSwitchRaw()` 保存配置；开关不为 `0x30` 时由
     AutoDrive 尝试返航。
-  - 当前协议事件通过 `ship_protocol_get_event_snapshot()` 或 `ship_protocol_take_event()`
-    暴露给日志、联调或后续观察；真实电机所有权仍在 `ShipControl`，自动驾驶规划仍在
-    `AutoDrive`，协议层不直接写 `board_motor`
+  - 当前协议事件通过 8 深度环形队列暴露给日志、联调或后续观察。
+    `ship_protocol_take_event()` 按 FIFO 消费，`ship_protocol_get_event_snapshot()` 只查看最近事件；
+    `App/Src/app.c` 的 `app_ship_event_poll()` 已在主循环中 drain 队列。
+    真实电机所有权仍在 `ShipControl`，自动驾驶规划仍在 `AutoDrive`，协议层不直接写 `board_motor`
 
 ## 旧无线命令对照表
 
@@ -210,7 +215,7 @@ main()
 |-----|------|------|---------|----------------|----------|
 | `0x0F` | `PAIR_RSP` | 遥控器 -> 船 | 通常 4 字节 | `ship_protocol_handle_pair_rsp()` | 仅 `PAIR_WAIT_RSP` 窗口内确认配对，进入 `WORK_RX`，随后统一回 `0x12` |
 | `0x10` | `PAIR_REQ` | 船 -> 遥控器 | 4 字节 seed | `ship_protocol_try_pair_send()` | 在 `0x7F` 配对信道 burst 发送 10 次，帧为 `AA 06 10 65 65 A0 65 C3 BB` |
-| `0x11` | `THROTTLE` | 遥控器 -> 船 | `lr, ud, key` | `ship_protocol_handle_throttle()` -> `ShipControl_UpdateManualInput()` | 开机/航向保护内只保活；AutoDrive busy 时不抢电机；正常时更新手动控制；E 键可进入/退出巡航 |
+| `0x11` | `THROTTLE` | 遥控器 -> 船 | `lr, ud, key` | `ship_protocol_handle_throttle()` -> `ShipControl_UpdateManualInput()` | 开机/航向保护内只保活；AutoDrive busy 时不抢电机；正常时更新手动控制；A/E/unknown 保持 `KEY_EDGE`；B/C/D 发布 `KEY_ACTION_*_NOOP`；E 键可进入/退出巡航 |
 | `0x12` | `GPS_REPORT` | 船 -> 遥控器 | 固定 15 字节 | `ship_protocol_send_gps_once()` | 任意合法 `0x0F/0x11/0x13/0x14/0x15` 分发后回包；方向字节继续固定 `E/W` |
 | `0x13` | `RETURN_HOME` | 遥控器 -> 船 | 10 字节旧点位 | `AutoDrive_SetReturnPositionRaw()` | 保存返航点到配置并尝试进入返航；随后统一回 `0x12` |
 | `0x14` | `GOTO_POINT` | 遥控器 -> 船 | 10 字节旧点位 | `AutoDrive_SetFishPositionRaw()` | RAM 5 点表查重；未知点存储/拒绝，命中已知点才距离检查并尝试启动去点；日志输出结果码和 index |
@@ -242,6 +247,7 @@ main()
 | 配对成功 | `pair ok` | 收到合法 `PAIR_RSP(0x0F)` 或任意合法旧帧后刷新 `paired` |
 | 工作信道 | `enter work-state` | 已切入旧算法派生工作信道 RX |
 | 手动输入 | `rc cmd=0x11` | 解析 `lr/ud/key`，通过保护条件后提交给 `ShipControl` |
+| 按键动作 | `key edge key=` | A/E/unknown 仍是 `KEY_EDGE`；B/C/D 日志为 `B-noop`/`C-noop`/`D-noop` 并发布 `KEY_ACTION_*_NOOP` |
 | 开机保护 | `manual boot block` / `manual boot ready` | 上电短暂阻塞手动电机输出，可等待航向 ready |
 | 巡航状态 | `cruise enter` / `cruise exit` / `cruise reject` | E 键巡航准入、退出和拒绝原因 |
 | 电机输出 | `CTRL out mode=` | `ShipControl` 统一输出 mode、motion、base、diff、left、right |
@@ -252,7 +258,9 @@ main()
 | GPS 回包 | `tx cmd=0x12` | 任意合法协议帧分发后发送固定 15 字节 GPS payload |
 | AutoDrive 诊断 | `tx cmd=0x16` | 主动上报 state、mode、switch、reason、GPS、卫星数和距离 |
 | 配置保存 | `ADCFG load` / `ADCFG save` | AutoDrive 配置经 `parameter_store -> board_storage` 读写 |
-| 电源采样 | `POWER init ok` / `adc raw=` / `low power latched` | 电源底层初始化、电量采样和低电返航触发 |
+| 电源采样 | `POWER init ok` / `adc raw=` / `low power latched` | 电源底层初始化、电量采样、`POWER_SAMPLE` / `POWER_LEVEL_CHANGED` 观察事件和低电返航触发；`bat_mv` 未标定时启动日志会提示 |
+| 协议事件消费 | `[EVT] ship ...` | `app_ship_event_poll()` 从 `ship_protocol_take_event()` FIFO drain 事件；高频 throttle/power sample 默认不额外刷日志 |
+| SPI-PS RX | `SPI-PS init ok` / `disabled: shared SPI resource with LT8920` | SPI-PS 初始化成功后，`app_loop()` 轮询 RX 完整帧并发布 `SPI_PS_FRAME_RX`；当前生成配置默认禁用，且共用 SPI 护栏会阻止误启用 |
 | 链路异常 | `timeout` / `bad xor` / `queue full` | 用于确认超时、CRC/XOR 拒包和 RF payload 队列溢出 |
 
 这些日志属于 `Services/logger` 诊断输出。`App/` 可以调用日志宏，但无线硬件访问仍必须通过
@@ -267,6 +275,11 @@ main()
   - 默认模式：从机，SS 由引脚决定
   - 位序：MSB first
   - 时钟：CPOL Low，CPHA 2Edge，Fosc/4
+- SPI-PS 当前生成配置：
+  - `EF_BOARD_SPI_PS_ENABLED = 0U`
+  - `EF_BOARD_SPI_PS_SHARES_LT8920_SPI = 1U`
+  - 如果未确认独立 SPI 或仲裁策略就启用 SPI-PS，`board_spi_ps_init()` 会返回
+    `BOARD_SPI_PS_ERR_RESOURCE`，避免在无线初始化后把 STC SPI 改成 SPI-PS 从机模式。
 - LT8920 板级固定资源：
   - SPI 路由：P3.5=CS、P3.4=MISO、P3.3=MOSI、P3.2=SCLK
   - RST：P5.0
@@ -321,22 +334,25 @@ main()
 - 传感器底层：`board_gps`、`board_imu`、`board_mag` 已接入；AHRS、MagCompass 和
   HeadingEstimator 已提供航向 ready/角速度/航向角数据。
 - 电源底层：`board_power` 已封装 `P0.0 / ADC_CH8`、ADC 初始化、采样、毫伏值和
-  `0..4` 电量等级。
+  `0..4` 电量等级；`bat_mv` 当前仍按 `BOARD_POWER_BAT_SCALE_NUM/DEN = 1/1`
+  输出占位值。
 - 存储底层：`board_storage` 已封装 STC EEPROM/IAP 读写和扇区擦除。
 - 服务层：`logger` 和 `parameter_store` 已实现；AutoDrive 配置通过
   `parameter_store -> board_storage` 保存。
 
 ### 未实现底层
 
-- A/B/C/D 键对应的灯控、蜂鸣器或其它板级外设未确认；当前只保留按键事件名和日志，
-  不驱动硬件。
+- A/B/C/D 键对应的灯控、蜂鸣器或其它板级外设未确认；当前不驱动硬件。A 保持现有
+  A-light `KEY_EDGE` 日志语义；B/C/D 已保留明确业务事件
+  `SHIP_PROTOCOL_EVENT_KEY_ACTION`，分别为 `B_NOOP`、`C_NOOP`、`D_NOOP`。
 - 电池分压电阻真实比例未确认；`board_power` 的 `bat_mv` 使用 `1:1` 占位比例，
   但 `0x12 payload[13]` 的旧版电量等级已可用于遥控器兼容。
 
 ### 能实现但当前未实现
 
-- A/B/C/D 对应外设确认后，可以按 `BoardDevices/board_light`、`board_buzzer` 等板级
-  API 接入，并由协议按键状态机调用；不能在 `ship_protocol.c` 里直接写 GPIO。
+- A 对应灯控脚确认后，可以按 `BoardDevices/board_light` 板级 API 接入；本轮未新增 A
+  `KEY_ACTION`，也未接硬件。若后续 B/C/D 需要真实外设，也必须通过 `BoardDevices/`
+  API 接入；不能在 `ship_protocol.c` 里直接写 GPIO。
 - `board_power` 的真实电池毫伏值校准可在确认分压电阻后补齐，只需修改 BoardDevices
   内部换算，不影响 `0x12` 协议字段布局。
 
@@ -396,6 +412,12 @@ Current runtime sampling chain:
 - ADC update divider: `SHIP_POWER_SAMPLE_DIVIDER = 100`
 - Effective ADC update period: about `1000 ms`
 - Runtime-tracked period field: `ship_protocol_rt.power_sample_period_ms`
+- Each valid sample publishes a protocol observation event. If the discrete level changed, the event is
+  `SHIP_PROTOCOL_EVENT_POWER_LEVEL_CHANGED`; otherwise it is `SHIP_PROTOCOL_EVENT_POWER_SAMPLE`.
+- Low-power return latches only after `power_level == 0`, more than `600` scheduler ticks,
+  `AutoDrive_GetMode() == AUTO_DRIVE_CLOSE`, and `ShipControl_GetManualAccelerator() < 10`.
+  The latch publishes `SHIP_PROTOCOL_EVENT_LOW_POWER_LATCHED` once and then triggers
+  `AutoDrive_TriggerReturnWithReason(AUTODRIVE_DIAG_REASON_LOW_POWER)`.
 
 Current cached power sample fields in `ship_protocol_rt`:
 
@@ -410,6 +432,38 @@ Current cached power sample fields in `ship_protocol_rt`:
 - `power_sample.report`
 - `power_sample.valid`
 
+Current protocol event queue:
+
+- Queue depth: `SHIP_PROTOCOL_EVENT_QUEUE_DEPTH = 8`
+- Producer: `ship_protocol_publish_event()` copies the current `ship_protocol_event_snapshot_t`
+  into the ring queue after assigning type/state/cmd/len/sequence/tick.
+- Consumer: `ship_protocol_take_event()` returns queued events FIFO and clears the latest-event
+  pending flag only when the queue becomes empty.
+- Latest snapshot: `ship_protocol_get_event_snapshot()` remains a non-consuming view of the most
+  recent event.
+- Overflow behavior: when the queue is full, the oldest queued event is dropped and the newest
+  event is inserted. This keeps current control observations moving without blocking the scheduler.
+- App drain: `app_ship_event_poll()` is called once per `app_loop()` after `app_spi_ps_poll()`.
+
+Current protocol event snapshot extensions:
+
+- `key_action`: valid for `SHIP_PROTOCOL_EVENT_KEY_ACTION`; values are `SHIP_PROTOCOL_KEY_ACTION_B_NOOP`,
+  `SHIP_PROTOCOL_KEY_ACTION_C_NOOP`, and `SHIP_PROTOCOL_KEY_ACTION_D_NOOP`. A does not use this path.
+- `power`: filled for `SHIP_PROTOCOL_EVENT_POWER_SAMPLE`,
+  `SHIP_PROTOCOL_EVENT_POWER_LEVEL_CHANGED`, and `SHIP_PROTOCOL_EVENT_LOW_POWER_LATCHED`; fields are
+  `raw`, `adc_mv`, `bat_mv`, `level`, and `valid`.
+- `spi_ps`: filled for `SHIP_PROTOCOL_EVENT_SPI_PS_FRAME_RX`; fields are `status`, `len`,
+  `stored_len`, and the first `16` bytes in `bytes`.
+
+Current SPI-PS App bridge:
+
+- `app_init()` calls `board_spi_ps_init()` after wireless bring-up; if initialization fails,
+  `app_spi_ps_poll()` exits silently.
+- `app_loop()` calls `app_spi_ps_poll()`, which runs `board_spi_ps_service()`, then
+  `board_spi_ps_read()` for completed RX frames.
+- Successful reads and overflow/truncated reads publish `SHIP_PROTOCOL_EVENT_SPI_PS_FRAME_RX`; the
+  `spi_ps.status` field preserves `BOARD_SPI_PS_OK` or `BOARD_SPI_PS_ERR_OVERFLOW`.
+
 Power-level mapping remains aligned to the old discrete thresholds:
 
 - non-`BOARD_12V`: `1710 / 1630 / 1530 / 1420`
@@ -417,7 +471,10 @@ Power-level mapping remains aligned to the old discrete thresholds:
 
 Important current limitation:
 
-- `bat_mv` scaling still uses the placeholder divider ratio `SHIP_BAT_DIV_NUM = 1`, `SHIP_BAT_DIV_DEN = 1` until the real current-board resistor divider values are reintroduced or confirmed from hardware data.
+- `bat_mv` scaling still uses the placeholder board-power ratio `BOARD_POWER_BAT_SCALE_NUM = 1`,
+  `BOARD_POWER_BAT_SCALE_DEN = 1` until the real current-board resistor divider values are
+  reintroduced or confirmed from hardware data.
+- `BOARD_POWER_BAT_MV_UNCALIBRATED = 1U` intentionally keeps the startup warning visible.
 - Because of that, old-style remote compatibility is already restored for `payload[13]` power level, but the internal `bat_mv` engineering value should not yet be treated as calibrated.
 
 AutoDrive persistent configuration now follows this chain:

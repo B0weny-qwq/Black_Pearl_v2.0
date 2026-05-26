@@ -5,6 +5,7 @@
 #include "board_mag.h"
 #include "board_motor.h"
 #include "board_power.h"
+#include "board_spi_ps.h"
 #include "board_wireless.h"
 #include "platform_scheduler.h"
 #include "AHRS.h"
@@ -16,12 +17,45 @@
 
 #define APP_AHRS_LOG_DECIMATION          32U
 #define APP_MAG_COMPASS_STATIC_SETTLE_MS 3000UL
+#define APP_SPI_PS_RX_EVENT_MAX          32U
 
 static HeadingEstimator_t app_heading;
 static u8 app_heading_ready = 0U;
 static u16 app_heading_deg100 = 0U;
 static int16 app_heading_rel_deg100 = 0;
 static u8 app_ahrs_started = 0U;
+static u8 app_spi_ps_ready = 0U;
+
+static const char *app_ship_event_name(ship_protocol_event_type_t type)
+{
+	switch(type)
+	{
+	case SHIP_PROTOCOL_EVENT_THROTTLE:
+		return "throttle";
+	case SHIP_PROTOCOL_EVENT_KEY_EDGE:
+		return "key-edge";
+	case SHIP_PROTOCOL_EVENT_RETURN_HOME:
+		return "return-home";
+	case SHIP_PROTOCOL_EVENT_FISH_POINT:
+		return "fish-point";
+	case SHIP_PROTOCOL_EVENT_RETURN_SWITCH:
+		return "return-switch";
+	case SHIP_PROTOCOL_EVENT_KEY_ACTION:
+		return "key-action";
+	case SHIP_PROTOCOL_EVENT_POWER_SAMPLE:
+		return "power-sample";
+	case SHIP_PROTOCOL_EVENT_POWER_LEVEL_CHANGED:
+		return "power-level";
+	case SHIP_PROTOCOL_EVENT_LOW_POWER_LATCHED:
+		return "low-power";
+	case SHIP_PROTOCOL_EVENT_SPI_PS_FRAME_RX:
+		return "spi-ps-rx";
+	case SHIP_PROTOCOL_EVENT_FRAME_ERROR:
+		return "frame-error";
+	default:
+		return "none";
+	}
+}
 
 static u32 app_abs32(int32 value)
 {
@@ -226,6 +260,9 @@ static void app_bring_up_devices(void)
 	if(ret == BOARD_POWER_OK)
 	{
 		LOGI("POWER", "init ok");
+#if BOARD_POWER_BAT_MV_UNCALIBRATED
+		LOGW("POWER", "bat_mv uncalibrated, using adc_mv scale");
+#endif
 	}
 	else
 	{
@@ -241,6 +278,21 @@ static void app_bring_up_devices(void)
 	else
 	{
 		LOGE("WL", "init fail rc=%d", ret);
+	}
+
+	ret = board_spi_ps_init();
+	if(ret == BOARD_SPI_PS_OK)
+	{
+		app_spi_ps_ready = 1U;
+		LOGI("SPI-PS", "init ok");
+	}
+	else
+	{
+		app_spi_ps_ready = 0U;
+		if(ret == BOARD_SPI_PS_ERR_RESOURCE)
+		{
+			LOGW("SPI-PS", "disabled: shared SPI resource with LT8920");
+		}
 	}
 
     ret = board_motor_init();
@@ -457,6 +509,102 @@ static void app_ahrs_poll(void)
 	app_ahrs_log(att, MagCompass_GetState(), heading_static, heading_mag_settled);
 }
 
+static void app_spi_ps_poll(void)
+{
+	u8 buffer[APP_SPI_PS_RX_EVENT_MAX];
+	u8 len;
+	int8 ret;
+
+	if(app_spi_ps_ready == 0U)
+	{
+		return;
+	}
+	if(board_spi_ps_service() == 0U)
+	{
+		return;
+	}
+
+	len = 0U;
+	ret = board_spi_ps_read(buffer, APP_SPI_PS_RX_EVENT_MAX, &len);
+	if((ret == BOARD_SPI_PS_OK) || (ret == BOARD_SPI_PS_ERR_OVERFLOW))
+	{
+		ship_protocol_publish_spi_ps_frame(buffer, len, ret);
+	}
+}
+
+static void app_dispatch_ship_event(const ship_protocol_event_snapshot_t *event)
+{
+	if((event == 0) || (event->type == SHIP_PROTOCOL_EVENT_NONE))
+	{
+		return;
+	}
+
+	switch(event->type)
+	{
+	case SHIP_PROTOCOL_EVENT_KEY_EDGE:
+		LOGI("EVT", "ship %s seq=%u key=0x%02X input=%d/%d",
+			 app_ship_event_name(event->type),
+			 event->sequence,
+			 (u16)event->throttle.key_event,
+			 event->throttle.throttle_input,
+			 event->throttle.steering_input);
+		break;
+	case SHIP_PROTOCOL_EVENT_KEY_ACTION:
+		LOGI("EVT", "ship %s seq=%u action=%u key=0x%02X",
+			 app_ship_event_name(event->type),
+			 event->sequence,
+			 (u16)event->key_action,
+			 (u16)event->throttle.key_event);
+		break;
+	case SHIP_PROTOCOL_EVENT_RETURN_HOME:
+	case SHIP_PROTOCOL_EVENT_FISH_POINT:
+	case SHIP_PROTOCOL_EVENT_RETURN_SWITCH:
+		LOGI("EVT", "ship %s seq=%u cmd=0x%02X point=%u switch=0x%02X",
+			 app_ship_event_name(event->type),
+			 event->sequence,
+			 (u16)event->cmd,
+			 (u16)event->point_valid,
+			 (u16)event->switch_state);
+		break;
+	case SHIP_PROTOCOL_EVENT_POWER_LEVEL_CHANGED:
+	case SHIP_PROTOCOL_EVENT_LOW_POWER_LATCHED:
+		LOGI("EVT", "ship %s seq=%u level=%u bat=%lu valid=%u",
+			 app_ship_event_name(event->type),
+			 event->sequence,
+			 (u16)event->power.level,
+			 event->power.bat_mv,
+			 (u16)event->power.valid);
+		break;
+	case SHIP_PROTOCOL_EVENT_SPI_PS_FRAME_RX:
+		LOGI("EVT", "ship %s seq=%u rc=%d len=%u stored=%u",
+			 app_ship_event_name(event->type),
+			 event->sequence,
+			 event->spi_ps.status,
+			 (u16)event->spi_ps.len,
+			 (u16)event->spi_ps.stored_len);
+		break;
+	case SHIP_PROTOCOL_EVENT_FRAME_ERROR:
+		LOGW("EVT", "ship %s seq=%u cmd=0x%02X len=%u",
+			 app_ship_event_name(event->type),
+			 event->sequence,
+			 (u16)event->cmd,
+			 (u16)event->payload_len);
+		break;
+	default:
+		break;
+	}
+}
+
+static void app_ship_event_poll(void)
+{
+	ship_protocol_event_snapshot_t event;
+
+	while(ship_protocol_take_event(&event) != 0U)
+	{
+		app_dispatch_ship_event(&event);
+	}
+}
+
 void app_init(void)
 {
 	if(board_console_init() == BOARD_CONSOLE_OK)
@@ -473,6 +621,8 @@ void app_loop(void)
 	(void)board_wireless_poll();
 	ship_protocol_run_scheduler();
 	(void)board_wireless_search_signal_poll();
+	app_spi_ps_poll();
+	app_ship_event_poll();
 	app_ahrs_poll();
 	(void)board_motor_service();
 }

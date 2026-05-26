@@ -269,7 +269,9 @@ resource_conflicts:
     resource: SPI
     users:
       - radio_spi
+      - disabled_devices.spi_peer_link
     rule: Current firmware only enables the LT8920 SPI mux on P3.2-P3.5.
+    guard: EF_BOARD_SPI_PS_SHARES_LT8920_SPI keeps board_spi_ps_init() disabled until hardware confirms an independent SPI path or a safe bus arbitration strategy.
 
 init_sequence:
   platform:

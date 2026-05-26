@@ -17,6 +17,7 @@
 #define BOARD_SPI_PS_ERR_BUSY          -2
 #define BOARD_SPI_PS_ERR_DRIVER        -3
 #define BOARD_SPI_PS_ERR_OVERFLOW      -4
+#define BOARD_SPI_PS_ERR_RESOURCE      -5
 
 /**
  * @brief 初始化板级 SPI-PS 链路。

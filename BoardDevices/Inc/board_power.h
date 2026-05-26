@@ -22,6 +22,10 @@
 #define BOARD_POWER_LEVEL_3        3U
 #define BOARD_POWER_LEVEL_4        4U
 
+#define BOARD_POWER_BAT_SCALE_NUM  1UL
+#define BOARD_POWER_BAT_SCALE_DEN  1UL
+#define BOARD_POWER_BAT_MV_UNCALIBRATED 1U
+
 typedef struct
 {
     u16 raw;

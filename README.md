@@ -32,10 +32,10 @@ Keil 工程以及芯片资料对应。
 - 板级电源采样：`BoardDevices/Src/board_power.c`，当前隐藏 ADC/GPIO 细节，对上提供电池原始值、毫伏值和 `0..4` 电量等级。
 - 板级存储：`BoardDevices/Src/board_storage.c`，当前隐藏 STC EEPROM/IAP 细节，供服务层保存少量配置。
 - 参数服务：`Services/Src/parameter_store.c`，当前通过 `board_storage` 保存 AutoDrive 返航开关和返航点配置。
-- 船端协议状态机：`App/Src/ship_protocol.c`，当前接入无线配对、旧帧截取、`0x11/0x13/0x14/0x15` 分发、`0x12` GPS/status 回包和 `0x16` AutoDrive 诊断上报。
+- 船端协议状态机：`App/Src/ship_protocol.c`，当前接入无线配对、旧帧截取、`0x11/0x13/0x14/0x15` 分发、事件快照队列、`0x12` GPS/status 回包和 `0x16` AutoDrive 诊断上报。
 - 船体控制状态机：`App/Src/ship_control.c`，当前拥有电机输出控制权，负责手动开环/航向保持、E 键巡航、GPS 对齐/导航输出和超时停机。
 - GPS AutoDrive 状态机：`App/Src/autodrive.c`，当前负责返航、去定点、对齐阶段、钓点表、配置加载保存和诊断快照。
-- 板级 SPI-PS：`BoardDevices/Src/board_spi_ps.c`
+- 板级 SPI-PS：`BoardDevices/Src/board_spi_ps.c`，当前生成配置默认关闭，并显式标记为与 LT8920 共用 STC SPI 外设，防止误启用后重配无线 SPI。
 - 芯片驱动层：`ChipDrivers/Src/`，当前含 `gnss_nmea`、`QMI8658`、`QMC6309`、`LT8920`、`KCT8206`
 - 算法组件：`Components/Src/Filter.c`、`Components/Src/PID.c`
 - MCU 抽象层：`McuAbstraction/Src/`，当前含 `ef_uart`、`ef_iic`、`ef_spi`
@@ -130,6 +130,7 @@ main()
         -> board_power_init()
         -> board_wireless_init()
         -> ship_protocol_init()
+        -> board_spi_ps_init()
         -> board_motor_init()
   -> loop
      -> platform_scheduler_run()
@@ -138,6 +139,7 @@ main()
         -> board_wireless_poll()
         -> ship_protocol_run_scheduler()
         -> board_wireless_search_signal_poll()
+        -> app_spi_ps_poll()
         -> app_ahrs_poll()
         -> board_motor_service()
 ```
@@ -192,6 +194,8 @@ main()
   `reg36=0x2020`、`reg39=0x1E1E`。RF payload 按旧格式
   `AA | len | cmd | payload | xor | BB` 截帧，合法 `0x0F/0x11/0x13/0x14/0x15`
   分发后发送 `GPS_REPORT(0x12)`；`0x16` 作为 AutoDrive 主动诊断上报，不替代 `0x12`。
+  协议事件通过 8 深度环形队列交给 `ship_protocol_take_event()`，`ship_protocol_get_event_snapshot()`
+  仍保留最近一次快照语义。
 - `App/Inc/ship_control.h`、`App/Src/ship_control.c`：船体控制状态机，协议层只提交
   手动输入、巡航请求和 GPS 导航请求；最终左右电机输出统一从这里写入 `board_motor`。
 - `App/Inc/autodrive.h`、`App/Src/autodrive.c`：GPS 自动驾驶状态机，`0x13/0x14/0x15`
@@ -222,6 +226,9 @@ SS 高电平表示总线空闲
 ```
 
 原始参考代码中的 UART2 桥接回显属于 sample app 行为，未放入 SPI-PS 抽象层。
+当前 `EF_BOARD_SPI_PS_ENABLED = 0U`；同时生成配置给出
+`EF_BOARD_SPI_PS_SHARES_LT8920_SPI = 1U`，因此即使后续误打开 SPI-PS，`board_spi_ps_init()`
+也会返回 `BOARD_SPI_PS_ERR_RESOURCE`，直到确认有独立 SPI 或实现安全仲裁/重初始化策略。
 
 ## v1.1 AHRS/MAG port note
 
@@ -250,6 +257,10 @@ The current tree now aligns the old wireless/control behavior with the v2 layere
   - `payload[14]` comes from `AutoDrive_InActive()`
   - transmit channel uses the old work TX path `rf_channel[2]`
 - `0x11` now feeds `ShipControl_UpdateManualInput()` after boot/heading guards, and E-key cruise uses heading hold.
+- `0x11` key-edge handling keeps A/E/unknown on the existing `SHIP_PROTOCOL_EVENT_KEY_EDGE` path. B/C/D key edges now publish `SHIP_PROTOCOL_EVENT_KEY_ACTION` with `SHIP_PROTOCOL_KEY_ACTION_B_NOOP`, `SHIP_PROTOCOL_KEY_ACTION_C_NOOP`, or `SHIP_PROTOCOL_KEY_ACTION_D_NOOP`; these are semantic no-op events and do not drive hardware.
+- `ship_protocol_event_snapshot_t` now exposes `key_action`, `power`, and `spi_ps` observation fields for App-side or external subscribers.
+- Protocol events are no longer a single overwritten slot: `ship_protocol_publish_event()` pushes snapshots into an 8-entry ring queue, `ship_protocol_take_event()` drains them FIFO, and `ship_protocol_get_event_snapshot()` remains a latest-snapshot helper.
+- `App/Src/app.c` now drains protocol events in `app_ship_event_poll()` each loop. High-rate throttle/power sample events stay mostly quiet, while key/action/point/power-latch/SPI-PS/error events have explicit dispatch logs.
 - `0x13/0x14/0x15` now dispatch to `AutoDrive_SetReturnPositionRaw()`,
   `AutoDrive_SetFishPositionRaw()`, and `AutoDrive_SetSwitchRaw()`.
 - `0x14` logs fish-point result codes and matched indexes; unknown points are stored only while the RAM table has space.
@@ -262,4 +273,13 @@ Power reporting is also aligned back to the old discrete behavior for the curren
 - Power sampling runs inside the 10 ms `ship_protocol_run_scheduler()` path, but the battery sample itself is down-sampled with `SHIP_POWER_SAMPLE_DIVIDER = 100`, so the effective ADC update period is about `1000 ms`.
 - The computed sampling period is stored in global runtime state as `ship_protocol_rt.power_sample_period_ms`.
 - `0x12 payload[13]` now carries the real old-style power level `0..4`, not raw ADC counts.
-- Low-power latch calls `AutoDrive_TriggerReturnWithReason(AUTODRIVE_DIAG_REASON_LOW_POWER)`.
+- Power sampling now publishes protocol observation events: unchanged valid samples use `SHIP_PROTOCOL_EVENT_POWER_SAMPLE`, level transitions use `SHIP_PROTOCOL_EVENT_POWER_LEVEL_CHANGED`, and both fill the snapshot `power` fields.
+- Low-power latch now requires `power_level == 0`, more than `600` scheduler ticks, `AutoDrive_GetMode() == AUTO_DRIVE_CLOSE`, and `ShipControl_GetManualAccelerator() < 10`; when latched it publishes `SHIP_PROTOCOL_EVENT_LOW_POWER_LATCHED` and calls `AutoDrive_TriggerReturnWithReason(AUTODRIVE_DIAG_REASON_LOW_POWER)`.
+- `bat_mv` is still a `1:1` placeholder engineering value until the real resistor-divider ratio is confirmed; the scale macros live in `BoardDevices/Inc/board_power.h` as `BOARD_POWER_BAT_SCALE_NUM/DEN`, and boot logs warn while `BOARD_POWER_BAT_MV_UNCALIBRATED` is set. The remote-compatible `0..4` level remains valid.
+
+SPI-PS now has an App event bridge without changing the BoardDevices boundary:
+
+- `app_init()` initializes `board_spi_ps`; if init fails, the main loop stays silent for SPI-PS.
+- `app_loop()` polls `board_spi_ps_service()`, reads completed RX frames with `board_spi_ps_read()`, and publishes `SHIP_PROTOCOL_EVENT_SPI_PS_FRAME_RX`.
+- The SPI-PS event snapshot stores the status code, RX length, truncated stored length, and the first `16` bytes in `spi_ps.bytes`.
+- In the current generated config SPI-PS is disabled and marked as sharing LT8920's STC SPI resource, so normal firmware logs the resource guard instead of enabling SPI-PS RX.

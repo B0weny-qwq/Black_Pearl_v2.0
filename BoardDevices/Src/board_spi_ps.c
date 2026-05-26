@@ -8,6 +8,9 @@
 int8 board_spi_ps_init(void)
 {
 #if EF_BOARD_SPI_PS_ENABLED
+#if EF_BOARD_SPI_PS_SHARES_LT8920_SPI
+    return BOARD_SPI_PS_ERR_RESOURCE;
+#else
     ef_spi_config_t config;
 
     SPI_SW(EF_BOARD_SPI_PS_MUX);
@@ -31,6 +34,7 @@ int8 board_spi_ps_init(void)
     }
 
     return BOARD_SPI_PS_OK;
+#endif
 #else
     return BOARD_SPI_PS_ERR_DRIVER;
 #endif

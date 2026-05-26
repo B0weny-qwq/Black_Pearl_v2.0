@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- 2026-05-24 protocol event follow-up:
+  - Added B/C/D semantic key-action events in `ship_protocol`: B maps to `SHIP_PROTOCOL_KEY_ACTION_B_NOOP`, C maps to `SHIP_PROTOCOL_KEY_ACTION_C_NOOP`, and D maps to `SHIP_PROTOCOL_KEY_ACTION_D_NOOP`.
+  - Kept A on the existing A-light `KEY_EDGE` log path only; no A `KEY_ACTION`, no `board_light`, and no GPIO/light hardware drive were added.
+  - Added protocol observation events for power sampling: `SHIP_PROTOCOL_EVENT_POWER_SAMPLE`, `SHIP_PROTOCOL_EVENT_POWER_LEVEL_CHANGED`, and `SHIP_PROTOCOL_EVENT_LOW_POWER_LATCHED`.
+  - Aligned low-power return gating to `power_level == 0`, `> 600` scheduler ticks, `AutoDrive_GetMode() == AUTO_DRIVE_CLOSE`, and `ShipControl_GetManualAccelerator() < 10` before latching return-home.
+  - Extended `ship_protocol_event_snapshot_t` with `key_action`, `power`, and `spi_ps` fields so subscribers can observe key semantics, power sample values, and SPI-PS frame metadata.
+  - Replaced the previous single pending-event slot with an 8-entry ring queue; `ship_protocol_take_event()` now drains events FIFO while `ship_protocol_get_event_snapshot()` remains a latest-snapshot view.
+  - Added `app_ship_event_poll()` so the main loop actually consumes queued protocol events and logs key/action/point/power-latch/SPI-PS/error observations.
+  - Added an App-level SPI-PS event bridge: `app_loop()` polls `board_spi_ps_service()`, reads completed RX frames, and publishes `SHIP_PROTOCOL_EVENT_SPI_PS_FRAME_RX` when SPI-PS is enabled.
+  - Added a generated SPI-PS resource guard, `EF_BOARD_SPI_PS_SHARES_LT8920_SPI`, so future SPI-PS enablement cannot silently reconfigure the STC SPI peripheral used by LT8920.
+  - Updated docs/log notes to reflect that B/C/D are event-only no-op semantics, A light hardware is still pending pin confirmation, and `bat_mv` remains an uncalibrated `1:1` placeholder through `BOARD_POWER_BAT_SCALE_NUM/DEN`.
+
 - 2026-05-24 state-machine wireless/control/autodrive port:
   - Added BoardDevices `board_power` and `board_storage`, so App no longer includes STC ADC/GPIO/EEPROM drivers directly.
   - Added `Services/parameter_store` for compact AutoDrive config persistence through `board_storage`.

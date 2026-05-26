@@ -3,8 +3,6 @@
 #include "STC32G_GPIO.h"
 
 #define BOARD_POWER_ADC_REF_MV      3300UL
-#define BOARD_POWER_BAT_DIV_NUM     1UL
-#define BOARD_POWER_BAT_DIV_DEN     1UL
 
 #ifdef BOARD_12V
 #define BOARD_POWER_FULL_RAW        2000U
@@ -34,10 +32,10 @@ static u16 board_power_raw_to_mv(u16 raw)
 
 static u32 board_power_adc_to_bat_mv(u16 adc_mv)
 {
-    if (BOARD_POWER_BAT_DIV_DEN == 0UL) {
+    if (BOARD_POWER_BAT_SCALE_DEN == 0UL) {
         return (u32)adc_mv;
     }
-    return (((u32)adc_mv * BOARD_POWER_BAT_DIV_NUM) / BOARD_POWER_BAT_DIV_DEN);
+    return (((u32)adc_mv * BOARD_POWER_BAT_SCALE_NUM) / BOARD_POWER_BAT_SCALE_DEN);
 }
 
 static u8 board_power_raw_to_level(u16 raw)

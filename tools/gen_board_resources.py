@@ -164,6 +164,7 @@ def emit_header(text: str) -> str:
 
 /* SPI-PS peer link is not active in the current firmware. */
 #define EF_BOARD_SPI_PS_ENABLED            0U
+#define EF_BOARD_SPI_PS_SHARES_LT8920_SPI  1U
 
 #endif
 """

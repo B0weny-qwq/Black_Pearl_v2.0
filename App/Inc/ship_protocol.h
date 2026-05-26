@@ -36,6 +36,9 @@
 #define SHIP_PROTOCOL_KEY_C_UNUSED      0xA7U
 #define SHIP_PROTOCOL_KEY_D_UNUSED      0xA9U
 
+#define SHIP_PROTOCOL_SPI_PS_EVENT_DATA_MAX 16U
+#define SHIP_PROTOCOL_EVENT_QUEUE_DEPTH     8U
+
 typedef enum
 {
     SHIP_PROTOCOL_STATE_BOOT_WAIT = 0,
@@ -49,9 +52,12 @@ typedef enum
     SHIP_PROTOCOL_EVENT_STATE_IDLE = 0,
     SHIP_PROTOCOL_EVENT_STATE_THROTTLE_ACTIVE,
     SHIP_PROTOCOL_EVENT_STATE_KEY_EDGE,
+    SHIP_PROTOCOL_EVENT_STATE_KEY_ACTION,
     SHIP_PROTOCOL_EVENT_STATE_RETURN_HOME_PENDING,
     SHIP_PROTOCOL_EVENT_STATE_FISH_POINT_PENDING,
     SHIP_PROTOCOL_EVENT_STATE_RETURN_SWITCH_PENDING,
+    SHIP_PROTOCOL_EVENT_STATE_POWER,
+    SHIP_PROTOCOL_EVENT_STATE_SPI_PS,
     SHIP_PROTOCOL_EVENT_STATE_ERROR
 } ship_protocol_event_state_t;
 
@@ -63,8 +69,21 @@ typedef enum
     SHIP_PROTOCOL_EVENT_RETURN_HOME,
     SHIP_PROTOCOL_EVENT_FISH_POINT,
     SHIP_PROTOCOL_EVENT_RETURN_SWITCH,
+    SHIP_PROTOCOL_EVENT_KEY_ACTION,
+    SHIP_PROTOCOL_EVENT_POWER_SAMPLE,
+    SHIP_PROTOCOL_EVENT_POWER_LEVEL_CHANGED,
+    SHIP_PROTOCOL_EVENT_LOW_POWER_LATCHED,
+    SHIP_PROTOCOL_EVENT_SPI_PS_FRAME_RX,
     SHIP_PROTOCOL_EVENT_FRAME_ERROR
 } ship_protocol_event_type_t;
+
+typedef enum
+{
+    SHIP_PROTOCOL_KEY_ACTION_NONE = 0,
+    SHIP_PROTOCOL_KEY_ACTION_B_NOOP,
+    SHIP_PROTOCOL_KEY_ACTION_C_NOOP,
+    SHIP_PROTOCOL_KEY_ACTION_D_NOOP
+} ship_protocol_key_action_t;
 
 typedef struct
 {
@@ -89,17 +108,37 @@ typedef struct
 
 typedef struct
 {
+    u16 raw;
+    u16 adc_mv;
+    u32 bat_mv;
+    u8 level;
+    u8 valid;
+} ship_protocol_power_event_t;
+
+typedef struct
+{
+    int8 status;
+    u8 len;
+    u8 stored_len;
+    u8 bytes[SHIP_PROTOCOL_SPI_PS_EVENT_DATA_MAX];
+} ship_protocol_spi_ps_event_t;
+
+typedef struct
+{
     ship_protocol_event_type_t type;
     ship_protocol_event_state_t state;
     u8 cmd;
     u8 payload_len;
     u8 switch_state;
     u8 point_valid;
+    ship_protocol_key_action_t key_action;
     u8 pending;
     u16 sequence;
     u32 tick_ms;
     ship_protocol_throttle_event_t throttle;
     ship_protocol_point_t point;
+    ship_protocol_power_event_t power;
+    ship_protocol_spi_ps_event_t spi_ps;
 } ship_protocol_event_snapshot_t;
 
 /**
@@ -123,6 +162,8 @@ void ship_protocol_run_scheduler(void);
  * @return 1 已配对，0 未配对。
  */
 u8 ship_protocol_is_paired(void);
+
+void ship_protocol_publish_spi_ps_frame(const u8 *buffer, u8 len, int8 status);
 
 /**
  * @brief 获取最近一次协议事件快照。

@@ -1,0 +1,2759 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Black Pearl 串口日志解析</title>
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --panel: #fffaf2;
+      --panel-soft: #f5ead6;
+      --line: #dbc6a4;
+      --text: #2c2418;
+      --muted: #786b57;
+      --accent: #9b5f25;
+      --accent-deep: #6d4017;
+      --good: #2f7b4c;
+      --warn: #b87419;
+      --bad: #b23a30;
+      --mono: "Cascadia Code", Consolas, monospace;
+      --sans: "Segoe UI", "Microsoft YaHei UI", sans-serif;
+      --shadow: 0 14px 30px rgba(73, 45, 14, 0.09);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at top right, rgba(155, 95, 37, 0.12), transparent 24%),
+        linear-gradient(180deg, #f8f5ef 0%, var(--bg) 100%);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    .shell {
+      width: min(1520px, calc(100vw - 24px));
+      margin: 12px auto 24px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero, .panel-body {
+      padding: 18px 20px;
+    }
+
+    .title-row, .subhead {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    h1, h2, h3, p { margin: 0; }
+    h1 { font-size: 28px; line-height: 1.1; }
+    h2 { font-size: 18px; }
+    .subtitle, .meta, .footnote { color: var(--muted); font-size: 13px; }
+    .meta { white-space: pre-line; line-height: 1.35; }
+
+    .status-chip {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: var(--panel-soft);
+      color: var(--accent-deep);
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+      align-items: end;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    select, input, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 9px 10px;
+      background: #fffdf8;
+      color: var(--text);
+      font: inherit;
+    }
+
+    textarea {
+      min-height: 130px;
+      resize: vertical;
+      font-family: var(--mono);
+      font-size: 12px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      grid-column: span 2;
+    }
+
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-secondary { background: var(--accent-deep); color: white; }
+    .btn-danger { background: var(--bad); color: white; }
+    .btn-ghost { background: var(--panel-soft); color: var(--accent-deep); }
+
+    .tips {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .tip {
+      border: 1px dashed var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.45);
+      padding: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 12px;
+    }
+
+    .cards, .gps-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .card, .gps-item {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+      background: #fffdf8;
+      min-height: 94px;
+    }
+
+    .label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .value {
+      margin-top: 6px;
+      font-size: 24px;
+      line-height: 1.1;
+      font-weight: 900;
+      color: var(--accent-deep);
+      white-space: pre-line;
+      word-break: break-word;
+    }
+
+    .value-compact {
+      font-size: 20px;
+      line-height: 1.2;
+    }
+
+    .compass-card {
+      position: relative;
+      overflow: hidden;
+      min-height: 180px;
+    }
+
+    .compass-wrap {
+      display: grid;
+      grid-template-columns: 128px 1fr;
+      gap: 12px;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    .compass-dial {
+      position: relative;
+      width: 128px;
+      height: 128px;
+      border-radius: 50%;
+      border: 2px solid rgba(109, 64, 23, 0.55);
+      background:
+        radial-gradient(circle at 50% 50%, #fffdf8 0 45%, transparent 46%),
+        conic-gradient(from 0deg, rgba(155, 95, 37, 0.16), rgba(47, 123, 76, 0.18), rgba(155, 95, 37, 0.16), rgba(178, 58, 48, 0.12), rgba(155, 95, 37, 0.16));
+      box-shadow: inset 0 0 0 8px rgba(255,255,255,0.7);
+    }
+
+    .compass-mark {
+      position: absolute;
+      font-size: 12px;
+      font-weight: 900;
+      color: var(--accent-deep);
+      transform: translate(-50%, -50%);
+    }
+
+    .compass-mark.n { left: 50%; top: 12px; color: var(--bad); }
+    .compass-mark.e { left: calc(100% - 13px); top: 50%; }
+    .compass-mark.s { left: 50%; top: calc(100% - 12px); }
+    .compass-mark.w { left: 13px; top: 50%; }
+
+    .compass-needle {
+      position: absolute;
+      inset: 16px;
+      transform: rotate(0deg);
+      transform-origin: 50% 50%;
+      transition: transform 120ms linear;
+    }
+
+    .compass-needle::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 3px;
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 48px solid var(--bad);
+      transform: translateX(-50%);
+      filter: drop-shadow(0 4px 5px rgba(44, 36, 24, 0.24));
+    }
+
+    .compass-needle::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: 3px;
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 40px solid rgba(109, 64, 23, 0.55);
+      transform: translateX(-50%);
+    }
+
+    .compass-center {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-deep);
+      border: 3px solid #fffdf8;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 1px 4px rgba(44, 36, 24, 0.26);
+    }
+
+    .compass-degree {
+      font-size: 28px;
+      line-height: 1.05;
+      font-weight: 950;
+      color: var(--accent-deep);
+    }
+
+    .compass-source {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      white-space: pre-line;
+    }
+
+    .state-pill {
+      width: 100%;
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 14px;
+      font: inherit;
+      font-size: 18px;
+      font-weight: 900;
+      text-align: left;
+      background: #efe4d0;
+      color: var(--accent-deep);
+      cursor: default;
+    }
+
+    .state-pill.on {
+      background: #dff1e3;
+      color: var(--good);
+    }
+
+    .state-pill.off {
+      background: #f3e1de;
+      color: var(--bad);
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 13px;
+    }
+
+    .table td {
+      border-top: 1px solid var(--line);
+      padding: 8px 6px;
+      vertical-align: top;
+    }
+
+    .table td:first-child {
+      width: 142px;
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .inline-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+      font-size: 13px;
+    }
+
+    .timeline, .rawlog {
+      margin-top: 10px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #1f1a14;
+      color: #f7e9c8;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      overflow: auto;
+      padding: 12px;
+    }
+
+    .timeline { height: 300px; }
+    .rawlog { height: 360px; }
+
+    .footnote {
+      margin-top: 8px;
+    }
+
+    @media (max-width: 1100px) {
+      .toolbar, .grid, .tips { grid-template-columns: 1fr; }
+      .cards, .gps-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .actions { grid-column: auto; }
+    }
+
+    @media (max-width: 640px) {
+      .cards, .gps-grid { grid-template-columns: 1fr; }
+      .compass-wrap { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+      h1 { font-size: 23px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="panel hero">
+      <div class="title-row">
+        <div>
+          <h1>Black Pearl 串口日志解析</h1>
+          <p class="subtitle">现场查看配对、遥控在线、控制模式、实际输出、按键、GPS 回传、电量、陀螺仪和地磁。</p>
+        </div>
+        <div id="statusChip" class="status-chip">未连接串口</div>
+      </div>
+
+      <div class="toolbar">
+        <div class="field">
+          <label for="baudRate">波特率</label>
+          <select id="baudRate">
+            <option>9600</option>
+            <option>19200</option>
+            <option>38400</option>
+            <option selected>115200</option>
+            <option>230400</option>
+            <option>460800</option>
+            <option>921600</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="dataBits">数据位</label>
+          <select id="dataBits">
+            <option>7</option>
+            <option selected>8</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="stopBits">停止位</label>
+          <select id="stopBits">
+            <option selected>1</option>
+            <option>2</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="parity">校验</label>
+          <select id="parity">
+            <option selected value="none">none</option>
+            <option value="even">even</option>
+            <option value="odd">odd</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="timelineLimit">事件保留</label>
+          <input id="timelineLimit" type="number" min="100" max="20000" step="100" value="20000">
+        </div>
+        <div class="field">
+          <label for="rawLimit">原始日志保留</label>
+          <input id="rawLimit" type="number" min="500" max="20000" step="100" value="20000">
+        </div>
+        <div class="actions">
+          <button id="pickPortBtn" class="btn-secondary">选择串口</button>
+          <button id="connectBtn" class="btn-primary" disabled>连接</button>
+          <button id="disconnectBtn" class="btn-danger" disabled>断开</button>
+          <button id="clearBtn" class="btn-ghost">清空</button>
+        </div>
+      </div>
+
+      <div class="tips">
+        <div class="tip">Web Serial 需要通过根目录启动脚本打开本页，浏览器用 Chrome 或 Edge。</div>
+        <div class="tip">“已配对”不等于“遥控器在线”。页面显示在线按最近是否收到完整 AA...BB 头尾包刷新，电机安全保活另看有效 0x11。</div>
+        <div class="tip">遥控连续采样日志已轻量化，巡航和自稳以 key action 与 CTRL 状态为准。</div>
+      </div>
+    </section>
+
+    <div class="grid">
+      <section class="panel panel-body">
+        <div class="subhead"><h2>联调摘要</h2></div>
+        <div class="cards">
+          <div class="card compass-card">
+            <div class="label">船头朝向</div>
+            <div class="compass-wrap">
+              <div class="compass-dial" aria-label="boat heading compass">
+                <span class="compass-mark n">N</span>
+                <span class="compass-mark e">E</span>
+                <span class="compass-mark s">S</span>
+                <span class="compass-mark w">W</span>
+                <div id="compassNeedle" class="compass-needle"></div>
+                <div class="compass-center"></div>
+              </div>
+              <div>
+                <div id="compassDegree" class="compass-degree">--</div>
+                <div id="compassMeta" class="compass-source">等待 HDG / MAG</div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="label">配对状态</div>
+            <div id="pairValue" class="value">未配对</div>
+            <div id="pairMeta" class="meta">等待串口数据</div>
+          </div>
+          <div class="card">
+            <div class="label">遥控链路</div>
+            <div id="rcValue" class="value">离线</div>
+          </div>
+          <div class="card">
+            <div class="label">电机输出</div>
+            <div id="throttleOutputValue" class="value">--</div>
+            <div id="throttleOutputMeta" class="meta">等待 CTRL out 输出日志</div>
+          </div>
+          <div class="card">
+            <div class="label">动作 / 巡航</div>
+            <div id="motionValue" class="value">--</div>
+            <div id="motionMeta" class="meta">等待 key action / CTRL</div>
+          </div>
+          <div class="card">
+            <div class="label">控制模式</div>
+            <div id="controlModeValue" class="value">--</div>
+            <div id="controlModeMeta" class="meta">等待 key action / CTRL</div>
+          </div>
+          <div class="card">
+            <div class="label">自动驾驶</div>
+            <div id="autoDriveValue" class="value">--</div>
+            <div id="autoDriveMeta" class="meta">等待 gps12 auto / 0x16 诊断</div>
+          </div>
+          <div class="card">
+            <div class="label">自稳定状态</div>
+            <button id="selfStabilizeValue" class="value state-pill off" disabled>OFF</button>
+            <div id="selfStabilizeMeta" class="meta">等待 CTRL 角度闭环</div>
+          </div>
+          <div class="card">
+            <div class="label">按键状态</div>
+            <div id="keyValue" class="value">--</div>
+            <div id="keyMeta" class="meta">等待 key 日志</div>
+          </div>
+          <div class="card">
+            <div class="label">状态回包</div>
+            <div id="txValue" class="value">--</div>
+            <div id="txMeta" class="meta">0x12 / sat / angle / power</div>
+          </div>
+          <div class="card">
+            <div class="label">电量采样</div>
+            <div id="powerValue" class="value">--</div>
+            <div id="powerMeta" class="meta">ADC / mV / power byte</div>
+          </div>
+          <div class="card">
+            <div class="label">地磁数据</div>
+            <div id="magValue" class="value">--</div>
+            <div id="magMeta" class="meta">X / Y / Z / norm</div>
+          </div>
+          <div class="card">
+            <div class="label">AHRS R/P/Y</div>
+            <div id="ahrsPoseValue" class="value value-compact">--</div>
+            <div id="ahrsPoseMeta" class="meta">当前日志未输出 [AHRS]</div>
+          </div>
+          <div class="card">
+            <div class="label">陀螺仪数据</div>
+            <div id="ahrsGyroValue" class="value">--</div>
+            <div id="ahrsGyroMeta" class="meta">当前日志未输出 gyro</div>
+          </div>
+          <div class="card">
+            <div class="label">Yaw 状态</div>
+            <div id="ahrsYawValue" class="value">--</div>
+            <div id="ahrsYawMeta" class="meta">当前日志未输出 ys / yr</div>
+          </div>
+          <div class="card">
+            <div class="label">AHRS Flags</div>
+            <div id="ahrsFlagValue" class="value">--</div>
+            <div id="ahrsFlagMeta" class="meta">当前日志未输出 flags</div>
+          </div>
+          <div class="card">
+            <div class="label">HDG Debug</div>
+            <div id="hdgValue" class="value value-compact">--</div>
+            <div id="hdgMeta" class="meta">当前日志未输出 [HDG]</div>
+          </div>
+        </div>
+
+        <table class="table">
+          <tbody>
+            <tr><td>AHRS 状态</td><td id="ahrsInfo">当前日志未输出 [AHRS]</td></tr>
+            <tr><td>HDG Debug</td><td id="hdgInfo">当前日志未输出 [HDG]</td></tr>
+            <tr><td>船头朝向</td><td id="compassInfo">等待 HDG / MAG</td></tr>
+            <tr><td>串口状态</td><td id="portInfo">未选择</td></tr>
+            <tr><td>遥控在线状态</td><td id="remoteInfo">离线</td></tr>
+            <tr><td>最近收到命令</td><td id="lastRxCmd">--</td></tr>
+            <tr><td>最近发送命令</td><td id="lastTxCmd">--</td></tr>
+            <tr><td>信道状态</td><td id="channelInfo">--</td></tr>
+            <tr><td>告警 / 错误</td><td id="warnInfo">--</td></tr>
+            <tr><td>计数</td><td id="counterInfo">行数 0 / 事件 0 / 0x12 0</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="panel panel-body">
+        <div class="subhead"><h2>GPS 摘要</h2></div>
+        <div class="gps-grid">
+          <div class="gps-item">
+            <div class="label">定位有效</div>
+            <div id="gpsFix" class="value">--</div>
+            <div id="gpsFixMeta" class="meta">等待 gps state 日志</div>
+          </div>
+          <div class="gps-item">
+            <div class="label">卫星数</div>
+            <div id="gpsSat" class="value">--</div>
+            <div id="gpsSatMeta" class="meta">sat / seq</div>
+          </div>
+          <div class="gps-item">
+            <div class="label">经度</div>
+            <div id="gpsLon" class="value">--</div>
+            <div id="gpsLonMeta" class="meta">E/W + deg1e7</div>
+          </div>
+          <div class="gps-item">
+            <div class="label">纬度</div>
+            <div id="gpsLat" class="value">--</div>
+            <div id="gpsLatMeta" class="meta">N/S + deg1e7</div>
+          </div>
+        </div>
+        <table class="table">
+          <tbody>
+            <tr><td>航向角</td><td id="gpsAngle">--</td></tr>
+            <tr><td>最近 0x12</td><td id="gpsTxInfo">--</td></tr>
+            <tr><td>遥控器旧格式</td><td id="gpsOldInfo">等待 gps payload oldfmt 日志</td></tr>
+            <tr><td>返航点</td><td id="gpsReturnHome">--</td></tr>
+            <tr><td>目标点</td><td id="gpsGotoPoint">--</td></tr>
+            <tr><td>返航开关</td><td id="gpsReturnSwitch">--</td></tr>
+            <tr><td>GPS 源数据</td><td id="gpsRawInfo">等待 gps state 日志</td></tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <div class="grid">
+      <section class="panel panel-body">
+        <div class="subhead">
+          <h2>事件时间线</h2>
+          <div class="inline-actions">
+            <label><input id="autoScrollTimeline" type="checkbox" checked> 自动滚动</label>
+            <label>可见 <input id="timelineVisibleLimit" type="number" min="100" max="2000" step="100" value="800" style="width:96px"> 条</label>
+          </div>
+        </div>
+        <div id="timeline" class="timeline"></div>
+        <p class="footnote">事件保留上限仍可设为 2 万条；页面只渲染最近可见条数。</p>
+      </section>
+
+      <section class="panel panel-body">
+        <div class="subhead"><h2>离线日志解析</h2></div>
+        <div class="field">
+          <label for="pasteBox">粘贴日志</label>
+          <textarea id="pasteBox" placeholder="把串口日志粘贴到这里，然后点“解析粘贴内容”。"></textarea>
+        </div>
+        <div class="actions" style="grid-column:auto; margin-top:10px;">
+          <button id="parsePasteBtn" class="btn-primary">解析粘贴内容</button>
+          <button id="loadFileBtn" class="btn-secondary">选择日志文件</button>
+          <input id="fileInput" type="file" accept=".log,.txt,.csv" hidden>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel panel-body">
+      <div class="subhead">
+        <h2>原始日志</h2>
+        <div class="inline-actions">
+          <label><input id="autoScrollRaw" type="checkbox" checked> 自动滚动</label>
+          <label><input id="showParsedOnly" type="checkbox"> 只看关键事件</label>
+          <label>可见 <input id="rawVisibleLimit" type="number" min="100" max="2000" step="100" value="800" style="width:96px"> 条</label>
+        </div>
+      </div>
+      <div id="rawLog" class="rawlog"></div>
+    </section>
+  </div>
+
+  <script>
+    const RENDER_INTERVAL_MS = 120;
+    const RC_DEAD_LOW = 90;
+    const RC_DEAD_HIGH = 110;
+    const MANUAL_SELF_STEER_GATE = 20;
+    const CRUISE_START_INPUT = 60;
+    const CRUISE_EXIT_THROTTLE = -50;
+    const CRUISE_SPEED = 800;
+
+    const state = {
+      port: null,
+      reader: null,
+      reading: false,
+      lineBuffer: "",
+      remoteSeenAt: 0,
+      remoteTimeoutMs: 1800,
+      coordTarget: "",
+      lineCount: 0,
+      eventCount: 0,
+      manualCount: 0,
+      gpsTxCount: 0,
+      motionLastKey: "",
+      motionLastAt: 0,
+      timeline: [],
+      rawLines: [],
+      dirty: {
+        cards: true,
+        counters: true,
+        timeline: true,
+        raw: true
+      },
+      last: {
+        ahrsPoseValue: "--",
+        ahrsPoseMeta: "当前日志未输出 [AHRS]",
+        ahrsGyroValue: "--",
+        ahrsGyroMeta: "当前日志未输出 gyro",
+        ahrsYawValue: "--",
+        ahrsYawMeta: "当前日志未输出 ys / yr",
+        ahrsFlagValue: "--",
+        ahrsFlagMeta: "当前日志未输出 flags",
+        ahrsInfo: "当前串口日志没有 [AHRS]，先看 HDG / MAG / GPS",
+        hdgValue: "--",
+        hdgMeta: "当前日志未输出 [HDG]",
+        hdgInfo: "当前串口日志没有 [HDG]，船头朝向先用 MAG compass 参考",
+        compassHeadingDeg: null,
+        compassNeedleDeg: null,
+        compassHeadingText: "--",
+        compassMeta: "等待 HDG / MAG",
+        compassSource: "--",
+        compassInfo: "等待 HDG / MAG",
+        pair: "未配对",
+        pairMeta: "等待串口数据",
+        rcValue: "离线",
+        rcMeta: "等待 AA...BB 头尾包",
+        throttleOutputValue: "--",
+        throttleOutputMeta: "等待 CTRL out 输出日志",
+        motionValue: "--",
+        motionMeta: "等待 key action / CTRL",
+        controlModeValue: "--",
+        controlModeMeta: "等待 key action / CTRL",
+        autoDriveValue: "--",
+        autoDriveMeta: "等待 gps12 auto / 0x16 诊断",
+        selfStabilizeValue: "OFF",
+        selfStabilizeMeta: "等待 CTRL 角度闭环",
+        keyValue: "--",
+        keyMeta: "等待 key 日志",
+        txValue: "--",
+        txMeta: "0x12 / sat / angle / power",
+        powerValue: "--",
+        powerMeta: "ADC / mV / power byte",
+        magValue: "--",
+        magMeta: "X / Y / Z / norm",
+        portInfo: "未选择",
+        lastRxCmd: "--",
+        lastTxCmd: "--",
+        remoteInfo: "离线",
+        channelInfo: "--",
+        warnInfo: "--",
+        gpsFix: "--",
+        gpsFixMeta: "等待 gps state 日志",
+        gpsSat: "--",
+        gpsSatMeta: "sat / seq",
+        gpsLon: "--",
+        gpsLonMeta: "E/W + deg1e7",
+        gpsLat: "--",
+        gpsLatMeta: "N/S + deg1e7",
+        gpsAngle: "--",
+        gpsTxInfo: "--",
+        gpsOldInfo: "等待 gps payload oldfmt 日志",
+        gpsReturnHome: "--",
+        gpsGotoPoint: "--",
+        gpsReturnSwitch: "--",
+        gpsRawInfo: "等待 gps state 日志"
+      }
+    };
+
+    const el = {
+      baudRate: document.getElementById("baudRate"),
+      dataBits: document.getElementById("dataBits"),
+      stopBits: document.getElementById("stopBits"),
+      parity: document.getElementById("parity"),
+      timelineLimit: document.getElementById("timelineLimit"),
+      rawLimit: document.getElementById("rawLimit"),
+      timelineVisibleLimit: document.getElementById("timelineVisibleLimit"),
+      rawVisibleLimit: document.getElementById("rawVisibleLimit"),
+      pickPortBtn: document.getElementById("pickPortBtn"),
+      connectBtn: document.getElementById("connectBtn"),
+      disconnectBtn: document.getElementById("disconnectBtn"),
+      clearBtn: document.getElementById("clearBtn"),
+      statusChip: document.getElementById("statusChip"),
+      ahrsPoseValue: document.getElementById("ahrsPoseValue"),
+      ahrsPoseMeta: document.getElementById("ahrsPoseMeta"),
+      ahrsGyroValue: document.getElementById("ahrsGyroValue"),
+      ahrsGyroMeta: document.getElementById("ahrsGyroMeta"),
+      ahrsYawValue: document.getElementById("ahrsYawValue"),
+      ahrsYawMeta: document.getElementById("ahrsYawMeta"),
+      ahrsFlagValue: document.getElementById("ahrsFlagValue"),
+      ahrsFlagMeta: document.getElementById("ahrsFlagMeta"),
+      hdgValue: document.getElementById("hdgValue"),
+      hdgMeta: document.getElementById("hdgMeta"),
+      compassNeedle: document.getElementById("compassNeedle"),
+      compassDegree: document.getElementById("compassDegree"),
+      compassMeta: document.getElementById("compassMeta"),
+      compassInfo: document.getElementById("compassInfo"),
+      pairValue: document.getElementById("pairValue"),
+      pairMeta: document.getElementById("pairMeta"),
+      rcValue: document.getElementById("rcValue"),
+      throttleOutputValue: document.getElementById("throttleOutputValue"),
+      throttleOutputMeta: document.getElementById("throttleOutputMeta"),
+      motionValue: document.getElementById("motionValue"),
+      motionMeta: document.getElementById("motionMeta"),
+      controlModeValue: document.getElementById("controlModeValue"),
+      controlModeMeta: document.getElementById("controlModeMeta"),
+      autoDriveValue: document.getElementById("autoDriveValue"),
+      autoDriveMeta: document.getElementById("autoDriveMeta"),
+      selfStabilizeValue: document.getElementById("selfStabilizeValue"),
+      selfStabilizeMeta: document.getElementById("selfStabilizeMeta"),
+      keyValue: document.getElementById("keyValue"),
+      keyMeta: document.getElementById("keyMeta"),
+      txValue: document.getElementById("txValue"),
+      txMeta: document.getElementById("txMeta"),
+      powerValue: document.getElementById("powerValue"),
+      powerMeta: document.getElementById("powerMeta"),
+      magValue: document.getElementById("magValue"),
+      magMeta: document.getElementById("magMeta"),
+      ahrsInfo: document.getElementById("ahrsInfo"),
+      hdgInfo: document.getElementById("hdgInfo"),
+      portInfo: document.getElementById("portInfo"),
+      remoteInfo: document.getElementById("remoteInfo"),
+      lastRxCmd: document.getElementById("lastRxCmd"),
+      lastTxCmd: document.getElementById("lastTxCmd"),
+      channelInfo: document.getElementById("channelInfo"),
+      warnInfo: document.getElementById("warnInfo"),
+      counterInfo: document.getElementById("counterInfo"),
+      gpsFix: document.getElementById("gpsFix"),
+      gpsFixMeta: document.getElementById("gpsFixMeta"),
+      gpsSat: document.getElementById("gpsSat"),
+      gpsSatMeta: document.getElementById("gpsSatMeta"),
+      gpsLon: document.getElementById("gpsLon"),
+      gpsLonMeta: document.getElementById("gpsLonMeta"),
+      gpsLat: document.getElementById("gpsLat"),
+      gpsLatMeta: document.getElementById("gpsLatMeta"),
+      gpsAngle: document.getElementById("gpsAngle"),
+      gpsTxInfo: document.getElementById("gpsTxInfo"),
+      gpsOldInfo: document.getElementById("gpsOldInfo"),
+      gpsReturnHome: document.getElementById("gpsReturnHome"),
+      gpsGotoPoint: document.getElementById("gpsGotoPoint"),
+      gpsReturnSwitch: document.getElementById("gpsReturnSwitch"),
+      gpsRawInfo: document.getElementById("gpsRawInfo"),
+      timeline: document.getElementById("timeline"),
+      rawLog: document.getElementById("rawLog"),
+      autoScrollTimeline: document.getElementById("autoScrollTimeline"),
+      autoScrollRaw: document.getElementById("autoScrollRaw"),
+      showParsedOnly: document.getElementById("showParsedOnly"),
+      pasteBox: document.getElementById("pasteBox"),
+      parsePasteBtn: document.getElementById("parsePasteBtn"),
+      loadFileBtn: document.getElementById("loadFileBtn"),
+      fileInput: document.getElementById("fileInput")
+    };
+
+    function nowTag() {
+      return new Date().toLocaleTimeString("zh-CN", { hour12: false });
+    }
+
+    function clampNumber(value, min, max, fallback) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) {
+        return fallback;
+      }
+      return Math.max(min, Math.min(max, num));
+    }
+
+    function markDirty(...names) {
+      for (const name of names) {
+        state.dirty[name] = true;
+      }
+    }
+
+    function renderCardsNow() {
+      renderCards();
+      state.dirty.cards = false;
+    }
+
+    function setStatus(text, tone = "normal") {
+      el.statusChip.textContent = text;
+      if (tone === "good") {
+        el.statusChip.style.background = "#e4f4e9";
+        el.statusChip.style.color = "var(--good)";
+      } else if (tone === "warn") {
+        el.statusChip.style.background = "#fff0d9";
+        el.statusChip.style.color = "var(--warn)";
+      } else if (tone === "bad") {
+        el.statusChip.style.background = "#fde7e4";
+        el.statusChip.style.color = "var(--bad)";
+      } else {
+        el.statusChip.style.background = "var(--panel-soft)";
+        el.statusChip.style.color = "var(--accent-deep)";
+      }
+    }
+
+    function pushTimeline(message) {
+      state.eventCount += 1;
+      state.timeline.push(`[${nowTag()}] ${message}`);
+      const limit = clampNumber(el.timelineLimit.value, 100, 20000, 20000);
+      if (state.timeline.length > limit) {
+        state.timeline.splice(0, state.timeline.length - limit);
+      }
+      markDirty("timeline", "counters");
+    }
+
+    function addRawLine(line, important = false) {
+      state.rawLines.push({ line, important });
+      const limit = clampNumber(el.rawLimit.value, 500, 20000, 20000);
+      if (state.rawLines.length > limit) {
+        state.rawLines.splice(0, state.rawLines.length - limit);
+      }
+      markDirty("raw");
+    }
+
+    function renderTimeline() {
+      const visible = clampNumber(el.timelineVisibleLimit.value, 100, 2000, 800);
+      el.timeline.textContent = state.timeline.slice(-visible).join("\n");
+      if (el.autoScrollTimeline.checked) {
+        el.timeline.scrollTop = el.timeline.scrollHeight;
+      }
+    }
+
+    function renderRaw() {
+      const showParsedOnly = el.showParsedOnly.checked;
+      const visible = clampNumber(el.rawVisibleLimit.value, 100, 2000, 800);
+      const source = showParsedOnly ? state.rawLines.filter(item => item.important) : state.rawLines;
+      el.rawLog.textContent = source.slice(-visible).map(item => item.line).join("\n");
+      if (el.autoScrollRaw.checked) {
+        el.rawLog.scrollTop = el.rawLog.scrollHeight;
+      }
+    }
+
+    function renderCounters() {
+      el.counterInfo.textContent =
+        `行数 ${state.lineCount} / 事件 ${state.eventCount} / 0x12 ${state.gpsTxCount}`;
+    }
+
+    function renderCards() {
+      el.ahrsPoseValue.textContent = state.last.ahrsPoseValue;
+      el.ahrsPoseMeta.textContent = state.last.ahrsPoseMeta;
+      el.ahrsGyroValue.textContent = state.last.ahrsGyroValue;
+      el.ahrsGyroMeta.textContent = state.last.ahrsGyroMeta;
+      el.ahrsYawValue.textContent = state.last.ahrsYawValue;
+      el.ahrsYawMeta.textContent = state.last.ahrsYawMeta;
+      el.ahrsFlagValue.textContent = state.last.ahrsFlagValue;
+      el.ahrsFlagMeta.textContent = state.last.ahrsFlagMeta;
+      el.ahrsInfo.textContent = state.last.ahrsInfo;
+      el.hdgValue.textContent = state.last.hdgValue;
+      el.hdgMeta.textContent = state.last.hdgMeta;
+      el.hdgInfo.textContent = state.last.hdgInfo;
+      el.compassDegree.textContent = state.last.compassHeadingText;
+      el.compassMeta.textContent = state.last.compassMeta;
+      if (state.last.compassNeedleDeg !== null) {
+        el.compassNeedle.style.transform = `rotate(${state.last.compassNeedleDeg}deg)`;
+      }
+      el.compassInfo.textContent = state.last.compassInfo;
+      el.pairValue.textContent = state.last.pair;
+      el.pairMeta.textContent = state.last.pairMeta;
+      el.rcValue.textContent = state.last.rcValue;
+      el.throttleOutputValue.textContent = state.last.throttleOutputValue;
+      el.throttleOutputMeta.textContent = state.last.throttleOutputMeta;
+      el.motionValue.textContent = state.last.motionValue;
+      el.motionMeta.textContent = state.last.motionMeta;
+      el.controlModeValue.textContent = state.last.controlModeValue;
+      el.controlModeMeta.textContent = state.last.controlModeMeta;
+      el.autoDriveValue.textContent = state.last.autoDriveValue;
+      el.autoDriveMeta.textContent = state.last.autoDriveMeta;
+      el.selfStabilizeValue.textContent = state.last.selfStabilizeValue;
+      el.selfStabilizeMeta.textContent = state.last.selfStabilizeMeta;
+      el.selfStabilizeValue.classList.remove("on", "off");
+      el.selfStabilizeValue.classList.add(state.last.selfStabilizeValue === "ON" ? "on" : "off");
+      el.keyValue.textContent = state.last.keyValue;
+      el.keyMeta.textContent = state.last.keyMeta;
+      el.txValue.textContent = state.last.txValue;
+      el.txMeta.textContent = state.last.txMeta;
+      el.powerValue.textContent = state.last.powerValue;
+      el.powerMeta.textContent = state.last.powerMeta;
+      el.magValue.textContent = state.last.magValue;
+      el.magMeta.textContent = state.last.magMeta;
+      el.portInfo.textContent = state.last.portInfo;
+      el.remoteInfo.textContent = state.last.remoteInfo;
+      el.lastRxCmd.textContent = state.last.lastRxCmd;
+      el.lastTxCmd.textContent = state.last.lastTxCmd;
+      el.channelInfo.textContent = state.last.channelInfo;
+      el.warnInfo.textContent = state.last.warnInfo;
+      el.gpsFix.textContent = state.last.gpsFix;
+      el.gpsFixMeta.textContent = state.last.gpsFixMeta;
+      el.gpsSat.textContent = state.last.gpsSat;
+      el.gpsSatMeta.textContent = state.last.gpsSatMeta;
+      el.gpsLon.textContent = state.last.gpsLon;
+      el.gpsLonMeta.textContent = state.last.gpsLonMeta;
+      el.gpsLat.textContent = state.last.gpsLat;
+      el.gpsLatMeta.textContent = state.last.gpsLatMeta;
+      el.gpsAngle.textContent = state.last.gpsAngle;
+      el.gpsTxInfo.textContent = state.last.gpsTxInfo;
+      el.gpsOldInfo.textContent = state.last.gpsOldInfo;
+      el.gpsReturnHome.textContent = state.last.gpsReturnHome;
+      el.gpsGotoPoint.textContent = state.last.gpsGotoPoint;
+      el.gpsReturnSwitch.textContent = state.last.gpsReturnSwitch;
+      el.gpsRawInfo.textContent = state.last.gpsRawInfo;
+    }
+
+    function flushRender() {
+      refreshRemoteTimeout();
+      if (state.dirty.cards) {
+        renderCards();
+        state.dirty.cards = false;
+      }
+      if (state.dirty.counters) {
+        renderCounters();
+        state.dirty.counters = false;
+      }
+      if (state.dirty.timeline) {
+        renderTimeline();
+        state.dirty.timeline = false;
+      }
+      if (state.dirty.raw) {
+        renderRaw();
+        state.dirty.raw = false;
+      }
+    }
+
+    function markRemoteOnline(detailText) {
+      state.remoteSeenAt = Date.now();
+      state.last.rcValue = "在线";
+      state.last.remoteInfo = detailText || "在线，已收到 AA...BB 头尾包";
+      markDirty("cards");
+    }
+
+    function markRemoteOffline(reasonText) {
+      state.last.rcValue = "离线";
+      state.last.remoteInfo = reasonText || "离线，AA...BB 超时";
+      markDirty("cards");
+    }
+
+    function refreshRemoteTimeout() {
+      if (state.remoteSeenAt === 0) {
+        return;
+      }
+      if ((Date.now() - state.remoteSeenAt) >= state.remoteTimeoutMs) {
+        state.remoteSeenAt = 0;
+        if (state.last.rcValue !== "离线") {
+          state.last.rcMeta = `页面超时 ${state.remoteTimeoutMs}ms`;
+          state.last.warnInfo = "页面按 AA...BB 头尾包活动判定遥控超时";
+          markRemoteOffline(`离线，页面超时 ${state.remoteTimeoutMs}ms`);
+          pushTimeline(`页面判定遥控离线，dt=${state.remoteTimeoutMs}ms`);
+        }
+      }
+    }
+
+    function keyLabel(code, name) {
+      if (!code) {
+        return "--";
+      }
+      const normalized = String(code).toUpperCase();
+      const keyMap = {
+        "0XA0": "无按键",
+        "0XA1": "E",
+        "0XA3": "A",
+        "0XA5": "B",
+        "0XA7": "C",
+        "0XA9": "D"
+      };
+      const label = name && !/^0x/i.test(String(name)) ? name : (keyMap[normalized] || "UNKNOWN");
+      return `${label} (${code})`;
+    }
+
+    function keyActionText(action, extra) {
+      const map = {
+        "light-unbound": "A 兼容入口：灯引脚未绑定",
+        "light-unbound repeat": "A 重复：灯引脚仍未绑定",
+        "noop": "B 无动作",
+        "cruise-high": "E 定速巡航：锁当前航向",
+        "cruise-stop": "E 停止巡航/停机",
+        "cruise-toggle-stop": "E 再按一次：退出定速巡航",
+        "cruise-reverse-stop": "摇杆反向阈值：退出定速巡航",
+        "cruise-ignore": "E 已收到：油门未达到定速门槛",
+        "pulse-forward": "C 前冲脉冲",
+        "pulse-backward": "D 后退脉冲",
+        "reserved": "E 保留，不触发自动驾驶"
+      };
+      return `${map[action] || action}${extra ? ` / ${extra}` : ""}`;
+    }
+
+    function shipControlModeText(mode) {
+      const map = {
+        0: "STOP",
+        1: "MANUAL_OPEN_LOOP",
+        2: "MANUAL_YAW_HOLD",
+        3: "CRUISE_HEADING_HOLD",
+        4: "GPS_NAV_HEADING_HOLD",
+        5: "FAILSAFE_STOP"
+      };
+      return map[mode] || `mode ${mode}`;
+    }
+
+    function autoDriveStateText(stateValue) {
+      const map = {
+        0: "IDLE",
+        1: "START",
+        2: "GET_DIRECTION",
+        3: "RUNING"
+      };
+      return map[stateValue] || `state ${stateValue}`;
+    }
+
+    function autoDriveModeText(mode) {
+      const map = {
+        0: "CLOSE",
+        1: "GOTO_POINT",
+        2: "RETURN_HOME"
+      };
+      return map[mode] || `mode ${mode}`;
+    }
+
+    function autoDriveReasonText(reason) {
+      const map = {
+        0: "none",
+        1: "0x13 return-home",
+        2: "0x14 goto-point",
+        3: "0x15 return-switch",
+        4: "link timeout",
+        5: "low power",
+        6: "generic trigger",
+        7: "arrive",
+        8: "overtime",
+        9: "stop"
+      };
+      return map[reason] || `reason ${reason}`;
+    }
+
+    function ctrlGateStateText(stateValue) {
+      const map = {
+        0: "摇杆回中",
+        1: "等待稳定帧",
+        2: "自稳门槛满足",
+        3: "左右差过大",
+        4: "油门方向/力度不满足",
+        5: "航向未就绪",
+        6: "无有效输入",
+        255: "未判定"
+      };
+      return map[stateValue] || `gate ${stateValue}`;
+    }
+
+    function throttleModeText(mode) {
+      const map = {
+        0: "idle yaw hold",
+        1: "remote yaw hold",
+        2: "manual yaw hold"
+      };
+      return map[mode] || `mode ${mode}`;
+    }
+
+    function motionText(mode) {
+      const map = {
+        0: "stop",
+        1: "forward",
+        2: "backward",
+        3: "left",
+        4: "right"
+      };
+      return map[mode] || `motion ${mode}`;
+    }
+
+    function clampPercent(value) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) {
+        return 0;
+      }
+      return Math.max(-100, Math.min(100, Math.round(num)));
+    }
+
+    function motorSpeedToPercent(speed) {
+      return clampPercent(Number(speed) / 10);
+    }
+
+    function formatSignedPercent(value) {
+      const pct = clampPercent(value);
+      return `${pct > 0 ? "+" : ""}${pct}%`;
+    }
+
+    function parseSignedFloat(value) {
+      const num = Number.parseFloat(value);
+      return Number.isFinite(num) ? num : null;
+    }
+
+    function normalizeHeadingDeg(value) {
+      const num = parseSignedFloat(value);
+      if (num === null) {
+        return null;
+      }
+      return ((num % 360) + 360) % 360;
+    }
+
+    function headingCardinal(deg) {
+      const names = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+      return names[Math.floor(((deg + 22.5) % 360) / 45)];
+    }
+
+    function shortestHeadingDeltaDeg(fromDeg, toDeg) {
+      let diff = toDeg - fromDeg;
+      while (diff > 180) diff -= 360;
+      while (diff <= -180) diff += 360;
+      return diff;
+    }
+
+    function updateCompassHeading(value, source, meta) {
+      const deg = normalizeHeadingDeg(value);
+      if (deg === null) {
+        return;
+      }
+      const prevNeedle = state.last.compassNeedleDeg;
+      const prevShown = state.last.compassHeadingDeg;
+      const baseDeg = prevShown === null ? deg : prevShown;
+      const needleDeg = prevNeedle === null
+        ? deg
+        : prevNeedle + shortestHeadingDeltaDeg(baseDeg, deg);
+      const text = `${deg.toFixed(1)}° ${headingCardinal(deg)}`;
+      state.last.compassHeadingDeg = deg;
+      state.last.compassNeedleDeg = needleDeg;
+      state.last.compassHeadingText = text;
+      state.last.compassSource = source;
+      state.last.compassMeta = `${source}\n${meta}`;
+      state.last.compassInfo = `${text} / ${source} / ${meta}`;
+      markDirty("cards");
+    }
+
+    function formatOutputPercent(left, right) {
+      return `左 ${formatSignedPercent(left)}\n右 ${formatSignedPercent(right)}`;
+    }
+
+    function formatMotorOutputPercent(leftSpeed, rightSpeed) {
+      return formatOutputPercent(motorSpeedToPercent(leftSpeed), motorSpeedToPercent(rightSpeed));
+    }
+
+    function clearMotorOutputOnStop(source, detail) {
+      state.last.throttleOutputValue = formatMotorOutputPercent(0, 0);
+      state.last.throttleOutputMeta = detail
+        ? `STOP ${source}\n${detail}`
+        : `STOP ${source}`;
+    }
+
+    function formatPwmOutputPercent(mla, mlb, mra, mrb, period) {
+      const p = Number(period);
+      if (!Number.isFinite(p) || p <= 0) {
+        return "左 0%\n右 0%";
+      }
+      const left = ((Number(mla) - Number(mlb)) * 100) / p;
+      const right = ((Number(mrb) - Number(mra)) * 100) / p;
+      return formatOutputPercent(left, right);
+    }
+
+    function manualOutputDiffInfo(throttle, steering) {
+      const left = throttle + steering;
+      const right = throttle - steering;
+      const absLeft = Math.abs(left);
+      const absRight = Math.abs(right);
+      const maxOutput = Math.max(absLeft, absRight);
+      const diff = Math.abs(left - right);
+      const percent = maxOutput > 0 ? (diff * 100) / maxOutput : 0;
+      return { left, right, diff, maxOutput, percent };
+    }
+
+    function updateSelfStabilizeFromDiff(diffInfo, contextText = "手动输入") {
+      const isOn = diffInfo.maxOutput > 0 && diffInfo.percent < MANUAL_SELF_STEER_GATE;
+      state.last.selfStabilizeValue = isOn ? "ON" : "OFF";
+      state.last.selfStabilizeMeta =
+        `${contextText} / left=${diffInfo.left} right=${diffInfo.right}\n`
+        + `diff=${diffInfo.diff.toFixed(0)} / max=${diffInfo.maxOutput.toFixed(0)} = ${diffInfo.percent.toFixed(1)}% `
+        + `${isOn ? "<" : ">="} ${MANUAL_SELF_STEER_GATE}%`;
+    }
+
+    function updateKeyFromFrame(code, name, source) {
+      state.last.keyValue = keyLabel(code, name);
+      state.last.keyMeta = `${source} / 等待 key action 日志确认动作`;
+      markDirty("cards");
+      renderCardsNow();
+    }
+
+    function updateMotionDecision(value, meta, timelineText) {
+      const now = Date.now();
+      const key = `${value}|${meta}`;
+      state.last.motionValue = value;
+      state.last.motionMeta = meta;
+      if (key !== state.motionLastKey || (now - state.motionLastAt) >= 1000) {
+        state.motionLastKey = key;
+        state.motionLastAt = now;
+        if (timelineText) {
+          pushTimeline(timelineText);
+        }
+      }
+      markDirty("cards");
+    }
+
+    function isRcAxisCentered(rawValue) {
+      const value = Number(rawValue);
+      return Number.isFinite(value) && value >= RC_DEAD_LOW && value <= RC_DEAD_HIGH;
+    }
+
+    function inputMotionText(throttle, steering) {
+      const absThrottle = Math.abs(throttle);
+      const absSteering = Math.abs(steering);
+      if (absThrottle === 0 && absSteering === 0) {
+        return "center";
+      }
+      if (absThrottle >= absSteering) {
+        return throttle >= 0 ? "forward input" : "backward input";
+      }
+      return steering >= 0 ? "right input" : "left input";
+    }
+
+    function isClosedLoopMode(modeValue) {
+      return modeValue === "MANUAL_YAW_HOLD" ||
+             modeValue === "CRUISE_HEADING_HOLD" ||
+             modeValue === "GPS_NAV_HEADING_HOLD";
+    }
+
+    function closedLoopMotionLabel(modeValue) {
+      const map = {
+        MANUAL_YAW_HOLD: "直线自稳",
+        CRUISE_HEADING_HOLD: "E定速闭环",
+        GPS_NAV_HEADING_HOLD: "GPS角度闭环"
+      };
+      return map[modeValue] || modeValue;
+    }
+
+    function updateRcInputIntent(rawUd, rawLr, throttleValue, steeringValue, keyCode, source) {
+      const throttle = Number(throttleValue);
+      const steering = Number(steeringValue);
+      const absThrottle = Number.isFinite(throttle) ? Math.abs(throttle) : 0;
+      const absSteering = Number.isFinite(steering) ? Math.abs(steering) : 0;
+      const rawCentered = isRcAxisCentered(rawUd) && isRcAxisCentered(rawLr);
+      const key = String(keyCode || "").toUpperCase();
+      const diffInfo = manualOutputDiffInfo(throttle, steering);
+      const straightSelf = !rawCentered &&
+        absThrottle > 0 &&
+        diffInfo.maxOutput > 0 &&
+        diffInfo.percent < MANUAL_SELF_STEER_GATE;
+      const pureManualTurn = diffInfo.maxOutput > 0 && diffInfo.percent >= MANUAL_SELF_STEER_GATE;
+      const closedLoopMode = isClosedLoopMode(state.last.controlModeValue);
+      const inputText = inputMotionText(throttle, steering);
+      const outputMeta =
+        `${source} tv=${throttleValue} sv=${steeringValue}\n`
+        + `u=${rawUd} l=${rawLr} / left=${diffInfo.left} right=${diffInfo.right}\n`
+        + `左右输出差=${diffInfo.percent.toFixed(1)}%`;
+
+      if (closedLoopMode) {
+        if (state.last.controlModeValue === "CRUISE_HEADING_HOLD" &&
+            Number.isFinite(throttle) &&
+            throttle <= CRUISE_EXIT_THROTTLE) {
+          state.last.controlModeValue = "STOP_PENDING";
+          state.last.controlModeMeta = "油门反向退出定速巡航，等待 key action=E cruise-reverse-stop / CTRL STOP";
+          updateMotionDecision("定速退出条件", `${outputMeta}\n等待固件 stop 日志`, `${source} 触发定速巡航反向退出`);
+          return;
+        }
+        const loopLabel = closedLoopMotionLabel(state.last.controlModeValue);
+        updateMotionDecision(
+          loopLabel,
+          `${outputMeta}\n闭环动作以 CTRL/MOT 为准`,
+          `${source} 输入刷新，保持 ${loopLabel}(${state.last.controlModeValue})`
+        );
+        return;
+      }
+
+      if (key === "0XA1" && Number.isFinite(throttle) && throttle >= CRUISE_START_INPUT) {
+        state.last.controlModeValue = "CRUISE_ARM";
+        state.last.controlModeMeta = `E + 油门 > +${CRUISE_START_INPUT}，等待 key action=E cruise-high`;
+        updateMotionDecision("准备定速", `${outputMeta}\n定速=${CRUISE_SPEED}，等待巡航确认`, `${source} E键准备定速巡航`);
+        return;
+      }
+
+      if (rawCentered || (absThrottle === 0 && absSteering === 0)) {
+        if (!/^MANUAL_|^CRUISE_|^GPS_NAV_|^STOP/.test(state.last.controlModeValue)) {
+          state.last.controlModeValue = "等待 CTRL";
+          state.last.controlModeMeta = "遥控已回中，等待 CTRL gate/mode 确认";
+        }
+        updateMotionDecision("stop", `${outputMeta}\nraw centered ${RC_DEAD_LOW}..${RC_DEAD_HIGH}`, `${source} 回中`);
+        return;
+      }
+
+      if (!isClosedLoopMode(state.last.controlModeValue)) {
+        state.last.controlModeValue = "等待 CTRL";
+        state.last.controlModeMeta = straightSelf
+          ? `遥控像直推自稳输入，但最终以 CTRL gate/mode 为准`
+          : `遥控像纯手动转向输入，但最终以 CTRL gate/mode 为准`;
+      }
+      updateMotionDecision(
+        straightSelf ? "直推自稳候选" : "纯手动转向",
+        `${outputMeta}\ninput=${inputText}`,
+        `${source} 输入：${straightSelf ? "直推自稳候选" : "纯手动转向"} tv=${throttleValue} sv=${steeringValue}`
+      );
+    }
+
+    function autoReturnSwitchText(autoHex) {
+      const value = Number.parseInt(autoHex, 16);
+      if (!Number.isFinite(value)) {
+        return "unknown";
+      }
+      if (value === 0x30) {
+        return "返航开关关";
+      }
+      if (value === 0x31) {
+        return "返航开关开";
+      }
+      if (value === 0x00) {
+        return "未启用/空";
+      }
+      return `auto=0x${autoHex.toUpperCase()}`;
+    }
+
+    function cmdName(cmd) {
+      const map = {
+        "0x0F": "0x0F 配对响应",
+        "0x10": "0x10 配对请求",
+        "0x11": "0x11 手动控制",
+        "0x12": "0x12 状态/GPS 回传",
+        "0x13": "0x13 返航点",
+        "0x14": "0x14 目标点",
+        "0x15": "0x15 返航开关",
+        "0x16": "0x16 自动驾驶诊断"
+      };
+      return map[cmd] || cmd;
+    }
+
+    function formatDeg1e7(dir, raw) {
+      const value = Number(raw);
+      if (!Number.isFinite(value)) {
+        return `${dir}${raw}`;
+      }
+      return `${dir}${(value / 1e7).toFixed(7)} (${raw})`;
+    }
+
+    function formatOldCoord(dir, part1, part2) {
+      const p1 = String(part1);
+      const p2 = String(part2).padStart(4, "0");
+      return `${dir}${p1}.${p2}`;
+    }
+
+    function asciiByteHexToChar(hexValue) {
+      const value = Number.parseInt(hexValue, 16);
+      if (!Number.isFinite(value)) {
+        return `0x${hexValue}`;
+      }
+      const ch = String.fromCharCode(value);
+      return /^[A-Z]$/.test(ch) ? ch : `0x${hexValue.toUpperCase()}`;
+    }
+
+    function formatCentideg(value, digits = 2) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) {
+        return String(value);
+      }
+      return (num / 100).toFixed(digits);
+    }
+
+    function formatAhrsFlags(flagHex) {
+      const value = Number.parseInt(flagHex, 16);
+      if (!Number.isFinite(value)) {
+        return "unknown";
+      }
+      const flags = [];
+      if (value & 0x01) flags.push("ready");
+      if (value & 0x02) flags.push("acc");
+      if (value & 0x04) flags.push("mag");
+      if (value & 0x08) flags.push("bias");
+      if (value & 0x10) flags.push("acc-ref");
+      if (value & 0x20) flags.push("dt-clamp");
+      return flags.length ? flags.join(" / ") : "none";
+    }
+
+    function formatAhrsMagState(flagHex, suffix) {
+      if (suffix === "mv=0") {
+        return "mag invalid";
+      }
+      if (suffix === "me=0") {
+        return "mag off";
+      }
+      const value = Number.parseInt(flagHex, 16);
+      if (!Number.isFinite(value)) {
+        return "mag unknown";
+      }
+      return (value & 0x04) ? "mag valid" : "mag pending";
+    }
+
+    function parseLine(rawLine) {
+      const line = rawLine.trimEnd();
+      if (!line) {
+        return;
+      }
+
+      state.lineCount += 1;
+      let important = false;
+
+      const ahrs = line.match(/^\[AHRS\] I: r=([+\-]\d+\.\d+) p=([+\-]\d+\.\d+) y=([+\-]\d+\.\d+)(?: ys=(\d+))?(?: g=([+\-]\d+\.\d+) ([+\-]\d+\.\d+) ([+\-]\d+\.\d+))?(?: yr=([+\-]\d+\.\d+))? f=([0-9A-Fa-f]{2})(?: (mv=0|me=0))?$/);
+      if (ahrs) {
+        const flagHex = ahrs[9].toUpperCase();
+        const magState = formatAhrsMagState(flagHex, ahrs[10] || "");
+        state.last.ahrsPoseValue = `r ${ahrs[1]}\np ${ahrs[2]}\ny ${ahrs[3]}`;
+        state.last.ahrsPoseMeta = "roll / pitch / yaw (deg)";
+        if (ahrs[5] && ahrs[6] && ahrs[7]) {
+          state.last.ahrsGyroValue = `${ahrs[5]} / ${ahrs[6]} / ${ahrs[7]}`;
+          state.last.ahrsGyroMeta = "gX / gY / gZ (deg/s)";
+        } else if (state.last.ahrsGyroValue === "--") {
+          state.last.ahrsGyroMeta = "当前日志未附带 g=";
+        }
+        if (ahrs[8]) {
+          state.last.ahrsYawValue = ahrs[8];
+          state.last.ahrsYawMeta = "relative yaw (yr)";
+        } else if (ahrs[4]) {
+          state.last.ahrsYawValue = `YS ${ahrs[4]}`;
+          state.last.ahrsYawMeta = "waiting yaw lock";
+        } else {
+          state.last.ahrsYawValue = "ABS";
+          state.last.ahrsYawMeta = `absolute yaw ${ahrs[3]}`;
+        }
+        state.last.ahrsFlagValue = `0x${flagHex}`;
+        state.last.ahrsFlagMeta = `${formatAhrsFlags(flagHex)} / ${magState}`;
+        state.last.ahrsInfo =
+          `r=${ahrs[1]} p=${ahrs[2]} y=${ahrs[3]}`
+          + (ahrs[4] ? ` ys=${ahrs[4]}` : "")
+          + (ahrs[8] ? ` yr=${ahrs[8]}` : "")
+          + (ahrs[5] ? ` g=${ahrs[5]} ${ahrs[6]} ${ahrs[7]}` : "")
+          + ` f=0x${flagHex} ${magState}`;
+        important = true;
+      }
+
+      const hdgLock = line.match(/^\[HDG\] I: y=([+\-]\d+\.\d+) yg=([+\-]\d+\.\d+) ym=([+\-]\d+\.\d+) ys=(\d+) gz=([+\-]\d+\.\d+)(?: bz=([+\-]\d+\.\d+))?(?: mv=(\d+))?(?: mu=(\d+))?(?: sf=(\d+))?(?: err=([+\-]\d+\.\d+))?(?: hp=([+\-]\d+\.\d+))?(?: hd=([+\-]\d+\.\d+))?(?: hm=([+\-]\d+\.\d+))? f=([0-9A-Fa-f]{2})(?: (mv=0|me=0))?$/);
+      if (hdgLock) {
+        const flagHex = hdgLock[14].toUpperCase();
+        const magState = formatAhrsMagState(flagHex, hdgLock[15] || "");
+        state.last.hdgValue = `y ${hdgLock[1]}\nyg ${hdgLock[2]}\nym ${hdgLock[3]}`;
+        state.last.magValue = `ym=${hdgLock[3]}`;
+        state.last.magMeta =
+          `mv=${hdgLock[7] || "--"} / mu=${hdgLock[8] || "--"} / err=${hdgLock[10] || "--"}`;
+        state.last.hdgMeta =
+          `ys=${hdgLock[4]} / gz=${hdgLock[5]}`
+          + (hdgLock[6] ? ` / bz=${hdgLock[6]}` : "")
+          + (hdgLock[7] ? ` / mv=${hdgLock[7]}` : "")
+          + (hdgLock[8] ? ` / mu=${hdgLock[8]}` : "")
+          + (hdgLock[9] ? ` / sf=${hdgLock[9]}` : "")
+          + (hdgLock[10] ? ` / err=${hdgLock[10]}` : "")
+          + (hdgLock[11] ? ` / hp=${hdgLock[11]}` : "")
+          + (hdgLock[12] ? ` / hd=${hdgLock[12]}` : "")
+          + (hdgLock[13] ? ` / hm=${hdgLock[13]}` : "");
+        state.last.hdgInfo =
+          `HDG lock y=${hdgLock[1]} yg=${hdgLock[2]} ym=${hdgLock[3]}`
+          + ` ys=${hdgLock[4]} gz=${hdgLock[5]}`
+          + (hdgLock[6] ? ` bz=${hdgLock[6]}` : "")
+          + (hdgLock[7] ? ` mv=${hdgLock[7]}` : "")
+          + (hdgLock[8] ? ` mu=${hdgLock[8]}` : "")
+          + (hdgLock[9] ? ` sf=${hdgLock[9]}` : "")
+          + (hdgLock[10] ? ` err=${hdgLock[10]}` : "")
+          + (hdgLock[11] ? ` hp=${hdgLock[11]}` : "")
+          + (hdgLock[12] ? ` hd=${hdgLock[12]}` : "")
+          + (hdgLock[13] ? ` hm=${hdgLock[13]}` : "")
+          + ` f=0x${flagHex} ${magState}`;
+        updateCompassHeading(
+          hdgLock[1],
+          "HDG fused",
+          `y=${hdgLock[1]} / ym=${hdgLock[3]} / mu=${hdgLock[8] || "--"} / err=${hdgLock[10] || "--"} / f=0x${flagHex}`
+        );
+        important = true;
+      }
+
+      const ahrsPacked = line.match(/^\[AHRS\] I: rpy=(-?\d+),(-?\d+),(-?\d+) gy=(-?\d+),(-?\d+),(-?\d+) flg=0x([0-9A-Fa-f]{2})$/);
+      if (ahrsPacked) {
+        const rollDeg = formatCentideg(ahrsPacked[1]);
+        const pitchDeg = formatCentideg(ahrsPacked[2]);
+        const yawDeg = formatCentideg(ahrsPacked[3]);
+        const gyroX = formatCentideg(ahrsPacked[4]);
+        const gyroY = formatCentideg(ahrsPacked[5]);
+        const gyroZ = formatCentideg(ahrsPacked[6]);
+        const flagHex = ahrsPacked[7].toUpperCase();
+        const magState = formatAhrsMagState(flagHex, "");
+        state.last.ahrsPoseValue = `r ${rollDeg}\np ${pitchDeg}\ny ${yawDeg}`;
+        state.last.ahrsPoseMeta = "roll / pitch / yaw (deg), current firmware";
+        state.last.ahrsGyroValue = `${gyroX} / ${gyroY} / ${gyroZ}`;
+        state.last.ahrsGyroMeta = "gX / gY / gZ (deg/s), current firmware";
+        state.last.ahrsYawValue = "ABS";
+        state.last.ahrsYawMeta = `absolute yaw ${yawDeg}`;
+        state.last.ahrsFlagValue = `0x${flagHex}`;
+        state.last.ahrsFlagMeta = `${formatAhrsFlags(flagHex)} / ${magState}`;
+        state.last.ahrsInfo =
+          `rpy=${rollDeg},${pitchDeg},${yawDeg} gyro=${gyroX},${gyroY},${gyroZ} f=0x${flagHex} ${magState}`;
+        important = true;
+      }
+
+      const hdgRel = line.match(/^\[HDG\] I: yr=([+\-]\d+\.\d+) yg=([+\-]\d+\.\d+) ym=([+\-]\d+\.\d+) gz=([+\-]\d+\.\d+)(?: bz=([+\-]\d+\.\d+))?(?: mv=(\d+))?(?: mu=(\d+))?(?: sf=(\d+))?(?: err=([+\-]\d+\.\d+))?(?: hp=([+\-]\d+\.\d+))?(?: hd=([+\-]\d+\.\d+))?(?: hm=([+\-]\d+\.\d+))? f=([0-9A-Fa-f]{2})(?: (mv=0|me=0))?$/);
+      if (hdgRel) {
+        const flagHex = hdgRel[13].toUpperCase();
+        const magState = formatAhrsMagState(flagHex, hdgRel[14] || "");
+        state.last.hdgValue = `yr ${hdgRel[1]}\nyg ${hdgRel[2]}\nym ${hdgRel[3]}`;
+        state.last.magValue = `ym=${hdgRel[3]}`;
+        state.last.magMeta =
+          `mv=${hdgRel[6] || "--"} / mu=${hdgRel[7] || "--"} / err=${hdgRel[9] || "--"}`;
+        state.last.hdgMeta =
+          `gz=${hdgRel[4]}`
+          + (hdgRel[5] ? ` / bz=${hdgRel[5]}` : "")
+          + (hdgRel[6] ? ` / mv=${hdgRel[6]}` : "")
+          + (hdgRel[7] ? ` / mu=${hdgRel[7]}` : "")
+          + (hdgRel[8] ? ` / sf=${hdgRel[8]}` : "")
+          + (hdgRel[9] ? ` / err=${hdgRel[9]}` : "")
+          + (hdgRel[10] ? ` / hp=${hdgRel[10]}` : "")
+          + (hdgRel[11] ? ` / hd=${hdgRel[11]}` : "")
+          + (hdgRel[12] ? ` / hm=${hdgRel[12]}` : "");
+        state.last.hdgInfo =
+          `HDG yr=${hdgRel[1]} yg=${hdgRel[2]} ym=${hdgRel[3]}`
+          + ` gz=${hdgRel[4]}`
+          + (hdgRel[5] ? ` bz=${hdgRel[5]}` : "")
+          + (hdgRel[6] ? ` mv=${hdgRel[6]}` : "")
+          + (hdgRel[7] ? ` mu=${hdgRel[7]}` : "")
+          + (hdgRel[8] ? ` sf=${hdgRel[8]}` : "")
+          + (hdgRel[9] ? ` err=${hdgRel[9]}` : "")
+          + (hdgRel[10] ? ` hp=${hdgRel[10]}` : "")
+          + (hdgRel[11] ? ` hd=${hdgRel[11]}` : "")
+          + (hdgRel[12] ? ` hm=${hdgRel[12]}` : "")
+          + ` f=0x${flagHex} ${magState}`;
+        important = true;
+      }
+
+      const hdgPacked = line.match(/^\[HDG\] I: abs=(\d+) rel=(-?\d+) mag=(\d+) rdy=(\d+) st=(\d+) set=(\d+) err=(-?\d+) pred=(-?\d+)$/);
+      if (hdgPacked) {
+        const absDeg = formatCentideg(hdgPacked[1]);
+        const relDeg = formatCentideg(hdgPacked[2]);
+        const magDeg = formatCentideg(hdgPacked[3]);
+        const errDeg = formatCentideg(hdgPacked[7]);
+        const predDeg = formatCentideg(hdgPacked[8]);
+        state.last.hdgValue = `abs ${absDeg}\nrel ${relDeg}\nmag ${magDeg}`;
+        state.last.magValue = `mag=${magDeg}`;
+        state.last.magMeta = `rdy=${hdgPacked[4]} / set=${hdgPacked[6]} / err=${errDeg} / pred=${predDeg}`;
+        state.last.hdgMeta =
+          `rdy=${hdgPacked[4]} / static=${hdgPacked[5]} / settled=${hdgPacked[6]} / err=${errDeg} / pred=${predDeg}`;
+        state.last.hdgInfo =
+          `HDG current abs=${absDeg} rel=${relDeg} mag=${magDeg} rdy=${hdgPacked[4]} st=${hdgPacked[5]} set=${hdgPacked[6]} err=${errDeg} pred=${predDeg}`;
+        updateCompassHeading(
+          absDeg,
+          "HDG current",
+          `abs=${absDeg} / rel=${relDeg} / mag=${magDeg} / rdy=${hdgPacked[4]} / set=${hdgPacked[6]} / err=${errDeg}`
+        );
+        important = true;
+      }
+
+      const sysBoot = line.match(/^\[SYS\] I: (.+)$/);
+      if (sysBoot) {
+        pushTimeline(`系统：${sysBoot[1]}`);
+        important = true;
+      }
+
+      const wlLog = line.match(/^\[WL\] ([IWE]): (.+)$/);
+      if (wlLog) {
+        pushTimeline(`无线：${wlLog[2]}`);
+        const wlRx = wlLog[2].match(/rx pkt cnt=(\d+) len=(\d+) data=(.+)$/);
+        if (wlRx && /\bAA\b/i.test(wlRx[3]) && /\bBB\b/i.test(wlRx[3])) {
+          markRemoteOnline(`在线，WL RX AA...BB cnt=${wlRx[1]} len=${wlRx[2]}`);
+          state.last.lastRxCmd = `WL rx cnt=${wlRx[1]} len=${wlRx[2]}`;
+        }
+        const wlRxShort = wlLog[2].match(/rx c=(\d+) l=(\d+) h=([0-9A-Fa-f]{2}) t=([0-9A-Fa-f]{2})$/);
+        if (wlRxShort && wlRxShort[3].toUpperCase() === "AA" && wlRxShort[4].toUpperCase() === "BB") {
+          markRemoteOnline(`在线，WL RX AA...BB cnt=${wlRxShort[1]} len=${wlRxShort[2]}`);
+          state.last.lastRxCmd = `WL rx cnt=${wlRxShort[1]} len=${wlRxShort[2]}`;
+        }
+        if (wlLog[1] !== "I") {
+          state.last.warnInfo = `[WL] ${wlLog[2]}`;
+        } else if (/pair|signal|scan|work|init|test/i.test(wlLog[2])) {
+          state.last.channelInfo = `[WL] ${wlLog[2]}`;
+        }
+        important = true;
+      }
+
+      const imuLog = line.match(/^\[IMU\] ([IWE]): (.+)$/);
+      if (imuLog) {
+        pushTimeline(`IMU：${imuLog[2]}`);
+        if (imuLog[1] !== "I") {
+          state.last.warnInfo = `[IMU] ${imuLog[2]}`;
+        }
+        important = true;
+      }
+
+      const shipYawHold = line.match(/\[SHIP\] I: yaw hold tgt=([-\d]+) yr=([-\d]+) out=([-\d]+) throttle=([-\d]+) steer=([-\d]+) gate=(\d+) left=([-\d]+) right=([-\d]+)/);
+      if (shipYawHold) {
+        state.last.throttleOutputValue = formatMotorOutputPercent(shipYawHold[7], shipYawHold[8]);
+        state.last.throttleOutputMeta = `yaw-hold tgt=${shipYawHold[1]} yr=${shipYawHold[2]} out=${shipYawHold[3]}\nleft=${shipYawHold[7]} right=${shipYawHold[8]}`;
+        pushTimeline(`yaw hold：yr=${shipYawHold[2]} out=${shipYawHold[3]} left=${shipYawHold[7]} right=${shipYawHold[8]}`);
+        important = true;
+      }
+
+      const pwmPins = line.match(/\[SHIP\] I: pwm pins mla=(\d+) mlb=(\d+) mra=(\d+) mrb=(\d+) period=(\d+)/);
+      if (pwmPins) {
+        state.last.throttleOutputValue = formatPwmOutputPercent(pwmPins[1], pwmPins[2], pwmPins[3], pwmPins[4], pwmPins[5]);
+        state.last.throttleOutputMeta = `pwm mla=${pwmPins[1]} mlb=${pwmPins[2]}\nmra=${pwmPins[3]} mrb=${pwmPins[4]} period=${pwmPins[5]}`;
+        pushTimeline(`PWM：mla=${pwmPins[1]} mlb=${pwmPins[2]} mra=${pwmPins[3]} mrb=${pwmPins[4]} period=${pwmPins[5]}`);
+        important = true;
+      }
+
+      const pairReq = line.match(/\[SHIP\] I: pair req sent seq=(\d+)\/(\d+) retry=(\d+) ch=0x([0-9A-Fa-f]+)/);
+      if (pairReq) {
+        state.last.pair = "配对中";
+        state.last.pairMeta = `第 ${pairReq[1]}/${pairReq[2]} 次，retry=${pairReq[3]}，ch=0x${pairReq[4]}`;
+        pushTimeline(`发送配对请求 ${pairReq[1]}/${pairReq[2]}，信道 0x${pairReq[4]}`);
+        important = true;
+      }
+
+      const pairFrame = line.match(/\[SHIP\] I: aa-bb xor ok cmd=(0x[0-9A-Fa-f]{2}) data_len=(\d+)/);
+      if (pairFrame) {
+        state.last.pair = "已配对";
+        state.last.pairMeta = `AA...BB 帧校验通过，cmd=${cmdName(pairFrame[1])} data_len=${pairFrame[2]}`;
+        state.last.remoteInfo = `AA...BB 帧在线，cmd=${cmdName(pairFrame[1])}`;
+        state.last.lastRxCmd = `${cmdName(pairFrame[1])} data_len=${pairFrame[2]}`;
+        state.manualCount += 1;
+        markRemoteOnline(`在线，收到 AA...BB 校验通过 ${pairFrame[1]}`);
+        if (pairFrame[1] === "0x0F") {
+          state.last.channelInfo = "配对响应帧已收到";
+        }
+        if (pairFrame[1] === "0x12") {
+          state.last.txMeta = `AA...BB 回传帧，data_len=${pairFrame[2]}`;
+        }
+        pushTimeline(`AA...BB 帧：cmd=${pairFrame[1]} data_len=${pairFrame[2]}`);
+        important = true;
+      }
+
+      const pairOk = line.match(/\[SHIP\] I: pair ok, enter work channel rx_ch=(\d+) tx_ch=(\d+)/);
+      if (pairOk) {
+        state.last.pair = "已配对";
+        state.last.pairMeta = `RX ${pairOk[1]} / TX ${pairOk[2]}，这里只代表已配对`;
+        state.last.channelInfo = `工作信道 ${pairOk[1]}`;
+        pushTimeline(`配对成功，进入工作信道 ch=${pairOk[1]}`);
+        important = true;
+      }
+
+      const pairShort = line.match(/\[SHIP\] I: pair c=([0-9A-Fa-f]{2}) ch=(\d+) k=(\d+)\/(\d+)/);
+      if (pairShort) {
+        const pairCmd = `0x${pairShort[1].toUpperCase()}`;
+        state.last.pair = "已配对";
+        state.last.pairMeta = `${cmdName(pairCmd)} ch=${pairShort[2]} key=${pairShort[3]}/${pairShort[4]}`;
+        state.last.channelInfo = `工作信道 ${pairShort[2]} / key ${pairShort[3]}/${pairShort[4]}`;
+        markRemoteOnline(`在线，${pairCmd}`);
+        pushTimeline(`配对成功：cmd=${pairCmd} ch=${pairShort[2]}`);
+        important = true;
+      }
+
+      const pairOkByFrame = line.match(/\[SHIP\] I: pair ok by ([a-zA-Z0-9-]+) cmd=(0x[0-9A-Fa-f]{2}) work_rx=(\d+) key=(\d+)\/(\d+)/);
+      if (pairOkByFrame) {
+        state.last.pair = "已配对";
+        state.last.pairMeta = `${pairOkByFrame[1]} ${cmdName(pairOkByFrame[2])}，work_rx=${pairOkByFrame[3]} key=${pairOkByFrame[4]}/${pairOkByFrame[5]}`;
+        state.last.channelInfo = `工作信道 ${pairOkByFrame[3]} / key ${pairOkByFrame[4]}/${pairOkByFrame[5]}`;
+        markRemoteOnline(`在线，${pairOkByFrame[1]} ${pairOkByFrame[2]}`);
+        pushTimeline(`配对成功：${pairOkByFrame[1]} cmd=${pairOkByFrame[2]} work_rx=${pairOkByFrame[3]}`);
+        important = true;
+      }
+
+      const pairSuccess = line.match(/\[SHIP\] I: pair success paired=1 work_rx=(\d+) work_tx=(\d+) key=(\d+)\/(\d+)/);
+      if (pairSuccess) {
+        state.last.pair = "已配对";
+        state.last.pairMeta = `work_rx=${pairSuccess[1]} work_tx=${pairSuccess[2]} key=${pairSuccess[3]}/${pairSuccess[4]}`;
+        state.last.channelInfo = `工作信道 ${pairSuccess[1]} / key ${pairSuccess[3]}/${pairSuccess[4]}`;
+        important = true;
+      }
+
+      const rxFrame = line.match(/\[SHIP\] I: rx frame ok cmd=(0x[0-9A-Fa-f]{2})\(([^)]+)\) len=(\d+)/);
+      if (rxFrame) {
+        state.last.lastRxCmd = `${cmdName(rxFrame[1])} len=${rxFrame[3]}`;
+        important = true;
+      }
+
+      const dispatch = line.match(/\[SHIP\] I: dispatch cmd=(0x[0-9A-Fa-f]{2})\(([^)]+)\) payload_len=(\d+)/);
+      if (dispatch) {
+        state.last.lastRxCmd = `${cmdName(dispatch[1])} payload=${dispatch[3]}`;
+        pushTimeline(`收到 ${cmdName(dispatch[1])}，payload=${dispatch[3]}`);
+        important = true;
+        if (dispatch[1] === "0x13") {
+          state.coordTarget = "return-home";
+          state.last.autoDriveValue = "RETURN_HOME";
+          state.last.autoDriveMeta = "收到返回指令：先原地对准方向，再角度闭环前往 GPS 点";
+          state.last.controlModeValue = "GPS_NAV_ARM";
+          state.last.controlModeMeta = "等待 0x16/CTRL 确认原地对准方向";
+          updateMotionDecision("GPS待对准", state.last.autoDriveMeta, "GPS 返回：等待原地对准方向");
+        } else if (dispatch[1] === "0x14") {
+          state.coordTarget = "goto-point";
+          state.last.autoDriveValue = "GOTO_POINT";
+          state.last.autoDriveMeta = "收到前往指定地点：先原地对准方向，再角度闭环前往 GPS 点";
+          state.last.controlModeValue = "GPS_NAV_ARM";
+          state.last.controlModeMeta = "等待 0x16/CTRL 确认原地对准方向";
+          updateMotionDecision("GPS待对准", state.last.autoDriveMeta, "GPS 去点：等待原地对准方向");
+        } else if (dispatch[1] === "0x15") {
+          state.coordTarget = "return-switch";
+          state.last.autoDriveValue = "RETURN_SWITCH";
+          state.last.autoDriveMeta = "收到 0x15，等待保存/返航诊断";
+        } else {
+          state.coordTarget = "";
+        }
+      }
+
+      const remoteOnline = line.match(/\[SHIP\] I: remote link online by cmd=0x11/);
+      if (remoteOnline) {
+        markRemoteOnline("在线，已收到 0x11 控制帧");
+        pushTimeline("遥控链路上线，收到 0x11 控制帧");
+        important = true;
+      }
+
+      const remoteOnlineByFrame = line.match(/\[SHIP\] I: remote link online by ([a-zA-Z0-9-]+) cmd=(0x[0-9A-Fa-f]{2})/);
+      if (remoteOnlineByFrame) {
+        markRemoteOnline(`在线，AA...BB ${remoteOnlineByFrame[1]} ${remoteOnlineByFrame[2]}`);
+        pushTimeline(`遥控链路上线，AA...BB ${remoteOnlineByFrame[1]} ${remoteOnlineByFrame[2]}`);
+        important = true;
+      }
+
+      const manualOnline = line.match(/\[SHIP\] I: manual control online by cmd=0x11/);
+      if (manualOnline) {
+        markRemoteOnline("在线，收到有效 0x11 控制帧");
+        pushTimeline("手动控制上线，收到 0x11");
+        important = true;
+      }
+
+      const remoteOnlineShort = line.match(/\[SHIP\] I: rl c=([0-9A-Fa-f]{2})/);
+      if (remoteOnlineShort) {
+        const remoteCmd = `0x${remoteOnlineShort[1].toUpperCase()}`;
+        markRemoteOnline(`在线，AA...BB ${remoteCmd}`);
+        state.last.remoteInfo = `AA...BB 在线，cmd=${cmdName(remoteCmd)}`;
+        pushTimeline(`遥控链路上线：${remoteCmd}`);
+        important = true;
+      }
+
+      const manualOnlineShort = line.match(/\[SHIP\] I: rc11 on/);
+      if (manualOnlineShort) {
+        markRemoteOnline("在线，收到 0x11");
+        pushTimeline("手动控制上线，收到 0x11");
+        important = true;
+      }
+
+      const timeout = line.match(/\[SHIP\] W: remote link timeout by (?:aa-bb-frame|valid frame), dt=(\d+)ms/);
+      if (timeout) {
+        state.last.rcMeta = `超时 ${timeout[1]}ms`;
+        state.last.warnInfo = `AA...BB 超时 ${timeout[1]}ms`;
+        state.remoteSeenAt = 0;
+        markRemoteOffline(`离线，AA...BB 超时 ${timeout[1]}ms`);
+        pushTimeline(`遥控超时 ${timeout[1]}ms`);
+        important = true;
+      }
+
+      const manualTimeout = line.match(/\[SHIP\] W: manual control timeout by cmd=0x11, dt=(\d+)ms/);
+      if (manualTimeout) {
+        state.last.warnInfo = `0x11 控制帧超时 ${manualTimeout[1]}ms，电机安全停机`;
+        pushTimeline(`0x11 控制帧超时 ${manualTimeout[1]}ms，电机安全停机`);
+        important = true;
+      }
+
+      const rc = line.match(/\[SHIP\] I: rc input cmd=0x11 raw_ud=(\d+) raw_lr=(\d+) throttle_val=([-\d]+) steering_val=([-\d]+) key=(0x[0-9A-Fa-f]{2})\(([^)]+)\)/);
+      if (rc) {
+        state.manualCount += 1;
+        markRemoteOnline("在线，收到有效 0x11 控制帧");
+        state.last.rcMeta = `raw_ud=${rc[1]} raw_lr=${rc[2]} throttle=${rc[3]} steering=${rc[4]} key=${rc[5]}(${rc[6]})`;
+        updateKeyFromFrame(rc[5], rc[6], "0x11");
+        updateRcInputIntent(rc[1], rc[2], rc[3], rc[4], rc[5], "0x11");
+        pushTimeline(`收到 0x11：raw_ud=${rc[1]} raw_lr=${rc[2]} key=${rc[6]}`);
+        important = true;
+      }
+
+      const rcCurrent = line.match(/\[SHIP\] I: rc cmd=0x11 lr=(\d+) ud=(\d+) tv=([-\d]+) sv=([-\d]+) key=0x([0-9A-Fa-f]{2})/);
+      if (rcCurrent) {
+        const keyHex = `0x${rcCurrent[5].toUpperCase()}`;
+        state.manualCount += 1;
+        markRemoteOnline("在线，收到当前固件 0x11 控制帧");
+        state.last.rcMeta =
+          `ud=${rcCurrent[2]} lr=${rcCurrent[1]} throttle=${rcCurrent[3]} steering=${rcCurrent[4]} key=${keyHex}`;
+        updateKeyFromFrame(keyHex, keyHex, "0x11 current");
+        updateRcInputIntent(rcCurrent[2], rcCurrent[1], rcCurrent[3], rcCurrent[4], keyHex, "rc cmd=0x11");
+        pushTimeline(`收到 0x11：ud=${rcCurrent[2]} lr=${rcCurrent[1]} key=${keyHex}`);
+        important = true;
+      }
+
+      const throttle = line.match(/\[SHIP\] I: throttle_raw=(\d+) steering_raw=(\d+) throttle_val=([-\d]+) steering_val=([-\d]+) key=(0x[0-9A-Fa-f]{2})\(([^)]+)\)/);
+      if (throttle) {
+        state.last.rcMeta = `throttle=${throttle[3]} steering=${throttle[4]} key=${throttle[5]}(${throttle[6]})`;
+        updateKeyFromFrame(throttle[5], throttle[6], "throttle");
+        updateRcInputIntent(throttle[1], throttle[2], throttle[3], throttle[4], throttle[5], "throttle_raw");
+        important = true;
+      }
+
+      const motorOutShort = line.match(/^\[MOT\] I: m=(\d+) t=([-\d]+) l=([-\d]+) r=([-\d]+)$/);
+      if (motorOutShort) {
+        const motorMode = Number(motorOutShort[1]);
+        const motorModeText = motionText(motorMode);
+        state.last.throttleOutputValue = formatMotorOutputPercent(motorOutShort[3], motorOutShort[4]);
+        state.last.throttleOutputMeta = `mode=${motorModeText} base=${motorOutShort[2]}\nleft=${motorOutShort[3]} right=${motorOutShort[4]}`;
+        updateMotionDecision(
+          motorModeText,
+          `base=${motorOutShort[2]}\nleft=${motorOutShort[3]} right=${motorOutShort[4]}`,
+          `MOT ${motorModeText}: left=${motorOutShort[3]} right=${motorOutShort[4]}`
+        );
+        pushTimeline(`MOT ${motorModeText}: base=${motorOutShort[2]} left=${motorOutShort[3]} right=${motorOutShort[4]}`);
+        important = true;
+      }
+
+      const rcShort = line.match(/\[SHIP\] I: rc11 u=(\d+) l=(\d+) tv=([-\d]+) sv=([-\d]+) k=([0-9A-Fa-f]{2})/);
+      if (rcShort) {
+        state.manualCount += 1;
+        markRemoteOnline("在线，收到 0x11 短日志");
+        state.last.rcMeta = `u=${rcShort[1]} l=${rcShort[2]} throttle=${rcShort[3]} steering=${rcShort[4]} key=0x${rcShort[5]}`;
+        updateKeyFromFrame(`0x${rcShort[5]}`, `0x${rcShort[5]}`, "0x11");
+        updateRcInputIntent(rcShort[1], rcShort[2], rcShort[3], rcShort[4], `0x${rcShort[5]}`, "rc11");
+        important = true;
+      }
+
+      const keyEdge = line.match(/\[SHIP\] I: key edge key=0x([0-9A-Fa-f]{2}) action=([a-zA-Z0-9-]+)/);
+      if (keyEdge) {
+        const keyHex = `0x${keyEdge[1].toUpperCase()}`;
+        state.last.keyValue = keyLabel(keyHex, keyEdge[2]);
+        state.last.keyMeta = `edge / ${keyEdge[2]}`;
+        pushTimeline(`按键 edge：${keyHex} ${keyEdge[2]}`);
+        renderCardsNow();
+        important = true;
+      }
+
+      const motorOut = line.match(/^\[MOT\] I: m=(\d+) y=([-\d]+)(?: t=([-\d]+))? o=([-\d]+) l=([-\d]+) r=([-\d]+)$/);
+      if (motorOut) {
+        const motorMode = Number(motorOut[1]);
+        const motorModeText = throttleModeText(motorMode);
+        const motorThrottle = motorOut[3] || "0";
+        state.last.throttleOutputValue = formatMotorOutputPercent(motorOut[5], motorOut[6]);
+        state.last.throttleOutputMeta = `mode=${motorModeText} yaw=${motorOut[2]} base=${motorThrottle} out=${motorOut[4]}\nleft=${motorOut[5]} right=${motorOut[6]}`;
+        pushTimeline(`MOT ${motorModeText}: base=${motorThrottle} out=${motorOut[4]} left=${motorOut[5]} right=${motorOut[6]}`);
+        important = true;
+      }
+
+      const motorOutFull = line.match(/^\[MOT\] I: m=(\d+) y=([-\d]+) tgt=([-\d]+) err=([-\d]+) in=([-\d]+) pid=([-\d]+) diff=([-\d]+) t=([-\d]+) l=([-\d]+) r=([-\d]+)$/);
+      if (motorOutFull) {
+        const motorMode = Number(motorOutFull[1]);
+        const motorModeText = throttleModeText(motorMode);
+        state.last.throttleOutputValue = formatMotorOutputPercent(motorOutFull[9], motorOutFull[10]);
+        state.last.throttleOutputMeta =
+          `mode=${motorModeText} yaw=${motorOutFull[2]} tgt=${motorOutFull[3]} err=${motorOutFull[4]}\n`
+          + `in=${motorOutFull[5]} pid=${motorOutFull[6]} diff=${motorOutFull[7]} base=${motorOutFull[8]}\n`
+          + `left=${motorOutFull[9]} right=${motorOutFull[10]}`;
+        pushTimeline(`MOT ${motorModeText}: tgt=${motorOutFull[3]} err=${motorOutFull[4]} pid=${motorOutFull[6]} left=${motorOutFull[9]} right=${motorOutFull[10]}`);
+        important = true;
+      }
+
+      const motorYawHold = line.match(/\[SHIP\] I: yaw hold tgt=([-\d]+) yr=([-\d]+) out=([-\d]+) throttle=([-\d]+) steer=([-\d]+) gate=(\d+) left=([-\d]+) right=([-\d]+)/);
+      if (motorYawHold) {
+        state.last.throttleOutputValue = formatMotorOutputPercent(motorYawHold[7], motorYawHold[8]);
+        state.last.throttleOutputMeta = `yaw-hold tgt=${motorYawHold[1]} yr=${motorYawHold[2]} out=${motorYawHold[3]}\nleft=${motorYawHold[7]} right=${motorYawHold[8]}`;
+        pushTimeline(`yaw hold：yr=${motorYawHold[2]} out=${motorYawHold[3]} left=${motorYawHold[7]} right=${motorYawHold[8]}`);
+        important = true;
+      }
+
+      const ctrlOut = line.match(/\[CTRL\] I: out m=(\d+) mo=(\d+) th=([-\d]+) base=([-\d]+) st=([-\d]+) df=([-\d]+) l=([-\d]+) r=([-\d]+)/);
+      if (ctrlOut) {
+        const ctrlModeText = shipControlModeText(Number(ctrlOut[1]));
+        const motionLabel = motionText(Number(ctrlOut[2]));
+        state.last.controlModeValue = ctrlModeText;
+        state.last.controlModeMeta =
+          `throttle=${ctrlOut[3]} base=${ctrlOut[4]} steering=${ctrlOut[5]} diff=${ctrlOut[6]}`;
+        state.last.throttleOutputValue = formatMotorOutputPercent(ctrlOut[7], ctrlOut[8]);
+        state.last.throttleOutputMeta =
+          `CTRL out ${ctrlModeText} / ${motionLabel}\nleft=${ctrlOut[7]} right=${ctrlOut[8]}\n`
+          + `th=${ctrlOut[3]} base=${ctrlOut[4]} st=${ctrlOut[5]} df=${ctrlOut[6]}`;
+        updateMotionDecision(
+          motionLabel,
+          `left=${ctrlOut[7]} right=${ctrlOut[8]}\nth=${ctrlOut[3]} base=${ctrlOut[4]} st=${ctrlOut[5]} df=${ctrlOut[6]}`,
+          `CTRL out ${ctrlModeText}: ${motionLabel} left=${ctrlOut[7]} right=${ctrlOut[8]}`
+        );
+        state.last.selfStabilizeValue =
+          (Number(ctrlOut[1]) === 2 || Number(ctrlOut[1]) === 3 || Number(ctrlOut[1]) === 4) ? "ON" : "OFF";
+        state.last.selfStabilizeMeta = state.last.selfStabilizeValue === "ON"
+          ? `角度闭环 ${ctrlModeText} / diff=${ctrlOut[6]}`
+          : `CTRL ${ctrlModeText}`;
+        important = true;
+      }
+
+      const ctrlOutCurrent = line.match(/\[CTRL\] I: out mode=(\d+) motion=(\d+) base=([-\d]+) diff=([-\d]+) left=([-\d]+) right=([-\d]+)/);
+      if (ctrlOutCurrent) {
+        const ctrlModeText = shipControlModeText(Number(ctrlOutCurrent[1]));
+        const motionLabel = motionText(Number(ctrlOutCurrent[2]));
+        state.last.controlModeValue = ctrlModeText;
+        state.last.controlModeMeta = `base=${ctrlOutCurrent[3]} diff=${ctrlOutCurrent[4]}`;
+        state.last.throttleOutputValue = formatMotorOutputPercent(ctrlOutCurrent[5], ctrlOutCurrent[6]);
+        state.last.throttleOutputMeta =
+          `CTRL out ${ctrlModeText} / ${motionLabel}\nleft=${ctrlOutCurrent[5]} right=${ctrlOutCurrent[6]}\n`
+          + `base=${ctrlOutCurrent[3]} diff=${ctrlOutCurrent[4]}`;
+        updateMotionDecision(
+          motionLabel,
+          `left=${ctrlOutCurrent[5]} right=${ctrlOutCurrent[6]}\nbase=${ctrlOutCurrent[3]} diff=${ctrlOutCurrent[4]}`,
+          `CTRL out ${ctrlModeText}: ${motionLabel} left=${ctrlOutCurrent[5]} right=${ctrlOutCurrent[6]}`
+        );
+        state.last.selfStabilizeValue =
+          (Number(ctrlOutCurrent[1]) === 2 || Number(ctrlOutCurrent[1]) === 3 || Number(ctrlOutCurrent[1]) === 4) ? "ON" : "OFF";
+        state.last.selfStabilizeMeta = state.last.selfStabilizeValue === "ON"
+          ? `角度闭环 ${ctrlModeText} / diff=${ctrlOutCurrent[4]}`
+          : `CTRL ${ctrlModeText}`;
+        important = true;
+      }
+
+      const cruiseRun = line.match(/\[DATA\] I: cruise run req=([-\d]+) base=([-\d]+) l=([-\d]+) r=([-\d]+) err=([-\d]+) pid=([-\d]+) diff=([-\d]+) tgt=(\d+)/);
+      if (cruiseRun) {
+        state.last.controlModeValue = "CRUISE_HEADING_HOLD";
+        state.last.controlModeMeta =
+          `cruise speed request=${cruiseRun[1]} base=${cruiseRun[2]}\n`
+          + `err=${cruiseRun[5]} pid=${cruiseRun[6]} diff=${cruiseRun[7]} tgt=${cruiseRun[8]}`;
+        state.last.throttleOutputValue = formatMotorOutputPercent(cruiseRun[3], cruiseRun[4]);
+        state.last.throttleOutputMeta =
+          `DATA cruise run speed=${cruiseRun[1]} base=${cruiseRun[2]}\n`
+          + `left=${cruiseRun[3]} right=${cruiseRun[4]}`;
+        state.last.selfStabilizeValue = "ON";
+        state.last.selfStabilizeMeta = `CRUISE_HEADING_HOLD / err=${cruiseRun[5]} diff=${cruiseRun[7]}`;
+        updateMotionDecision(
+          "forward",
+          `left=${cruiseRun[3]} right=${cruiseRun[4]}\nbase=${cruiseRun[2]} diff=${cruiseRun[7]}`,
+          `DATA cruise run: speed=${cruiseRun[1]} base=${cruiseRun[2]} left=${cruiseRun[3]} right=${cruiseRun[4]}`
+        );
+        important = true;
+      }
+
+      const cruiseEnterCurrent = line.match(/\[DATA\] I: cruise enter input=([-\d]+) raw_ud=(\d+) speed=([-\d]+) hd=(\d+)/);
+      if (cruiseEnterCurrent) {
+        state.last.controlModeValue = "CRUISE_HEADING_HOLD";
+        state.last.controlModeMeta =
+          `input=${cruiseEnterCurrent[1]} raw_ud=${cruiseEnterCurrent[2]} speed=${cruiseEnterCurrent[3]} hd=${formatCentideg(cruiseEnterCurrent[4])}`;
+        state.last.autoDriveValue = "巡航锁定";
+        state.last.autoDriveMeta = "E cruise enter, not GPS navigation";
+        state.last.selfStabilizeValue = "ON";
+        state.last.selfStabilizeMeta = `CRUISE_HEADING_HOLD / target=${formatCentideg(cruiseEnterCurrent[4])}`;
+        updateMotionDecision("E定速闭环", state.last.controlModeMeta, `DATA cruise enter speed=${cruiseEnterCurrent[3]} hd=${formatCentideg(cruiseEnterCurrent[4])}`);
+        important = true;
+      }
+
+      const cruiseExitCurrent = line.match(/\[DATA\] I: cruise exit reason=([a-zA-Z0-9-]+) input=([-\d]+) raw_ud=(\d+)(?: stop_th=([-\d]+))?/);
+      if (cruiseExitCurrent) {
+        state.last.controlModeValue = "STOP";
+        state.last.controlModeMeta =
+          `cruise exit ${cruiseExitCurrent[1]} input=${cruiseExitCurrent[2]} raw_ud=${cruiseExitCurrent[3]}`
+          + (cruiseExitCurrent[4] ? ` stop_th=${cruiseExitCurrent[4]}` : "");
+        state.last.autoDriveValue = "未运行";
+        state.last.autoDriveMeta = "cruise exited";
+        state.last.selfStabilizeValue = "OFF";
+        state.last.selfStabilizeMeta = "CRUISE_HEADING_HOLD exited";
+        clearMotorOutputOnStop("cruise exit", state.last.controlModeMeta);
+        updateMotionDecision("stop", state.last.controlModeMeta, `DATA cruise exit ${cruiseExitCurrent[1]}`);
+        important = true;
+      }
+
+      const cruiseReverseStop = line.match(/\[SHIP\] I: key action=E cruise-reverse-stop (?:input=([-\d]+)(?: raw_ud=(\d+))?|ud=(\d+))/);
+      if (cruiseReverseStop) {
+        const inputText = cruiseReverseStop[1] || "";
+        const rawUdText = cruiseReverseStop[2] || cruiseReverseStop[3] || "";
+        const extra = inputText
+          ? `input=${inputText}${rawUdText ? ` raw_ud=${rawUdText}` : ""}`
+          : `ud=${rawUdText}`;
+        state.last.keyValue = "E";
+        state.last.keyMeta = keyActionText("cruise-reverse-stop", extra);
+        state.last.controlModeValue = "STOP";
+        state.last.controlModeMeta = `带符号油门 <= ${CRUISE_EXIT_THROTTLE}，退出定速巡航`;
+        state.last.autoDriveValue = "未运行";
+        state.last.autoDriveMeta = "定速巡航退出；GPS 自动驾驶未见 0x16 busy";
+        clearMotorOutputOnStop("cruise-reverse-stop", extra);
+        updateMotionDecision("stop", state.last.controlModeMeta, `定速巡航退出：${extra}`);
+        important = true;
+      }
+
+      const ctrlModeEvent = line.match(/\[CTRL\] I: (?:event=mode old=|ev old=)(\d+) new=(\d+) (?:reason|rsn)=(\d+) yaw=(\d+) tgt=(\d+)(?: left=([-\d]+) right=([-\d]+))?/);
+      if (ctrlModeEvent) {
+        const oldMode = shipControlModeText(Number(ctrlModeEvent[1]));
+        const newMode = shipControlModeText(Number(ctrlModeEvent[2]));
+        state.last.controlModeValue = newMode;
+        state.last.controlModeMeta =
+          `mode ${oldMode} -> ${newMode} / reason=${ctrlModeEvent[3]}\n`
+          + `yaw=${ctrlModeEvent[4]} tgt=${ctrlModeEvent[5]}`
+          + (ctrlModeEvent[6] ? ` left=${ctrlModeEvent[6]} right=${ctrlModeEvent[7]}` : "");
+        const yawOn = Number(ctrlModeEvent[4]) !== 0 ||
+                      Number(ctrlModeEvent[2]) === 2 ||
+                      Number(ctrlModeEvent[2]) === 3 ||
+                      Number(ctrlModeEvent[2]) === 4;
+        state.last.selfStabilizeValue = yawOn ? "ON" : "OFF";
+        state.last.selfStabilizeMeta = yawOn ? `${newMode} 已进入角度闭环` : `${newMode} 非自稳`;
+        if (Number(ctrlModeEvent[2]) === 0 || Number(ctrlModeEvent[2]) === 5) {
+          clearMotorOutputOnStop("CTRL event", `mode ${oldMode} -> ${newMode} reason=${ctrlModeEvent[3]}`);
+        }
+        pushTimeline(`控制模式：${oldMode} -> ${newMode}`);
+        important = true;
+      }
+
+      const ctrlStopOut = line.match(/\[CTRL\] I: stop out l=0 r=0 rsn=(\d+)/);
+      if (ctrlStopOut) {
+        state.last.controlModeValue = Number(ctrlStopOut[1]) === 5 ? "FAILSAFE_STOP" : "STOP";
+        state.last.controlModeMeta = `stop output confirmed / reason=${ctrlStopOut[1]}`;
+        state.last.selfStabilizeValue = "OFF";
+        state.last.selfStabilizeMeta = "电机输出已清零";
+        clearMotorOutputOnStop("CTRL stop out", `reason=${ctrlStopOut[1]}`);
+        updateMotionDecision("stop", state.last.controlModeMeta, `CTRL stop out reason=${ctrlStopOut[1]}`);
+        important = true;
+      }
+
+      const ctrlGate = line.match(/\[CTRL\] I: gate (?:state=|st=)(\d+) (?:mode=|m=)(\d+) (?:raw_ud=|u=)(\d+) (?:raw_lr=|l=)(\d+) tv=([-\d]+) sv=([-\d]+)(?: left=([-\d]+) right=([-\d]+))? (?:diff=|df=)([-\d]+) (?:gate=|gt=)([-\d]+) (?:stable=|sb=)(\d+) (?:heading=|hd=)(\d+)/);
+      if (ctrlGate) {
+        const gateState = Number(ctrlGate[1]);
+        const modeNum = Number(ctrlGate[2]);
+        const modeText = shipControlModeText(modeNum);
+        const gateText = ctrlGateStateText(gateState);
+        state.last.controlModeValue = modeNum === 2 ? "MANUAL_YAW_HOLD" : modeText;
+        state.last.controlModeMeta =
+          `${gateText} / raw_ud=${ctrlGate[3]} raw_lr=${ctrlGate[4]}\n`
+          + `tv=${ctrlGate[5]} sv=${ctrlGate[6]} stable=${ctrlGate[11]} heading=${ctrlGate[12]}`
+          + (gateState === 2 && modeNum !== 2 ? "\n门槛已满足，等待 CTRL mode=2 确认" : "");
+        state.last.selfStabilizeValue = modeNum === 2 ? "ON" : "OFF";
+        state.last.selfStabilizeMeta =
+          `${modeNum === 2 ? "已进入直线自稳" : gateText} / diff=${ctrlGate[9]} gate=${ctrlGate[10]}`;
+        const gateMotionLabel = modeNum === 2 ? "直线自稳" :
+                                (gateState === 2 ? "自稳门槛满足" :
+                                (gateState === 3 ? "纯手动转向" : gateText));
+        updateMotionDecision(
+          gateMotionLabel,
+          state.last.selfStabilizeMeta,
+          `CTRL gate：${gateText} diff=${ctrlGate[9]} gate=${ctrlGate[10]}`
+        );
+        important = true;
+      }
+
+      const ctrlFull = line.match(/\[CTRL\] I: mode=(\d+) tgt=(\d+) err=([-\d]+)(?: in=([-\d]+))? pid=([-\d]+) (?:diff=|df=)([-\d]+) (?:throttle=|th=)([-\d]+) base=([-\d]+)(?: steer=([-\d]+))? (?:left=|l=)([-\d]+) (?:right=|r=)([-\d]+)(?: (?:gate_state=|gs=)(\d+) (?:gate_diff=|gd=)([-\d]+) (?:gate_limit=|gl=)([-\d]+))?/);
+      if (ctrlFull) {
+        const mode = Number(ctrlFull[1]);
+        const modeText = shipControlModeText(mode);
+        const gateSuffix = ctrlFull[12]
+          ? `\ngate=${ctrlGateStateText(Number(ctrlFull[12]))} diff=${ctrlFull[13]} limit=${ctrlFull[14]}`
+          : "";
+        const ctrlIn = ctrlFull[4] || "0";
+        const ctrlSteer = ctrlFull[9] || "0";
+        state.last.controlModeValue = modeText;
+        state.last.controlModeMeta =
+          `tgt=${ctrlFull[2]} err=${ctrlFull[3]} in=${ctrlIn} pid=${ctrlFull[5]}\n`
+          + `diff=${ctrlFull[6]} throttle=${ctrlFull[7]} base=${ctrlFull[8]} steer=${ctrlSteer}${gateSuffix}`;
+        state.last.throttleOutputValue = formatMotorOutputPercent(ctrlFull[10], ctrlFull[11]);
+        state.last.throttleOutputMeta =
+          `CTRL ${modeText}\nleft=${ctrlFull[10]} right=${ctrlFull[11]}\n`
+          + `base=${ctrlFull[8]} diff=${ctrlFull[6]} err=${ctrlFull[3]}`;
+        const motionLabel = mode === 2 ? "直线自稳" :
+                            mode === 3 ? "E定速闭环" :
+                            mode === 4 ? "GPS角度闭环" :
+                            modeText;
+        updateMotionDecision(
+          motionLabel,
+          `left=${ctrlFull[10]} right=${ctrlFull[11]}\nbase=${ctrlFull[8]} diff=${ctrlFull[6]}`,
+          `CTRL ${modeText}: tgt=${ctrlFull[2]} err=${ctrlFull[3]} left=${ctrlFull[10]} right=${ctrlFull[11]}`
+        );
+        const isYawMode = mode === 2 || mode === 3 || mode === 4;
+        state.last.selfStabilizeValue = isYawMode ? "ON" : "OFF";
+        state.last.selfStabilizeMeta = isYawMode
+          ? `角度闭环 ${modeText} / err=${ctrlFull[3]} diff=${ctrlFull[6]}`
+          : `CTRL ${modeText}`;
+        important = true;
+      }
+
+      const manualShort = line.match(/\[SHIP\] I: man u=(\d+) l=(\d+) tv=([-\d]+) sv=([-\d]+) k=([0-9A-Fa-f]{2}) m=(\d+) sp=([-\d]+)/);
+      if (manualShort) {
+        const manualMotionText = motionText(Number(manualShort[6]));
+        updateMotionDecision(
+          manualMotionText,
+          `speed=${manualShort[7]}\nthrottle=${manualShort[3]}\nsteering=${manualShort[4]}`,
+          `manual ${manualMotionText}: speed=${manualShort[7]}`
+        );
+        updateKeyFromFrame(`0x${manualShort[5]}`, `0x${manualShort[5]}`, "manual");
+        important = true;
+      }
+
+      const manualParse = line.match(/\[SHIP\] I: manual parse cmd=0x11 throttle_raw=(\d+) steering_raw=(\d+) throttle_val=([-\d]+) steering_val=([-\d]+) key=(0x[0-9A-Fa-f]{2})\(([^)]+)\) target=([a-zA-Z-]+) speed=([-\d]+)/);
+      if (manualParse) {
+        updateMotionDecision(
+          manualParse[7],
+          `speed=${manualParse[8]}\nthrottle=${manualParse[3]}\nsteering=${manualParse[4]}`,
+          `动作判定：${manualParse[7]}，speed=${manualParse[8]}，throttle=${manualParse[3]} steering=${manualParse[4]}`
+        );
+        updateKeyFromFrame(manualParse[5], manualParse[6], "manual parse");
+        important = true;
+      }
+
+      const keyAction = line.match(/\[SHIP\] [IW]: key action=([A-E]) ([a-zA-Z-]+)(?: ([^\r\n]*?))?(?:\[|$)/);
+      if (keyAction) {
+        const extraText = (keyAction[3] || "").trim();
+        const repeat = extraText === "repeat";
+        const action = repeat ? `${keyAction[2]} repeat` : keyAction[2];
+        const extra = repeat ? "" : extraText;
+        state.last.keyValue = keyAction[1];
+        state.last.keyMeta = keyActionText(action, extra);
+        if (keyAction[1] === "E" && keyAction[2] === "cruise-high") {
+          state.last.controlModeValue = "CRUISE_HEADING_HOLD";
+          state.last.controlModeMeta = `E + 油门 > +${CRUISE_START_INPUT} 进入定速巡航，定速=${CRUISE_SPEED}，角度闭环自稳`;
+          state.last.autoDriveValue = "巡航键";
+          state.last.autoDriveMeta = "E cruise-high = 定速航向保持；不是 GPS 定点巡航";
+          state.last.selfStabilizeValue = "ON";
+          state.last.selfStabilizeMeta = `定速巡航角度闭环 / speed=${CRUISE_SPEED}`;
+          updateMotionDecision("定速巡航", state.last.controlModeMeta, "E 键进入定速巡航");
+        } else if (keyAction[1] === "E" &&
+                   (keyAction[2] === "cruise-stop" ||
+                    keyAction[2] === "cruise-toggle-stop" ||
+                    keyAction[2] === "cruise-reverse-stop")) {
+          state.last.controlModeValue = "STOP";
+          state.last.controlModeMeta = keyActionText(action, extra);
+          state.last.autoDriveValue = "未运行";
+          state.last.autoDriveMeta = "E 键退出巡航；GPS 自动驾驶未见 0x16 busy";
+          state.last.selfStabilizeValue = "OFF";
+          state.last.selfStabilizeMeta = "定速巡航已退出";
+          clearMotorOutputOnStop(keyAction[2], state.last.controlModeMeta);
+          updateMotionDecision("stop", state.last.controlModeMeta, `定速巡航退出：${state.last.controlModeMeta}`);
+        } else if (keyAction[1] === "E" && keyAction[2] === "cruise-ignore") {
+          state.last.controlModeMeta = keyActionText(action, extra);
+          updateMotionDecision("E未进入定速", state.last.controlModeMeta, `E 键未进入定速：${state.last.controlModeMeta}`);
+        }
+        pushTimeline(`按键 ${keyAction[1]}：${state.last.keyMeta}`);
+        renderCardsNow();
+        important = true;
+      }
+
+      const keyPulse = line.match(/\[SHIP\] I: key pulse motion=([a-zA-Z-]+) dur=(\d+)ms/);
+      if (keyPulse) {
+        state.last.keyMeta = `脉冲执行：${keyPulse[1]} / ${keyPulse[2]}ms`;
+        pushTimeline(`按键脉冲执行：${keyPulse[1]} ${keyPulse[2]}ms`);
+        important = true;
+      }
+
+      const motion = line.match(/\[SHIP\] I: manual motion=([a-zA-Z-]+) left=([-\d]+) right=([-\d]+)/);
+      if (motion) {
+        updateMotionDecision(
+          motion[1],
+          `left=${motion[2]}\nright=${motion[3]}`,
+          `电机目标：${motion[1]}，left=${motion[2]} right=${motion[3]}`
+        );
+        important = true;
+      }
+
+      const stopReason = line.match(/\[SHIP\] I: manual motion=stop reason=(.+)$/);
+      if (stopReason) {
+        clearMotorOutputOnStop("manual motion", `reason=${stopReason[1]}`);
+        updateMotionDecision("stop", `reason=${stopReason[1]}`, `停机：${stopReason[1]}`);
+        important = true;
+      }
+
+      const pwmDisabled = line.match(/\[SHIP\] I: pwm disabled by SHIP_THROTTLE_PWM_ENABLE=0/);
+      if (pwmDisabled) {
+        state.last.motionMeta = `${state.last.motionMeta} / PWM 已关闭`;
+        pushTimeline("当前仅打印油门，PWM 已关闭");
+        important = true;
+      }
+
+      const txCmd = line.match(/\[SHIP\] I: tx cmd=(0x[0-9A-Fa-f]{2}) ch=(\d+) payload_len=(\d+) sat=(\d+) angle=(\d+) power=(0x[0-9A-Fa-f]{2}) auto=(0x[0-9A-Fa-f]{2})/);
+      if (txCmd) {
+        state.gpsTxCount += 1;
+        state.last.lastTxCmd = `${cmdName(txCmd[1])} ch=${txCmd[2]}`;
+        state.last.txValue = `${txCmd[1]} / ch ${txCmd[2]}`;
+        state.last.txMeta = `sat=${txCmd[4]} angle=${txCmd[5]} power=${txCmd[6]} auto=${txCmd[7]}`;
+        state.last.gpsTxInfo = `ch=${txCmd[2]} payload=${txCmd[3]} sat=${txCmd[4]} angle=${txCmd[5]} power=${txCmd[6]}`;
+        state.last.gpsAngle = `${txCmd[5]} deg`;
+        pushTimeline(`发送 0x12：sat=${txCmd[4]} angle=${txCmd[5]} power=${txCmd[6]} ch=${txCmd[2]}`);
+        important = true;
+      }
+
+      const txCmdGeneric = line.match(/\[SHIP\] I: tx cmd=(0x[0-9A-Fa-f]{2}) ch=(\d+) payload_len=(\d+)$/);
+      if (txCmdGeneric) {
+        state.last.lastTxCmd = `${cmdName(txCmdGeneric[1])} ch=${txCmdGeneric[2]}`;
+        state.last.txValue = `${txCmdGeneric[1]} / ch ${txCmdGeneric[2]}`;
+        state.last.txMeta = `payload=${txCmdGeneric[3]}`;
+        if (txCmdGeneric[1].toUpperCase() === "0X12") {
+          state.gpsTxCount += 1;
+          state.last.gpsTxInfo = `ch=${txCmdGeneric[2]} payload=${txCmdGeneric[3]} (current firmware compact log)`;
+          pushTimeline(`发送 0x12：ch=${txCmdGeneric[2]} payload=${txCmdGeneric[3]}`);
+        }
+        important = true;
+      }
+
+      const gpsState = line.match(/\[SHIP\] I: gps state fix=(\d+)(?: legacy=(\d+))? sat=(\d+) lon=([EW])(\d+) lat=([NS])(\d+) angle=(\d+) power=(0x[0-9A-Fa-f]{2}) seq=(\d+)/);
+      if (gpsState) {
+        const fixText = gpsState[1] === "1" ? "有效" : "无效";
+        const legacyText = gpsState[2] || "--";
+        state.last.gpsFix = fixText;
+        state.last.gpsFixMeta = `fix=${gpsState[1]} legacy=${legacyText} power=${gpsState[9]}`;
+        state.last.gpsSat = gpsState[3];
+        state.last.gpsSatMeta = `seq=${gpsState[10]}`;
+        state.last.gpsLon = formatDeg1e7(gpsState[4], gpsState[5]);
+        state.last.gpsLonMeta = `${gpsState[4]} / raw=${gpsState[5]}`;
+        state.last.gpsLat = formatDeg1e7(gpsState[6], gpsState[7]);
+        state.last.gpsLatMeta = `${gpsState[6]} / raw=${gpsState[7]}`;
+        state.last.gpsAngle = `${gpsState[8]} deg`;
+        state.last.gpsRawInfo = `fix=${gpsState[1]} legacy=${legacyText} sat=${gpsState[3]} lon=${gpsState[4]}${gpsState[5]} lat=${gpsState[6]}${gpsState[7]} angle=${gpsState[8]} seq=${gpsState[10]}`;
+        pushTimeline(`GPS：fix=${gpsState[1]} legacy=${legacyText} sat=${gpsState[3]} lon=${gpsState[4]}${gpsState[5]} lat=${gpsState[6]}${gpsState[7]} angle=${gpsState[8]} seq=${gpsState[10]}`);
+        important = true;
+      }
+
+      const gpsSatSource = line.match(/\[SHIP\] I: gps sat source gsa=(\d+) gga=(\d+) report=(\d+)/);
+      if (gpsSatSource) {
+        state.last.gpsSat = gpsSatSource[3];
+        state.last.gpsSatMeta = `GSA=${gpsSatSource[1]} GGA=${gpsSatSource[2]} report=${gpsSatSource[3]}`;
+        state.last.gpsTxInfo = `sat source GSA=${gpsSatSource[1]} GGA=${gpsSatSource[2]} report=${gpsSatSource[3]}`;
+        important = true;
+      }
+
+      const gpsOld = line.match(/\[SHIP\] I: gps payload oldfmt ew=([EW]) lon1=(\d+) lon2=(\d+) ns=([NSEW]) lat1=(\d+) lat2=(\d+)/);
+      if (gpsOld) {
+        state.last.gpsOldInfo =
+          `lon=${formatOldCoord(gpsOld[1], gpsOld[2], gpsOld[3])} lat=${formatOldCoord(gpsOld[4], gpsOld[5], gpsOld[6])}`;
+        pushTimeline(`GPS 旧格式：${state.last.gpsOldInfo}`);
+        important = true;
+      }
+
+      const coord = line.match(/\[SHIP\] I: coord lonEW=0x([0-9A-Fa-f]{2}) lon=(\d+)\.(\d+) latNS=0x([0-9A-Fa-f]{2}) lat=(\d+)\.(\d+)/);
+      if (coord) {
+        const coordText = `lonEW=0x${coord[1]} ${coord[2]}.${coord[3]} / latNS=0x${coord[4]} ${coord[5]}.${coord[6]}`;
+        if (state.coordTarget === "return-home") {
+          state.last.gpsReturnHome = coordText;
+        } else if (state.coordTarget === "goto-point") {
+          state.last.gpsGotoPoint = coordText;
+        } else if (state.coordTarget === "return-switch") {
+          state.last.gpsReturnSwitch = coordText;
+        }
+        pushTimeline(`航点：${coordText}`);
+        important = true;
+      }
+
+      const pointCurrent = line.match(/\[SHIP\] I: (0x13 return-home event|0x14 fish-point event|0x14 point|0x15 return-switch point) ew=0x([0-9A-Fa-f]{2}) lon=(\d+)\.(\d+) ns=0x([0-9A-Fa-f]{2}) lat=(\d+)\.(\d+)$/);
+      if (pointCurrent) {
+        const lonDir = asciiByteHexToChar(pointCurrent[2]);
+        const latDir = asciiByteHexToChar(pointCurrent[5]);
+        const coordText =
+          `lon=${lonDir}${pointCurrent[3]}.${pointCurrent[4]} / lat=${latDir}${pointCurrent[6]}.${pointCurrent[7]}`;
+        if (pointCurrent[1].startsWith("0x13")) {
+          state.coordTarget = "return-home";
+          state.last.gpsReturnHome = coordText;
+          state.last.autoDriveValue = "RETURN_HOME";
+          state.last.autoDriveMeta = "收到当前固件 0x13 return-home event";
+        } else if (pointCurrent[1].startsWith("0x14")) {
+          state.coordTarget = "goto-point";
+          state.last.gpsGotoPoint = coordText;
+          state.last.autoDriveValue = "GOTO_POINT";
+          state.last.autoDriveMeta = "收到当前固件 0x14 fish-point event";
+        } else {
+          state.coordTarget = "return-switch";
+          state.last.gpsReturnSwitch = coordText;
+        }
+        pushTimeline(`${pointCurrent[1]}：${coordText}`);
+        important = true;
+      }
+
+      const gotoDiag = line.match(/\[SHIP\] I: 0x14 rx fl=(\d+) pl=(\d+) xor=([0-9A-Fa-f]{2})\/([0-9A-Fa-f]{2}) res=(\d+)\(([^)]+)\) idx=(\d+)/);
+      if (gotoDiag) {
+        state.coordTarget = "goto-point";
+        state.last.gpsRawInfo =
+          `0x14 fl=${gotoDiag[1]} pl=${gotoDiag[2]} xor=${gotoDiag[3]}/${gotoDiag[4]} res=${gotoDiag[5]}(${gotoDiag[6]}) idx=${gotoDiag[7]}`;
+        state.last.autoDriveValue = "GOTO_POINT";
+        state.last.autoDriveMeta = `0x14 result=${gotoDiag[6]} idx=${gotoDiag[7]}`;
+        pushTimeline(`0x14 目标点：${gotoDiag[6]} idx=${gotoDiag[7]}`);
+        important = true;
+      }
+
+      const returnSwitchCurrent = line.match(/\[SHIP\] I: 0x15 return-switch event state=0x([0-9A-Fa-f]{2}) point=(\d+) len=(\d+)/);
+      if (returnSwitchCurrent) {
+        state.coordTarget = "return-switch";
+        state.last.gpsReturnSwitch =
+          `state=0x${returnSwitchCurrent[1].toUpperCase()} point=${returnSwitchCurrent[2]} len=${returnSwitchCurrent[3]}`;
+        state.last.autoDriveValue = "RETURN_SWITCH";
+        state.last.autoDriveMeta = `0x15 state=0x${returnSwitchCurrent[1].toUpperCase()} point=${returnSwitchCurrent[2]}`;
+        pushTimeline(`0x15 返航开关：state=0x${returnSwitchCurrent[1].toUpperCase()} point=${returnSwitchCurrent[2]}`);
+        important = true;
+      }
+
+      const returnSwitchShort = line.match(/\[SHIP\] W: return-switch short len=(\d+)/);
+      if (returnSwitchShort) {
+        state.last.gpsReturnSwitch = `short len=${returnSwitchShort[1]}`;
+        important = true;
+      }
+
+      const autoDiag = line.match(/\[SHIP\] I: tx cmd=0x16 state=(\d+) mode=(\d+) sw=0x([0-9A-Fa-f]{2}) reason=(\d+) gps=(\d+) sat=(\d+) dist=(\d+)/);
+      if (autoDiag) {
+        const autoStateNum = Number(autoDiag[1]);
+        const autoModeNum = Number(autoDiag[2]);
+        const autoState = autoDriveStateText(autoStateNum);
+        const autoMode = autoDriveModeText(autoModeNum);
+        const reason = autoDriveReasonText(Number(autoDiag[4]));
+        const gpsPhase = autoStateNum === 2 ? "原地对准方向" :
+                         autoStateNum === 3 ? "角度闭环前往 GPS 点" :
+                         autoStateNum === 1 ? "准备导航" :
+                         "未运行";
+        state.last.lastTxCmd = "0x16 自动驾驶诊断";
+        state.last.autoDriveValue = `${autoMode} / ${autoState}`;
+        state.last.autoDriveMeta =
+          `${gpsPhase}\nsw=0x${autoDiag[3].toUpperCase()} reason=${reason}\n`
+          + `gps=${autoDiag[5]} sat=${autoDiag[6]} dist=${autoDiag[7]}m`;
+        if (autoModeNum !== 0 && autoStateNum !== 0) {
+          state.last.controlModeValue = "GPS_NAV_HEADING_HOLD";
+          state.last.controlModeMeta = `${gpsPhase}，目标航向由 AutoDrive 计算，CTRL mode=4 为准`;
+          state.last.selfStabilizeValue = "ON";
+          state.last.selfStabilizeMeta = `GPS 定点巡航角度闭环 / ${gpsPhase}`;
+          updateMotionDecision("GPS角度闭环", `${gpsPhase}\ndist=${autoDiag[7]}m sat=${autoDiag[6]}`, `GPS 定点巡航：${gpsPhase}`);
+        } else if (autoModeNum === 0 && autoStateNum === 0) {
+          state.last.controlModeValue = state.last.controlModeValue === "GPS_NAV_HEADING_HOLD" ? "STOP" : state.last.controlModeValue;
+        }
+        state.last.gpsRawInfo =
+          `AutoDrive ${autoMode}/${autoState} ${gpsPhase} gps=${autoDiag[5]} sat=${autoDiag[6]} dist=${autoDiag[7]}m reason=${reason}`;
+        pushTimeline(`自动驾驶诊断：${autoMode}/${autoState} ${gpsPhase} gps=${autoDiag[5]} sat=${autoDiag[6]} dist=${autoDiag[7]}m reason=${reason}`);
+        important = true;
+      }
+
+      const gpsBytes = line.match(/\[SHIP\] I: gps payload bytes=((?:[0-9A-Fa-f]{2}\s*){15})/);
+      if (gpsBytes) {
+        const b = gpsBytes[1].trim().split(/\s+/).map((x) => parseInt(x, 16));
+        const u16be = (i) => ((b[i] << 8) | b[i + 1]);
+        state.last.gpsOldInfo =
+          `payload=${gpsBytes[1].trim()} | lon=${formatOldCoord(String.fromCharCode(b[3]), u16be(4), u16be(6))} lat=${formatOldCoord(String.fromCharCode(b[8]), u16be(9), u16be(11))}`;
+        state.last.gpsTxInfo = `bytes sat=${b[0]} angle=${u16be(1)} power=0x${b[13].toString(16).padStart(2, "0").toUpperCase()}`;
+        important = true;
+      }
+
+      const power = line.match(/\[SHIP\] I: adc p0\.0 raw=(\d+) adc_mv=(\d+) bat_mv=(\d+) power(?:_level)?=(0x[0-9A-Fa-f]{2}|\d+)/);
+      if (power) {
+        state.last.powerValue = `${power[3]} mV`;
+        state.last.powerMeta = `raw=${power[1]} adc=${power[2]}mV level=${power[4]}`;
+        important = true;
+      }
+
+      const powerShort = line.match(/\[SHIP\] I: adc raw=(\d+) mv=(\d+) bat=(\d+) p=(\d+)/);
+      if (powerShort) {
+        state.last.powerValue = `${powerShort[3]} mV`;
+        state.last.powerMeta = `raw=${powerShort[1]} adc=${powerShort[2]}mV level=${powerShort[4]}`;
+        important = true;
+      }
+
+      const mag = line.match(/\[MAG\] I: test raw=([-\d]+) ([-\d]+) ([-\d]+) norm1=(\d+)(?: compass=([+\-\d.]+))?(?: stable=(\d+))?/);
+      if (mag) {
+        state.last.magValue = `${mag[1]}, ${mag[2]}, ${mag[3]}`;
+        state.last.magMeta =
+          `norm1=${mag[4]}`
+          + (mag[5] ? ` / compass=${mag[5]}` : "")
+          + (mag[6] ? ` / stable=${mag[6]}` : "");
+        if (mag[5] && state.last.compassSource !== "HDG fused") {
+          updateCompassHeading(
+            mag[5],
+            "MAG compass",
+            `debug only / stable=${mag[6] || "--"} / norm1=${mag[4]}`
+          );
+        }
+        pushTimeline(
+          `磁力计：X=${mag[1]} Y=${mag[2]} Z=${mag[3]} norm=${mag[4]}`
+          + (mag[5] ? ` compass=${mag[5]}` : "")
+          + (mag[6] ? ` stable=${mag[6]}` : "")
+        );
+        important = true;
+      }
+
+      const motionShort = line.match(/\[SHIP\] I: mo m=(\d+) l=([-\d]+) r=([-\d]+)/);
+      if (motionShort) {
+        updateMotionDecision(
+          motionText(Number(motionShort[1])),
+          `left=${motionShort[2]}\nright=${motionShort[3]}`,
+          `motor left=${motionShort[2]} right=${motionShort[3]}`
+        );
+        important = true;
+      }
+
+      const gpsShort = line.match(/\[SHIP\] I: gps12 ch=(\d+) len=(\d+) sat=(\d+) ang=(\d+) p=([0-9A-Fa-f]{2}) auto=([0-9A-Fa-f]{2}) fix=(\d+) lon=([EW])(\d+) lat=([NS])(\d+) seq=(\d+)/);
+      if (gpsShort) {
+        const powerHex = `0x${gpsShort[5].toUpperCase()}`;
+        const autoHex = `0x${gpsShort[6].toUpperCase()}`;
+        const fixText = gpsShort[7] === "1" ? "有效" : "无效";
+        state.gpsTxCount += 1;
+        state.last.lastTxCmd = `GPS 回包 ch=${gpsShort[1]}`;
+        state.last.txValue = `0x12 / ch ${gpsShort[1]}`;
+        state.last.txMeta = `sat=${gpsShort[3]} angle=${gpsShort[4]} power=${powerHex} auto=${autoHex}`;
+        state.last.gpsTxInfo = `ch=${gpsShort[1]} len=${gpsShort[2]} sat=${gpsShort[3]} angle=${gpsShort[4]} power=${powerHex}`;
+        state.last.gpsFix = fixText;
+        state.last.gpsFixMeta = `fix=${gpsShort[7]} power=${powerHex}`;
+        state.last.gpsSat = gpsShort[3];
+        state.last.gpsSatMeta = `seq=${gpsShort[12]}`;
+        state.last.gpsLon = formatDeg1e7(gpsShort[8], gpsShort[9]);
+        state.last.gpsLonMeta = `${gpsShort[8]} / raw=${gpsShort[9]}`;
+        state.last.gpsLat = formatDeg1e7(gpsShort[10], gpsShort[11]);
+        state.last.gpsLatMeta = `${gpsShort[10]} / raw=${gpsShort[11]}`;
+        state.last.gpsAngle = `${gpsShort[4]} deg`;
+        state.last.gpsRawInfo = `fix=${gpsShort[7]} sat=${gpsShort[3]} lon=${gpsShort[8]}${gpsShort[9]} lat=${gpsShort[10]}${gpsShort[11]} angle=${gpsShort[4]} auto=${autoHex} seq=${gpsShort[12]}`;
+        if (!state.last.autoDriveValue.includes("/")) {
+          state.last.autoDriveValue = autoHex === "0x00" ? "未运行" : autoReturnSwitchText(gpsShort[6]);
+          state.last.autoDriveMeta =
+            `gps12 auto=${autoHex} / ${autoReturnSwitchText(gpsShort[6])}\n`
+            + `fix=${gpsShort[7]} sat=${gpsShort[3]} angle=${gpsShort[4]} seq=${gpsShort[12]}`;
+        }
+        important = true;
+      }
+
+      const magRaw = line.match(/\[MAG\] I: raw=([-\d]+) ([-\d]+) ([-\d]+) norm=(\d+) yaw=([+\-\d.]+) self=(\d+)/);
+      if (magRaw) {
+        state.last.magValue = `${magRaw[1]}, ${magRaw[2]}, ${magRaw[3]}`;
+        state.last.magMeta = `norm=${magRaw[4]} yaw=${magRaw[5]} self=${magRaw[6]}`;
+        if (state.last.compassSource !== "HDG fused") {
+          updateCompassHeading(
+            magRaw[5],
+            "MAG raw yaw",
+            `debug only / self=${magRaw[6]} / norm=${magRaw[4]}`
+          );
+        }
+        pushTimeline(`MAG：raw=${magRaw[1]} ${magRaw[2]} ${magRaw[3]} yaw=${magRaw[5]} self=${magRaw[6]}`);
+        important = true;
+      }
+
+      const reopen = line.match(/\[SHIP\] I: work-rx reopen reason=(.+) ch=(\d+)/);
+      if (reopen) {
+        state.last.channelInfo = `工作信道 ${reopen[2]} / ${reopen[1]}`;
+        pushTimeline(`重开工作 RX：${reopen[1]}，ch=${reopen[2]}`);
+        important = true;
+      }
+
+      const enterWork = line.match(/\[SHIP\] I: enter work-state rx_ch=(\d+) tx_ch=(\d+)/);
+      if (enterWork) {
+        state.last.channelInfo = `工作态 RX=${enterWork[1]} TX=${enterWork[2]}`;
+        important = true;
+      }
+
+      const pairExpired = line.match(/\[SHIP\] W: pair rsp window expired, no rsp/);
+      if (pairExpired) {
+        state.last.warnInfo = "配对窗口超时";
+        pushTimeline("配对窗口超时，没有收到 0x0F");
+        important = true;
+      }
+
+      const knownInfo = line.match(/^\[(SYS|APP|WL|SHIP|MAG|GPS|IMU|AHRS|CTRL|DATA|POWER|SPI-PS|MOTOR|ADCFG|EVT)\] I: (.+)$/);
+      if (knownInfo && !important) {
+        const tag = knownInfo[1];
+        const message = knownInfo[2];
+        if (tag === "POWER") {
+          state.last.powerMeta = message;
+        } else if (tag === "GPS") {
+          state.last.gpsRawInfo = message;
+        } else if (tag === "ADCFG") {
+          state.last.autoDriveMeta = message;
+        } else if (tag === "EVT") {
+          state.last.lastRxCmd = message;
+        } else if (tag === "SHIP" && /pair|work|scheduler|manual|cmd=0x12|0x14 payload|0x14 frame/i.test(message)) {
+          state.last.channelInfo = message;
+        }
+        pushTimeline(`[${tag}] ${message}`);
+        important = true;
+      }
+
+      const warn = line.match(/\[(WL|SHIP|MAG|GPS|IMU|AHRS|CTRL|DATA|POWER|SPI-PS|MOTOR|ADCFG|EVT|APP)\] W: (.+)$/);
+      if (warn) {
+        state.last.warnInfo = `[${warn[1]}] ${warn[2]}`;
+        important = true;
+      }
+
+      const err = line.match(/\[(WL|SHIP|MAG|GPS|IMU|AHRS|CTRL|DATA|POWER|SPI-PS|MOTOR|ADCFG|EVT|APP)\] E: (.+)$/);
+      if (err) {
+        state.last.warnInfo = `[${err[1]}] ${err[2]}`;
+        pushTimeline(`错误：${err[2]}`);
+        important = true;
+      }
+
+      addRawLine(line, important);
+      markDirty("cards", "counters");
+    }
+
+    function hexOrUnknown(value) {
+      if (value === undefined || value === null) {
+        return "unknown";
+      }
+      return `0x${Number(value).toString(16).toUpperCase()}`;
+    }
+
+    async function pickPort() {
+      if (!("serial" in navigator)) {
+        alert("当前浏览器不支持 Web Serial，请使用 Chrome 或 Edge。");
+        return;
+      }
+      try {
+        state.port = await navigator.serial.requestPort();
+        const info = state.port.getInfo ? state.port.getInfo() : {};
+        state.last.portInfo = `已选择 VID=${hexOrUnknown(info.usbVendorId)} PID=${hexOrUnknown(info.usbProductId)}`;
+        el.connectBtn.disabled = false;
+        setStatus("已选择串口，等待连接");
+        markDirty("cards");
+      } catch (error) {
+        setStatus("未选择串口", "warn");
+      }
+    }
+
+    async function connectPort() {
+      if (!state.port) {
+        alert("请先选择串口。");
+        return;
+      }
+      try {
+        await state.port.open({
+          baudRate: Number(el.baudRate.value),
+          dataBits: Number(el.dataBits.value),
+          stopBits: Number(el.stopBits.value),
+          parity: el.parity.value,
+          flowControl: "none"
+        });
+        state.reading = true;
+        el.connectBtn.disabled = true;
+        el.disconnectBtn.disabled = false;
+        el.pickPortBtn.disabled = true;
+        setStatus("串口已连接", "good");
+        pushTimeline(`串口连接成功，波特率 ${el.baudRate.value}`);
+        readLoop();
+      } catch (error) {
+        alert(`串口打开失败：${error.message}`);
+        setStatus("连接失败", "bad");
+      }
+    }
+
+    async function disconnectPort() {
+      state.reading = false;
+      try {
+        if (state.reader) {
+          await state.reader.cancel();
+        }
+      } catch (error) {
+      }
+      try {
+        if (state.port) {
+          await state.port.close();
+        }
+      } catch (error) {
+      }
+      state.reader = null;
+      el.disconnectBtn.disabled = true;
+      el.connectBtn.disabled = !state.port;
+      el.pickPortBtn.disabled = false;
+      setStatus("串口已断开", "warn");
+      pushTimeline("串口已断开");
+    }
+
+    async function readLoop() {
+      const decoder = new TextDecoder();
+      try {
+        while (state.port && state.port.readable && state.reading) {
+          state.reader = state.port.readable.getReader();
+          try {
+            while (state.reading) {
+              const { value, done } = await state.reader.read();
+              if (done) {
+                break;
+              }
+              state.lineBuffer += decoder.decode(value, { stream: true });
+              const parts = state.lineBuffer.split(/\r?\n/);
+              state.lineBuffer = parts.pop() || "";
+              for (const line of parts) {
+                parseLine(line);
+              }
+            }
+          } finally {
+            state.reader.releaseLock();
+            state.reader = null;
+          }
+        }
+      } catch (error) {
+        if (state.reading) {
+          pushTimeline(`串口读取异常：${error.message}`);
+          setStatus("读取异常", "bad");
+        }
+      }
+    }
+
+    function resetStateValues() {
+      Object.assign(state, {
+        lineBuffer: "",
+        remoteSeenAt: 0,
+        coordTarget: "",
+        lineCount: 0,
+        eventCount: 0,
+        manualCount: 0,
+        gpsTxCount: 0,
+        timeline: [],
+        rawLines: []
+      });
+      Object.assign(state.last, {
+        ahrsPoseValue: "--",
+        ahrsPoseMeta: "当前日志未输出 [AHRS]",
+        ahrsGyroValue: "--",
+        ahrsGyroMeta: "当前日志未输出 gyro",
+        ahrsYawValue: "--",
+        ahrsYawMeta: "当前日志未输出 ys / yr",
+        ahrsFlagValue: "--",
+        ahrsFlagMeta: "当前日志未输出 flags",
+        ahrsInfo: "当前串口日志没有 [AHRS]，先看 HDG / MAG / GPS",
+        hdgValue: "--",
+        hdgMeta: "当前日志未输出 [HDG]",
+        hdgInfo: "当前串口日志没有 [HDG]，船头朝向先用 MAG compass 参考",
+        compassHeadingDeg: null,
+        compassNeedleDeg: null,
+        compassHeadingText: "--",
+        compassMeta: "等待 HDG / MAG",
+        compassSource: "--",
+        compassInfo: "等待 HDG / MAG",
+        pair: "未配对",
+        pairMeta: "等待串口数据",
+        rcValue: "离线",
+        rcMeta: "等待 AA...BB 头尾包",
+        throttleOutputValue: "--",
+        throttleOutputMeta: "等待 CTRL out 输出日志",
+        motionValue: "--",
+        motionMeta: "等待 key action / CTRL",
+        controlModeValue: "--",
+        controlModeMeta: "等待 key action / CTRL",
+        autoDriveValue: "--",
+        autoDriveMeta: "等待 gps12 auto / 0x16 诊断",
+        selfStabilizeValue: "OFF",
+        selfStabilizeMeta: "等待 CTRL 角度闭环",
+        keyValue: "--",
+        keyMeta: "等待 key 日志",
+        txValue: "--",
+        txMeta: "0x12 / sat / angle / power",
+        powerValue: "--",
+        powerMeta: "ADC / mV / power byte",
+        magValue: "--",
+        magMeta: "X / Y / Z / norm",
+        lastRxCmd: "--",
+        lastTxCmd: "--",
+        remoteInfo: "离线",
+        channelInfo: "--",
+        warnInfo: "--",
+        gpsFix: "--",
+        gpsFixMeta: "等待 gps state 日志",
+        gpsSat: "--",
+        gpsSatMeta: "sat / seq",
+        gpsLon: "--",
+        gpsLonMeta: "E/W + deg1e7",
+        gpsLat: "--",
+        gpsLatMeta: "N/S + deg1e7",
+        gpsAngle: "--",
+        gpsTxInfo: "--",
+        gpsOldInfo: "等待 gps payload oldfmt 日志",
+        gpsReturnHome: "--",
+        gpsGotoPoint: "--",
+        gpsReturnSwitch: "--",
+        gpsRawInfo: "等待 gps state 日志"
+      });
+      markDirty("cards", "counters", "timeline", "raw");
+    }
+
+    function clearAll() {
+      const portInfo = state.last.portInfo;
+      resetStateValues();
+      state.last.portInfo = portInfo;
+      pushTimeline("页面已清空");
+    }
+
+    function parseBulkText(text) {
+      resetStateValues();
+      const lines = text.split(/\r?\n/);
+      for (const line of lines) {
+        parseLine(line);
+      }
+      pushTimeline(`离线解析完成，共 ${lines.length} 行`);
+      flushRender();
+    }
+
+    function bindEvents() {
+      el.pickPortBtn.addEventListener("click", pickPort);
+      el.connectBtn.addEventListener("click", connectPort);
+      el.disconnectBtn.addEventListener("click", disconnectPort);
+      el.clearBtn.addEventListener("click", clearAll);
+      el.showParsedOnly.addEventListener("change", () => markDirty("raw"));
+      el.timelineLimit.addEventListener("change", () => markDirty("timeline"));
+      el.rawLimit.addEventListener("change", () => markDirty("raw"));
+      el.timelineVisibleLimit.addEventListener("change", () => markDirty("timeline"));
+      el.rawVisibleLimit.addEventListener("change", () => markDirty("raw"));
+      el.parsePasteBtn.addEventListener("click", () => parseBulkText(el.pasteBox.value));
+      el.loadFileBtn.addEventListener("click", () => el.fileInput.click());
+      el.fileInput.addEventListener("change", async () => {
+        const file = el.fileInput.files && el.fileInput.files[0];
+        if (!file) {
+          return;
+        }
+        parseBulkText(await file.text());
+        el.fileInput.value = "";
+      });
+    }
+
+    bindEvents();
+    setInterval(flushRender, RENDER_INTERVAL_MS);
+    if (!("serial" in navigator)) {
+      el.pickPortBtn.disabled = true;
+      el.connectBtn.disabled = true;
+      setStatus("浏览器不支持 Web Serial", "bad");
+      pushTimeline("当前浏览器不支持 Web Serial，请使用 Chrome 或 Edge。");
+    } else {
+      pushTimeline("上位机已就绪");
+    }
+    flushRender();
+  </script>
+</body>
+</html>

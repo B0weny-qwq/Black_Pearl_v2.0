@@ -288,12 +288,19 @@ init_sequence:
     - board_power_init
     - board_wireless_init
     - ship_protocol_init
+    - ShipControl_Init
+    - AutoDrive_Init
+    - board_spi_ps_init
     - board_motor_init
   loop:
     - board_gps_poll
     - board_wireless_poll
     - ship_protocol_run_scheduler
+    - AutoDrive_Poll
+    - ShipControl_Tick
     - board_wireless_search_signal_poll
+    - app_spi_ps_poll
+    - app_ship_event_poll
     - app_ahrs_poll
     - board_motor_service
 

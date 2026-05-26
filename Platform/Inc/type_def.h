@@ -17,9 +17,19 @@ typedef signed char     int8;   //  8 bits
 typedef signed int      int16;  // 16 bits 
 typedef signed long     int32;  // 32 bits 
 
-typedef unsigned char   uint8;  //  8 bits 
-typedef unsigned int    uint16; // 16 bits 
-typedef unsigned long   uint32; // 32 bits 
+typedef unsigned char   uint8;  //  8 bits
+typedef unsigned int    uint16; // 16 bits
+typedef unsigned long   uint32; // 32 bits
+
+//===================================================
+
+#ifndef EF_LARGE_DATA
+#if defined(__C51__) || defined(__CX51__) || defined(__C251__)
+#define EF_LARGE_DATA xdata
+#else
+#define EF_LARGE_DATA
+#endif
+#endif
 
 //===================================================
 

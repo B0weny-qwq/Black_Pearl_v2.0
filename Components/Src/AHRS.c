@@ -72,7 +72,7 @@ typedef struct
     u8 ready;
 } AHRS_Context_t;
 
-static AHRS_Context_t xdata ahrs_ctx;
+static EF_LARGE_DATA AHRS_Context_t ahrs_ctx;
 
 static u32 AHRS_Abs16(int16 value)
 {

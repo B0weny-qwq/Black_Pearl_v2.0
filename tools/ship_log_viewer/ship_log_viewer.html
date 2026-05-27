@@ -1619,6 +1619,14 @@
         important = true;
       }
 
+      const imuRaw = line.match(/^\[IMU\] I: raw a=(-?\d+),(-?\d+),(-?\d+) g=(-?\d+),(-?\d+),(-?\d+)$/);
+      if (imuRaw) {
+        state.last.ahrsGyroValue = `${imuRaw[4]} / ${imuRaw[5]} / ${imuRaw[6]}`;
+        state.last.ahrsGyroMeta = `raw gyro LSB; accel=${imuRaw[1]},${imuRaw[2]},${imuRaw[3]}`;
+        state.last.ahrsInfo = `IMU raw accel=${imuRaw[1]},${imuRaw[2]},${imuRaw[3]} gyro=${imuRaw[4]},${imuRaw[5]},${imuRaw[6]}`;
+        important = true;
+      }
+
       const hdgRel = line.match(/^\[HDG\] I: yr=([+\-]\d+\.\d+) yg=([+\-]\d+\.\d+) ym=([+\-]\d+\.\d+) gz=([+\-]\d+\.\d+)(?: bz=([+\-]\d+\.\d+))?(?: mv=(\d+))?(?: mu=(\d+))?(?: sf=(\d+))?(?: err=([+\-]\d+\.\d+))?(?: hp=([+\-]\d+\.\d+))?(?: hd=([+\-]\d+\.\d+))?(?: hm=([+\-]\d+\.\d+))? f=([0-9A-Fa-f]{2})(?: (mv=0|me=0))?$/);
       if (hdgRel) {
         const flagHex = hdgRel[13].toUpperCase();
@@ -2447,6 +2455,10 @@
         state.last.gpsOldInfo =
           `payload=${gpsBytes[1].trim()} | lon=${formatOldCoord(String.fromCharCode(b[3]), u16be(4), u16be(6))} lat=${formatOldCoord(String.fromCharCode(b[8]), u16be(9), u16be(11))}`;
         state.last.gpsTxInfo = `bytes sat=${b[0]} angle=${u16be(1)} power=0x${b[13].toString(16).padStart(2, "0").toUpperCase()}`;
+        if (state.last.powerValue === "--") {
+          state.last.powerValue = `0x${b[13].toString(16).padStart(2, "0").toUpperCase()}`;
+          state.last.powerMeta = "gps12 power byte; waiting ADC sample";
+        }
         important = true;
       }
 
@@ -2506,6 +2518,10 @@
         state.last.txValue = `0x12 / ch ${gpsShort[1]}`;
         state.last.txMeta = `sat=${gpsShort[3]} angle=${gpsShort[4]} power=${powerHex} auto=${autoHex}`;
         state.last.gpsTxInfo = `ch=${gpsShort[1]} len=${gpsShort[2]} sat=${gpsShort[3]} angle=${gpsShort[4]} power=${powerHex}`;
+        if (state.last.powerValue === "--") {
+          state.last.powerValue = powerHex;
+          state.last.powerMeta = `gps12 power byte; fix=${gpsShort[7]} seq=${gpsShort[12]}`;
+        }
         state.last.gpsFix = fixText;
         state.last.gpsFixMeta = `fix=${gpsShort[7]} power=${powerHex}`;
         state.last.gpsSat = gpsShort[3];
@@ -2537,6 +2553,24 @@
           );
         }
         pushTimeline(`MAG：raw=${magRaw[1]} ${magRaw[2]} ${magRaw[3]} yaw=${magRaw[5]} self=${magRaw[6]}`);
+        important = true;
+      }
+
+      const magReadFail = line.match(/\[MAG\] W: read fail rc=(-?\d+)(?: addr=0x([0-9A-Fa-f]{2}) id=0x([0-9A-Fa-f]{2}) c1=0x([0-9A-Fa-f]{2}) c2=0x([0-9A-Fa-f]{2}))?/);
+      if (magReadFail) {
+        state.last.magValue = "READ FAIL";
+        state.last.magMeta = magReadFail[2]
+          ? `rc=${magReadFail[1]} addr=0x${magReadFail[2].toUpperCase()} id=0x${magReadFail[3].toUpperCase()} c1=0x${magReadFail[4].toUpperCase()} c2=0x${magReadFail[5].toUpperCase()}`
+          : `rc=${magReadFail[1]}`;
+        state.last.warnInfo = `MAG read fail ${state.last.magMeta}`;
+        important = true;
+      }
+
+      const magInitFail = line.match(/\[MAG\] E: QMC6309 init fail rc=(-?\d+)/);
+      if (magInitFail) {
+        state.last.magValue = "INIT FAIL";
+        state.last.magMeta = `rc=${magInitFail[1]}`;
+        state.last.warnInfo = `MAG init fail rc=${magInitFail[1]}`;
         important = true;
       }
 

@@ -831,3 +831,9 @@ meta 里还会显示：
 - PowerShell 启动脚本：
   [start_ship_log_viewer.ps1](tools/ship_log_viewer/start_ship_log_viewer.ps1)
 - 兼容跳转页：
+## 2026-05 v1.1 对齐补充
+
+- 电机输出：固件启动 `ShipControl_Init()` 会输出一帧 `[CTRL] I: out ... l=0 r=0`，没有遥控动作时卡片也能确认控制链路已接上。
+- 电量采样：首个有效 ADC 样本会强制输出 `[SHIP] I: adc raw=... mv=... bat=... p=...`；如果暂时只收到 `gps12 ... p=..`，页面先用 0x12 电量字节作占位。
+- 陀螺仪数据：页面同时识别 `[AHRS] I: rpy=... gy=...` 和 `[IMU] I: raw a=... g=...`。后者会把原始 gyro LSB 放到陀螺仪卡片，并在 meta 里保留 accel，便于判断是否误把加速度当陀螺仪。
+- 地磁数据：页面识别 `[MAG] I: test raw=... norm1=...`、`[MAG] I: raw=... norm=... yaw=...` 和 `[MAG] W: read fail ...`。读失败时会显示 `addr/id/c1/c2` 诊断，不再静默停在 0。

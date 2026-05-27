@@ -97,3 +97,28 @@ int8 board_mag_read(board_mag_sample_t *sample)
 
     return BOARD_MAG_OK;
 }
+
+int8 board_mag_get_diag(board_mag_diag_t *diag)
+{
+    qmc6309_regs_t regs;
+    int8 ret;
+
+    if (diag == 0) {
+        return BOARD_MAG_ERR_PARAM;
+    }
+
+    diag->addr = QMC6309_GetAddress(&board_mag_ctx.chip);
+    diag->chip_id = 0xFFU;
+    diag->control_1 = 0xFFU;
+    diag->control_2 = 0xFFU;
+
+    ret = QMC6309_ReadDiagRegs(&board_mag_ctx.chip, &regs);
+    if (ret != QMC6309_OK) {
+        return BOARD_MAG_ERR_DATA;
+    }
+
+    diag->chip_id = regs.chip_id;
+    diag->control_1 = regs.control_1;
+    diag->control_2 = regs.control_2;
+    return BOARD_MAG_OK;
+}

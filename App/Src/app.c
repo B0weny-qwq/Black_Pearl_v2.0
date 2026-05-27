@@ -21,6 +21,7 @@
 #define APP_AHRS_LOG_DECIMATION          32U
 #define APP_MAG_COMPASS_STATIC_SETTLE_MS 3000UL
 #define APP_SPI_PS_RX_EVENT_MAX          32U
+#define APP_IMU_RAW_LOG_DECIMATION       64U
 
 static HeadingEstimator_t app_heading;
 static u8 app_heading_ready = 0U;
@@ -32,6 +33,72 @@ static int16 app_last_mag_x_raw = 0;
 static int16 app_last_mag_y_raw = 0;
 static int16 app_last_mag_z_raw = 0;
 static u8 app_last_mag_valid = 0U;
+static u32 app_last_mag_log_ms = 0UL;
+static u8 app_mag_error_latched = 0U;
+
+static u32 app_abs32(int32 value);
+
+static void app_log_mag_read_fail(int8 ret)
+{
+#if (SHIP_MAG_STANDALONE_LOG_ENABLE != 0U)
+	board_mag_diag_t diag;
+
+	if(board_mag_get_diag(&diag) == BOARD_MAG_OK)
+	{
+		LOGW("MAG", "read fail rc=%d addr=0x%02X id=0x%02X c1=0x%02X c2=0x%02X",
+			 ret,
+			 (u16)diag.addr,
+			 (u16)diag.chip_id,
+			 (u16)diag.control_1,
+			 (u16)diag.control_2);
+	}
+	else
+	{
+		LOGW("MAG", "read fail rc=%d", ret);
+	}
+#else
+	(void)ret;
+#endif
+}
+
+static void app_log_mag_sample(const board_mag_sample_t *sample, u32 now_ms)
+{
+#if (SHIP_MAG_STANDALONE_LOG_ENABLE != 0U)
+	if(sample == 0)
+	{
+		return;
+	}
+	if((now_ms - app_last_mag_log_ms) < SHIP_MAG_STANDALONE_LOG_PERIOD_MS)
+	{
+		return;
+	}
+	app_last_mag_log_ms = now_ms;
+	LOGI("MAG", "test raw=%d %d %d norm1=%lu",
+		 sample->mag_x_raw,
+		 sample->mag_y_raw,
+		 sample->mag_z_raw,
+		 app_abs32((int32)sample->mag_x_raw) +
+		 app_abs32((int32)sample->mag_y_raw) +
+		 app_abs32((int32)sample->mag_z_raw));
+#else
+	(void)sample;
+	(void)now_ms;
+#endif
+}
+
+static void app_record_mag_sample(const board_mag_sample_t *sample, u32 now_ms)
+{
+	if(sample == 0)
+	{
+		return;
+	}
+	app_last_mag_x_raw = sample->mag_x_raw;
+	app_last_mag_y_raw = sample->mag_y_raw;
+	app_last_mag_z_raw = sample->mag_z_raw;
+	app_last_mag_valid = 1U;
+	app_mag_error_latched = 0U;
+	app_log_mag_sample(sample, now_ms);
+}
 
 /* 协议事件日志命名只服务现场排障，不参与控制判定。 */
 static const char *app_ship_event_name(ship_protocol_event_type_t type)
@@ -437,6 +504,7 @@ static void app_ahrs_poll(void)
 	static u32 last_mag_ms = 0UL;
 	static u32 heading_static_start_ms = 0UL;
 	static u16 sample_div = 0U;
+	static u8 imu_raw_log_div = 0U;
 	static u8 read_error_latched = 0U;
 	static u8 heading_seeded = 0U;
 	static u8 last_heading_static = 0U;
@@ -493,6 +561,24 @@ static void app_ahrs_poll(void)
 	}
 	read_error_latched = 0U;
 
+#if (SHIP_IMU_RAW_LOG_ENABLE != 0U)
+	if(imu_raw_log_div < APP_IMU_RAW_LOG_DECIMATION)
+	{
+		imu_raw_log_div++;
+	}
+	else
+	{
+		imu_raw_log_div = 0U;
+		LOGI("IMU", "raw a=%d,%d,%d g=%d,%d,%d",
+			 imu_sample.acc_x_raw,
+			 imu_sample.acc_y_raw,
+			 imu_sample.acc_z_raw,
+			 imu_sample.gyro_x_raw,
+			 imu_sample.gyro_y_raw,
+			 imu_sample.gyro_z_raw);
+	}
+#endif
+
 	if(AHRS_UpdateRaw6Axis(imu_sample.acc_x_raw,
 						   imu_sample.acc_y_raw,
 						   imu_sample.acc_z_raw,
@@ -542,12 +628,10 @@ static void app_ahrs_poll(void)
 	   ((now_ms - last_mag_ms) >= AHRS_MAG_PERIOD_MS))
 	{
 		last_mag_ms = now_ms;
-		if(board_mag_read(&mag_sample) == BOARD_MAG_OK)
+		ret = board_mag_read(&mag_sample);
+		if(ret == BOARD_MAG_OK)
 		{
-			app_last_mag_x_raw = mag_sample.mag_x_raw;
-			app_last_mag_y_raw = mag_sample.mag_y_raw;
-			app_last_mag_z_raw = mag_sample.mag_z_raw;
-			app_last_mag_valid = 1U;
+			app_record_mag_sample(&mag_sample, now_ms);
 			if(Filter_MagLowPass(mag_sample.mag_x_raw,
 								 mag_sample.mag_y_raw,
 								 mag_sample.mag_z_raw,
@@ -562,6 +646,11 @@ static void app_ahrs_poll(void)
 					stable_mag_valid = 1U;
 				}
 			}
+		}
+		else if(app_mag_error_latched == 0U)
+		{
+			app_log_mag_read_fail(ret);
+			app_mag_error_latched = 1U;
 		}
 	}
 
@@ -613,6 +702,38 @@ static void app_ahrs_poll(void)
 	{
 		app_ahrs_log(att, MagCompass_GetState(), heading_static, heading_mag_settled);
 	}
+}
+
+/* 独立地磁观测：即使 AHRS 尚未 ready，也让上位机看到 QMC6309 原始读数或失败原因。 */
+static void app_mag_observe_poll(void)
+{
+#if (SHIP_MAG_STANDALONE_LOG_ENABLE != 0U)
+	static u32 last_ms = 0UL;
+	board_mag_sample_t mag_sample;
+	u32 now_ms;
+	int8 ret;
+
+	if(board_mag_is_ready() == 0U)
+	{
+		return;
+	}
+	now_ms = platform_scheduler_get_tick_ms();
+	if((now_ms - last_ms) < SHIP_MAG_STANDALONE_LOG_PERIOD_MS)
+	{
+		return;
+	}
+	last_ms = now_ms;
+	ret = board_mag_read(&mag_sample);
+	if(ret == BOARD_MAG_OK)
+	{
+		app_record_mag_sample(&mag_sample, now_ms);
+	}
+	else if(app_mag_error_latched == 0U)
+	{
+		app_log_mag_read_fail(ret);
+		app_mag_error_latched = 1U;
+	}
+#endif
 }
 
 /* SPI-PS 只在板级资源允许时转成协议事件，避免 App 直接处理 SPI 细节。 */
@@ -734,6 +855,7 @@ void app_loop(void)
 	app_spi_ps_poll();
 	app_ship_event_poll();
 	app_extension_poll(platform_scheduler_get_tick_ms());
+	app_mag_observe_poll();
 	app_ahrs_poll();
 	(void)board_motor_service();
 }

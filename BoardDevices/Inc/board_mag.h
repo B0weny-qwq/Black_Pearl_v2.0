@@ -24,6 +24,14 @@ typedef struct
     int16 mag_z_raw;
 } board_mag_sample_t;
 
+typedef struct
+{
+    u8 addr;
+    u8 chip_id;
+    u8 control_1;
+    u8 control_2;
+} board_mag_diag_t;
+
 /** @brief 初始化板级磁力计并完成最小 bring-up。 */
 int8 board_mag_init(void);
 
@@ -32,5 +40,6 @@ u8 board_mag_is_ready(void);
 
 /** @brief 读取一帧原始磁场数据。 */
 int8 board_mag_read(board_mag_sample_t *sample);
+int8 board_mag_get_diag(board_mag_diag_t *diag);
 
 #endif

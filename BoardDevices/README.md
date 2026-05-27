@@ -13,6 +13,7 @@
 - `board_gps`：UART2 GPS 与 NMEA 状态。
 - `board_imu`：QMI8658 板级初始化和原始采样。
 - `board_mag`：QMC6309 板级初始化和原始采样。
+- `board_mag_get_diag()` 只暴露地址和关键寄存器快照，供 App 打印现场日志；App 仍不直接包含 `QMC6309.h`。
 - `board_motor`：左右电机 PWM 输出。
 - `board_power`：电池 ADC 采样和 `0..4` 电量等级。
 - `board_wireless` / `board_lt8920`：LT8920/KCT8206 无线链路。

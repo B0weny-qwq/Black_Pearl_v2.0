@@ -767,6 +767,7 @@ void ShipControl_Init(void)
              SHIP_YAW_HOLD_OUTPUT_LIMIT,
              -((int32)SHIP_YAW_HOLD_OUTPUT_LIMIT * 64L),
              ((int32)SHIP_YAW_HOLD_OUTPUT_LIMIT * 64L));
+    ShipControl_LogMotorOutput(1U);
 }
 
 void ShipControl_Tick(u32 now_ms)

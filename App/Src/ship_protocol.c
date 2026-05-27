@@ -91,6 +91,7 @@ typedef struct
     u8 manual_boot_ready_logged;
     u8 power_level;
     u8 power_adc_ready;
+    u8 power_first_valid_logged;
     u8 lowpower_return_latched;
     u16 power_sample_divider_count;
     u16 lowpower_check_ticks;
@@ -357,6 +358,10 @@ static void ship_protocol_service_power_sample(void)
     ship_protocol_read_power_sample(&ship_protocol_rt.power_sample);
     if (ship_protocol_rt.power_sample.valid != 0U) {
         ship_protocol_rt.power_level = ship_protocol_rt.power_sample.report;
+        if (ship_protocol_rt.power_first_valid_logged == 0U) {
+            ship_protocol_log_power_sample(&ship_protocol_rt.power_sample, 1U);
+            ship_protocol_rt.power_first_valid_logged = 1U;
+        }
         ship_protocol_clear_event_payload();
         ship_protocol_fill_power_event(&ship_protocol_rt.power_sample);
         if (ship_protocol_rt.power_level != previous_level) {
@@ -1640,6 +1645,7 @@ void ship_protocol_init(void)
     ship_protocol_rt.manual_boot_ready_logged = 0U;
     ship_protocol_rt.power_level = SHIP_POWER_LEVEL_0;
     ship_protocol_rt.power_adc_ready = 0U;
+    ship_protocol_rt.power_first_valid_logged = 0U;
     ship_protocol_rt.lowpower_return_latched = 0U;
     ship_protocol_rt.power_sample_divider_count = 0U;
     ship_protocol_rt.lowpower_check_ticks = 0U;
@@ -1679,6 +1685,7 @@ void ship_protocol_init(void)
     ship_protocol_read_power_sample(&ship_protocol_rt.power_sample);
     if (ship_protocol_rt.power_sample.valid != 0U) {
         ship_protocol_rt.power_level = ship_protocol_rt.power_sample.report;
+        ship_protocol_rt.power_first_valid_logged = 1U;
     }
     ShipControl_Init();
     AutoDrive_Init();

@@ -120,12 +120,53 @@ int8 board_wireless_send_on_channel(u8 channel, const u8 *buf, u8 len);
  */
 int8 board_wireless_receive(u8 *buf, u8 buf_len, u8 *out_len);
 
+/**
+ * @brief 切换无线接收信道并重新打开 RX。
+ * @param channel 7 位 LT8920 信道号。
+ * @return BOARD_WIRELESS_OK 成功；未初始化时返回 BOARD_WIRELESS_ERR_STATE。
+ */
 int8 board_wireless_set_channel(u8 channel);
+
+/**
+ * @brief 设置 LT8920 同步字寄存器并恢复 RX。
+ * @param reg36 寄存器 36 值。
+ * @param reg39 寄存器 39 值。
+ * @return BOARD_WIRELESS_OK 设置并恢复接收成功。
+ */
 int8 board_wireless_set_sync_regs(u16 reg36, u16 reg39);
+
+/**
+ * @brief 设置 LT8920 同步字寄存器并保持 idle。
+ * @param reg36 寄存器 36 值。
+ * @param reg39 寄存器 39 值。
+ * @return BOARD_WIRELESS_OK 设置成功。
+ */
 int8 board_wireless_set_sync_regs_idle(u16 reg36, u16 reg39);
+
+/**
+ * @brief 复制无线链路状态快照。
+ * @param state 输出状态，不能为 NULL。
+ * @return BOARD_WIRELESS_OK 复制成功。
+ */
 int8 board_wireless_get_state(board_wireless_state_t *state);
+
+/**
+ * @brief 读取无线接收路径调试寄存器快照。
+ * @param debug 输出调试结构体，不能为 NULL。
+ * @return BOARD_WIRELESS_OK 读取成功。
+ */
 int8 board_wireless_get_rx_debug(board_wireless_rx_debug_t *debug);
+
+/**
+ * @brief 重新扫描双天线信号并选择接收天线。
+ * @return BOARD_WIRELESS_OK 扫描和 RX 恢复成功。
+ */
 int8 board_wireless_rescan_antenna(void);
+
+/**
+ * @brief 在未扫描到信号时按低频节拍重试天线扫描。
+ * @return BOARD_WIRELESS_OK 本次轮询完成。
+ */
 int8 board_wireless_search_signal_poll(void);
 
 #endif

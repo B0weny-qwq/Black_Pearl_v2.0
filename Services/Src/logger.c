@@ -214,10 +214,9 @@ void log_init(void)
 {
     log_ready = 1U;
     board_console_write((const u8 *)"\r\n");
-    log_printf((u8 *)"[SYS] I: ============== Black Pearl v2.0 ==============");
-    log_printf((u8 *)"[SYS] I: Console: UART1 P3.1/P3.0 115200 8N1");
-    log_printf((u8 *)"[SYS] I: Build: %s %s", __DATE__, __TIME__);
-    log_printf((u8 *)"[SYS] I: LOG Ready. Use LOGI/LOGW/LOGE/LOGD/log_printf");
+    log_printf((u8 *)"[SYS] I: Black Pearl v2.0");
+    log_printf((u8 *)"[SYS] I: UART1 P3.1/P3.0 115200");
+    log_printf((u8 *)"[SYS] I: Build %s %s", __DATE__, __TIME__);
     board_console_write((const u8 *)"\r\n");
 }
 

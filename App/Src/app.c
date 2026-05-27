@@ -31,27 +31,27 @@ static const char *app_ship_event_name(ship_protocol_event_type_t type)
 	switch(type)
 	{
 	case SHIP_PROTOCOL_EVENT_THROTTLE:
-		return "throttle";
+		return "thr";
 	case SHIP_PROTOCOL_EVENT_KEY_EDGE:
-		return "key-edge";
+		return "key";
 	case SHIP_PROTOCOL_EVENT_RETURN_HOME:
-		return "return-home";
+		return "ret";
 	case SHIP_PROTOCOL_EVENT_FISH_POINT:
-		return "fish-point";
+		return "fish";
 	case SHIP_PROTOCOL_EVENT_RETURN_SWITCH:
-		return "return-switch";
+		return "sw";
 	case SHIP_PROTOCOL_EVENT_KEY_ACTION:
-		return "key-action";
+		return "act";
 	case SHIP_PROTOCOL_EVENT_POWER_SAMPLE:
-		return "power-sample";
+		return "pwr";
 	case SHIP_PROTOCOL_EVENT_POWER_LEVEL_CHANGED:
-		return "power-level";
+		return "plvl";
 	case SHIP_PROTOCOL_EVENT_LOW_POWER_LATCHED:
-		return "low-power";
+		return "low";
 	case SHIP_PROTOCOL_EVENT_SPI_PS_FRAME_RX:
-		return "spi-ps-rx";
+		return "spi";
 	case SHIP_PROTOCOL_EVENT_FRAME_ERROR:
-		return "frame-error";
+		return "err";
 	default:
 		return "none";
 	}
@@ -172,7 +172,7 @@ static void app_log_imu_diag(void)
 		 (u16)imu_diag.cfg_write,
 		 (u16)imu_diag.cfg_read,
 		 imu_diag.cfg_ret);
-	LOGE("IMU", "i2c op=%u stage=%u ret=%d b0=0x%02X b1=0x%02X rec=%d msst=0x%02X mscr=0x%02X",
+	LOGE("IMU", "i2c op=%u st=%u rc=%d b=%02X/%02X rec=%d ms=%02X/%02X",
 		 (u16)imu_diag.i2c_op,
 		 (u16)imu_diag.i2c_stage,
 		 imu_diag.i2c_ret,
@@ -208,6 +208,14 @@ static void app_read_imu_once(void)
 	{
 		return;
 	}
+	if(board_imu_service() != BOARD_IMU_OK)
+	{
+		return;
+	}
+	if(board_imu_has_data_ready() == 0U)
+	{
+		return;
+	}
 
 	ret = board_imu_read(&imu_sample);
 	if(ret == BOARD_IMU_OK)
@@ -232,7 +240,7 @@ static void app_bring_up_devices(void)
 	int8 ret;
 
 	LOGI("APP", "Black Pearl v2.0");
-	LOGI("APP", "v1.0 port/decoupled baseline");
+	LOGI("APP", "v1.0 port baseline");
 
 	ret = board_gps_init();
 	if(ret == BOARD_GPS_OK)
@@ -261,7 +269,7 @@ static void app_bring_up_devices(void)
 	{
 		LOGI("POWER", "init ok");
 #if BOARD_POWER_BAT_MV_UNCALIBRATED
-		LOGW("POWER", "bat_mv uncalibrated, using adc_mv scale");
+		LOGW("POWER", "bat_mv uncal");
 #endif
 	}
 	else
@@ -291,7 +299,7 @@ static void app_bring_up_devices(void)
 		app_spi_ps_ready = 0U;
 		if(ret == BOARD_SPI_PS_ERR_RESOURCE)
 		{
-			LOGW("SPI-PS", "disabled: shared SPI resource with LT8920");
+			LOGW("SPI-PS", "disabled shared SPI");
 		}
 	}
 
@@ -367,6 +375,7 @@ static void app_ahrs_poll(void)
 	int16 mag_x;
 	int16 mag_y;
 	int16 mag_z;
+	int8 ret;
 	float heading_seed_deg;
 
 	if((board_imu_is_ready() == 0U) || (app_ahrs_started == 0U))
@@ -392,11 +401,12 @@ static void app_ahrs_poll(void)
 	dt_ms = (elapsed_ms > AHRS_DT_MAX_MS) ? AHRS_DT_MAX_MS : (u16)elapsed_ms;
 
 	(void)board_imu_service();
-	if(board_imu_read(&imu_sample) != BOARD_IMU_OK)
+	ret = board_imu_read(&imu_sample);
+	if(ret != BOARD_IMU_OK)
 	{
 		if(read_error_latched == 0U)
 		{
-			LOGW("AHRS", "imu read fail state=%u", (u16)board_imu_get_state());
+			LOGW("AHRS", "imu read fail rc=%d state=%u", ret, (u16)board_imu_get_state());
 			read_error_latched = 1U;
 		}
 		return;
@@ -542,7 +552,7 @@ static void app_dispatch_ship_event(const ship_protocol_event_snapshot_t *event)
 	switch(event->type)
 	{
 	case SHIP_PROTOCOL_EVENT_KEY_EDGE:
-		LOGI("EVT", "ship %s seq=%u key=0x%02X input=%d/%d",
+		LOGI("EVT", "%s seq=%u key=%02X in=%d/%d",
 			 app_ship_event_name(event->type),
 			 event->sequence,
 			 (u16)event->throttle.key_event,
@@ -550,7 +560,7 @@ static void app_dispatch_ship_event(const ship_protocol_event_snapshot_t *event)
 			 event->throttle.steering_input);
 		break;
 	case SHIP_PROTOCOL_EVENT_KEY_ACTION:
-		LOGI("EVT", "ship %s seq=%u action=%u key=0x%02X",
+		LOGI("EVT", "%s seq=%u act=%u key=%02X",
 			 app_ship_event_name(event->type),
 			 event->sequence,
 			 (u16)event->key_action,
@@ -559,7 +569,7 @@ static void app_dispatch_ship_event(const ship_protocol_event_snapshot_t *event)
 	case SHIP_PROTOCOL_EVENT_RETURN_HOME:
 	case SHIP_PROTOCOL_EVENT_FISH_POINT:
 	case SHIP_PROTOCOL_EVENT_RETURN_SWITCH:
-		LOGI("EVT", "ship %s seq=%u cmd=0x%02X point=%u switch=0x%02X",
+		LOGI("EVT", "%s seq=%u cmd=%02X pt=%u sw=%02X",
 			 app_ship_event_name(event->type),
 			 event->sequence,
 			 (u16)event->cmd,
@@ -568,7 +578,7 @@ static void app_dispatch_ship_event(const ship_protocol_event_snapshot_t *event)
 		break;
 	case SHIP_PROTOCOL_EVENT_POWER_LEVEL_CHANGED:
 	case SHIP_PROTOCOL_EVENT_LOW_POWER_LATCHED:
-		LOGI("EVT", "ship %s seq=%u level=%u bat=%lu valid=%u",
+		LOGI("EVT", "%s seq=%u lvl=%u bat=%lu v=%u",
 			 app_ship_event_name(event->type),
 			 event->sequence,
 			 (u16)event->power.level,
@@ -576,7 +586,7 @@ static void app_dispatch_ship_event(const ship_protocol_event_snapshot_t *event)
 			 (u16)event->power.valid);
 		break;
 	case SHIP_PROTOCOL_EVENT_SPI_PS_FRAME_RX:
-		LOGI("EVT", "ship %s seq=%u rc=%d len=%u stored=%u",
+		LOGI("EVT", "%s seq=%u rc=%d len=%u st=%u",
 			 app_ship_event_name(event->type),
 			 event->sequence,
 			 event->spi_ps.status,
@@ -584,7 +594,7 @@ static void app_dispatch_ship_event(const ship_protocol_event_snapshot_t *event)
 			 (u16)event->spi_ps.stored_len);
 		break;
 	case SHIP_PROTOCOL_EVENT_FRAME_ERROR:
-		LOGW("EVT", "ship %s seq=%u cmd=0x%02X len=%u",
+		LOGW("EVT", "%s seq=%u cmd=%02X len=%u",
 			 app_ship_event_name(event->type),
 			 event->sequence,
 			 (u16)event->cmd,

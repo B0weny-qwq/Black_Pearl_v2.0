@@ -104,7 +104,7 @@ AutoDriveCfg_Save/Load -> parameter_store -> board_storage -> STC32G_EEPROM
 
 - 保存自动返航开关 `auto_ret_onoff`。
 - 保存 10 字节旧格式返航点。
-- 通过 `ADCFG load ok/default`、`ADCFG save ok/fail` 日志确认配置读写结果。
+- 通过 `ADCFG ld ok/ld def`、`ADCFG sv ok/sv fail` 日志确认配置读写结果。
 
 服务层仍然不直接包含 STC EEPROM 头文件；EEPROM/IAP 细节只允许出现在
 `BoardDevices/Src/board_storage.c`。
@@ -116,13 +116,13 @@ AutoDriveCfg_Save/Load -> parameter_store -> board_storage -> STC32G_EEPROM
 - `[SHIP] scheduler init`：协议状态机初始化。
 - `[SHIP] pair req sent` / `[SHIP] pair ok` / `[SHIP] enter work-state`：配对和工作信道。
 - `[SHIP] rc cmd=0x11`：手动遥控帧输入。
-- `[SHIP] manual boot block` / `[SHIP] manual boot ready`：开机保护和航向 ready 门控。
+- `[SHIP] boot blk` / `[SHIP] boot ready`：开机保护和航向 ready 门控。
 - `[DATA] cruise enter` / `[DATA] cruise exit` / `[SHIP] cruise reject`：E 键巡航。
 - `[CTRL] out mode=`：最终左右电机输出，含 mode、motion、base、diff、left、right。
 - `[SHIP] 0x14 rx fl=`：去定点命令诊断，含 frame/payload/xor/result/index。
-- `[SHIP] tx cmd=0x12`：旧遥控器固定状态回包。
-- `[SHIP] tx cmd=0x16`：AutoDrive 主动诊断上报。
-- `[ADCFG] load` / `[ADCFG] save`：返航配置读写。
+- `[SHIP] tx cmd=12`：旧遥控器固定状态回包。
+- `[SHIP] tx16 st=`：AutoDrive 主动诊断上报。
+- `[ADCFG] ld` / `[ADCFG] sv`：返航配置读写。
 - `[SHIP] adc raw=` / `[SHIP] low power latched`：电源采样和低电返航触发。
 
 ## 当前事件/日志对齐
@@ -136,9 +136,9 @@ AutoDriveCfg_Save/Load -> parameter_store -> board_storage -> STC32G_EEPROM
   `POWER_LEVEL_CHANGED`。
 - `[SHIP] low power latched` 只会在 `power_level == 0`、超过 `600` 个 scheduler tick、
   AutoDrive 为 close、手动油门小于 `10` 后出现，并发布 `LOW_POWER_LATCHED`。
-- `[EVT] ship ...` 来自 `app_ship_event_poll()`，它每轮从 8 深度协议事件队列 FIFO
+- `[EVT] ...` 来自 `app_ship_event_poll()`，它每轮从 8 深度协议事件队列 FIFO
   drain 事件；高频 throttle/power sample 默认不额外刷日志。
 - `[SPI-PS] init ok` 表示 `app_loop()` 会轮询 `board_spi_ps_service()`；完整 RX 帧或截断帧会发布
   `SPI_PS_FRAME_RX`。SPI-PS 初始化失败时保持静默。
-- `[SPI-PS] disabled: shared SPI resource with LT8920` 表示生成配置仍标记 SPI-PS 与 LT8920
+- `[SPI-PS] disabled shared SPI` 表示生成配置仍标记 SPI-PS 与 LT8920
   共用 STC SPI 外设，`board_spi_ps_init()` 已用资源护栏阻止误启用。

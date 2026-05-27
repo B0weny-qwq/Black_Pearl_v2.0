@@ -160,6 +160,11 @@ devices:
     i2c_addresses:
       primary: 0x6B
       alternate: 0x6A
+    init_gate:
+      status0_required: accel_and_gyro_ready
+      first_sample_required: true
+      sample_window: AX_L_12_bytes
+      optional_temperature: TEMP_L_2_bytes
     api:
       header: BoardDevices/Inc/board_imu.h
       source: BoardDevices/Src/board_imu.c
@@ -220,6 +225,12 @@ devices:
     type: battery_adc
     adc_channel: ADC_CH8
     pin: P0.0
+    sampling:
+      scheduler_ms: 10
+      divider: 100
+      effective_period_ms: 1000
+      initial_cache_state: pending_until_first_adc_read
+      bat_mv_calibration: uncalibrated_1_to_1
     api:
       header: BoardDevices/Inc/board_power.h
       source: BoardDevices/Src/board_power.c
@@ -272,6 +283,26 @@ resource_conflicts:
       - disabled_devices.spi_peer_link
     rule: Current firmware only enables the LT8920 SPI mux on P3.2-P3.5.
     guard: EF_BOARD_SPI_PS_SHARES_LT8920_SPI keeps board_spi_ps_init() disabled until hardware confirms an independent SPI path or a safe bus arbitration strategy.
+
+memory_layout:
+  c251:
+    edata_budget_bytes: 4096
+    stack_bytes: 256
+    latest_verified:
+      date: 2026-05-27
+      edata_hdata_bytes: 3873
+      xdata_bytes: 380
+      code_bytes: 61343
+      const_bytes: 3597
+      hconst_bytes: 3597
+      result: "0 Error(s), 0 Warning(s)"
+    xdata_objects:
+      - object: Components/Src/AHRS.c::ahrs_ctx
+        reason: AHRS quaternion/filter/diagnostic context is large and not App-visible.
+      - object: BoardDevices/Src/board_wireless.c::board_wireless_rx_data
+        reason: 4 x 60-byte RF payload queue stays BoardDevices-private and frees EDATA stack room.
+      - object: ChipDrivers/Src/LT8920.c::lt8920_default_regs
+        reason: EF_CODE_CONST keeps the default radio register table out of constrained HCONST.
 
 init_sequence:
   platform:

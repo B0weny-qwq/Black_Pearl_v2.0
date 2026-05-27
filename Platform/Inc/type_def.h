@@ -31,6 +31,14 @@ typedef unsigned long   uint32; // 32 bits
 #endif
 #endif
 
+#ifndef EF_CODE_CONST
+#if defined(__C51__) || defined(__CX51__) || defined(__C251__)
+#define EF_CODE_CONST code
+#else
+#define EF_CODE_CONST
+#endif
+#endif
+
 //===================================================
 
 #define	TRUE	1

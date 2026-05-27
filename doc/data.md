@@ -143,6 +143,8 @@ main()
   - `App/` 当前已把 IMU 初始化加入启动生命周期，并串口打印初始化结果
   - 当前已完成板上移植验证；初始化链路使用 P1.4/P1.5、100 kHz，先初始化 IMU，再初始化同总线上的 QMC6309
   - QMI8658 bring-up 保留可靠上电等待、初始化重试和 `STATUS0` ready 轮询，避免配置后立即读数
+  - 初始化成功前会实际读取一帧首样本。若寄存器配置看起来正确但 accel/gyro 数据路径不出样，`board_imu_init()` 会返回 `BOARD_IMU_ERR_DATA` 并进入错误状态，避免启动日志误报 `init ok`
+  - 热路径读取与 v1.1 对齐：六轴数据从 `AX_L` 连续读 12 字节，温度从 `TEMP_L` 单独尝试读取，仅作为可选字段
 - QMC6309 当前状态：
   - 芯片寄存器驱动已在 `ChipDrivers/` 独立维护
   - 板级 `board_mag` 已复用 `board_sensor_bus` 并返回显式初始化/读数状态
@@ -167,7 +169,7 @@ main()
   - 派生工作 TX 信道：`77`，即 `13 + 0x40`，保留旧 `RF_Channel[2]`
   - 派生 key0/key1：`32/30`
   - 派生 sync reg36/reg39：`0x2020/0x1E1E`
-  - `PAIR_REQ(0x10)` 帧：`AA 06 10 65 65 A0 65 C3 BB`
+  - `PAIR_REQ(0x10)` 帧：`AA 06 10 65 65 A0 65 D3 BB`
   - `PAIR_RSP(0x0F)` 响应窗口：最后一次 `PAIR_REQ` 后开启 `500` 个约 10ms tick，
     约 5 秒；窗口外 `0x0F` 只记录忽略，不置配对成功。
   - 帧格式：`AA | len | cmd | payload | xor | BB`，`len = 2 + payload_len`
@@ -214,7 +216,7 @@ main()
 | Cmd | 旧名 | 方向 | payload | 当前状态机入口 | 当前动作 |
 |-----|------|------|---------|----------------|----------|
 | `0x0F` | `PAIR_RSP` | 遥控器 -> 船 | 通常 4 字节 | `ship_protocol_handle_pair_rsp()` | 仅 `PAIR_WAIT_RSP` 窗口内确认配对，进入 `WORK_RX`，随后统一回 `0x12` |
-| `0x10` | `PAIR_REQ` | 船 -> 遥控器 | 4 字节 seed | `ship_protocol_try_pair_send()` | 在 `0x7F` 配对信道 burst 发送 10 次，帧为 `AA 06 10 65 65 A0 65 C3 BB` |
+| `0x10` | `PAIR_REQ` | 船 -> 遥控器 | 4 字节 seed | `ship_protocol_try_pair_send()` | 在 `0x7F` 配对信道 burst 发送 10 次，帧为 `AA 06 10 65 65 A0 65 D3 BB` |
 | `0x11` | `THROTTLE` | 遥控器 -> 船 | `lr, ud, key` | `ship_protocol_handle_throttle()` -> `ShipControl_UpdateManualInput()` | 开机/航向保护内只保活；AutoDrive busy 时不抢电机；正常时更新手动控制；A/E/unknown 保持 `KEY_EDGE`；B/C/D 发布 `KEY_ACTION_*_NOOP`；E 键可进入/退出巡航 |
 | `0x12` | `GPS_REPORT` | 船 -> 遥控器 | 固定 15 字节 | `ship_protocol_send_gps_once()` | 任意合法 `0x0F/0x11/0x13/0x14/0x15` 分发后回包；方向字节继续固定 `E/W` |
 | `0x13` | `RETURN_HOME` | 遥控器 -> 船 | 10 字节旧点位 | `AutoDrive_SetReturnPositionRaw()` | 保存返航点到配置并尝试进入返航；随后统一回 `0x12` |
@@ -242,29 +244,49 @@ main()
 | RF bring-up | `WL init ok` | `board_wireless_init()` 完成 LT8920/KCT8206 板级初始化 |
 | 配对发送 | `pair req sent` | `PAIR_REQ(0x10)` 按固定 seed 在 `0x7F` 信道发送，目标次数为 10 |
 | 配对参数 | `pair req start` | 日志应包含 seed、`work_rx=13`、`work_tx=77`、`key=32/30`、`reg36=0x2020`、`reg39=0x1E1E` |
-| 配对帧 | `pair req frame=AA 06 10 65 65 A0 65 C3 BB` | XOR 范围保持旧协议 `len/cmd/payload` |
-| 响应窗口 | `pair rsp window open` | 最后一次 `PAIR_REQ` 后打开 500 tick 响应窗口 |
+| 配对帧 | `pair req frame=AA 06 10 65 65 A0 65 D3 BB` | XOR 范围保持旧协议 `len/cmd/payload` |
+| 响应窗口 | `pair rsp win` | 最后一次 `PAIR_REQ` 后打开 500 tick 响应窗口 |
 | 配对成功 | `pair ok` | 收到合法 `PAIR_RSP(0x0F)` 或任意合法旧帧后刷新 `paired` |
 | 工作信道 | `enter work-state` | 已切入旧算法派生工作信道 RX |
 | 手动输入 | `rc cmd=0x11` | 解析 `lr/ud/key`，通过保护条件后提交给 `ShipControl` |
 | 按键动作 | `key edge key=` | A/E/unknown 仍是 `KEY_EDGE`；B/C/D 日志为 `B-noop`/`C-noop`/`D-noop` 并发布 `KEY_ACTION_*_NOOP` |
-| 开机保护 | `manual boot block` / `manual boot ready` | 上电短暂阻塞手动电机输出，可等待航向 ready |
+| 开机保护 | `boot blk` / `boot ready` | 上电短暂阻塞手动电机输出，可等待航向 ready |
 | 巡航状态 | `cruise enter` / `cruise exit` / `cruise reject` | E 键巡航准入、退出和拒绝原因 |
 | 电机输出 | `CTRL out mode=` | `ShipControl` 统一输出 mode、motion、base、diff、left、right |
-| 返航点事件 | `0x13 return-home event` | 解析 10 字节返航点并调用 AutoDrive 返航入口 |
-| 钓点事件 | `0x14 fish-point event` | 解析 10 字节钓点坐标，并进入 5 点表保存/查重/启动状态机 |
+| 返航点事件 | `0x13 ret` | 解析 10 字节返航点并调用 AutoDrive 返航入口 |
+| 钓点事件 | `0x14 fish` | 解析 10 字节钓点坐标，并进入 5 点表保存/查重/启动状态机 |
 | 钓点诊断 | `0x14 rx fl=` | 打印 frame/payload/xor/result/index，便于联调 0x14 结果码 |
-| 返航开关事件 | `0x15 return-switch event` | 解析 `switch_state` 和可选返航点，保存配置并按开关触发返航 |
-| GPS 回包 | `tx cmd=0x12` | 任意合法协议帧分发后发送固定 15 字节 GPS payload |
-| AutoDrive 诊断 | `tx cmd=0x16` | 主动上报 state、mode、switch、reason、GPS、卫星数和距离 |
-| 配置保存 | `ADCFG load` / `ADCFG save` | AutoDrive 配置经 `parameter_store -> board_storage` 读写 |
-| 电源采样 | `POWER init ok` / `adc raw=` / `low power latched` | 电源底层初始化、电量采样、`POWER_SAMPLE` / `POWER_LEVEL_CHANGED` 观察事件和低电返航触发；`bat_mv` 未标定时启动日志会提示 |
-| 协议事件消费 | `[EVT] ship ...` | `app_ship_event_poll()` 从 `ship_protocol_take_event()` FIFO drain 事件；高频 throttle/power sample 默认不额外刷日志 |
-| SPI-PS RX | `SPI-PS init ok` / `disabled: shared SPI resource with LT8920` | SPI-PS 初始化成功后，`app_loop()` 轮询 RX 完整帧并发布 `SPI_PS_FRAME_RX`；当前生成配置默认禁用，且共用 SPI 护栏会阻止误启用 |
+| 返航开关事件 | `0x15 sw=` | 解析 `switch_state` 和可选返航点，保存配置并按开关触发返航 |
+| GPS 回包 | `tx cmd=12` | 任意合法协议帧分发后发送固定 15 字节 GPS payload |
+| AutoDrive 诊断 | `tx16 st=` | 主动上报 state、mode、switch、reason、GPS、卫星数和距离 |
+| 配置保存 | `ADCFG ld` / `ADCFG sv` | AutoDrive 配置经 `parameter_store -> board_storage` 读写 |
+| 电源采样 | `POWER init ok` / `adc raw=` / `low power latched` | 电源底层初始化、电量采样、`POWER_SAMPLE` / `POWER_LEVEL_CHANGED` 观察事件和低电返航触发；`bat_mv` 未标定时启动日志会提示 `bat_mv uncal` |
+| 协议事件消费 | `[EVT] ...` | `app_ship_event_poll()` 从 `ship_protocol_take_event()` FIFO drain 事件；高频 throttle/power sample 默认不额外刷日志 |
+| SPI-PS RX | `SPI-PS init ok` / `disabled shared SPI` | SPI-PS 初始化成功后，`app_loop()` 轮询 RX 完整帧并发布 `SPI_PS_FRAME_RX`；当前生成配置默认禁用，且共用 SPI 护栏会阻止误启用 |
 | 链路异常 | `timeout` / `bad xor` / `queue full` | 用于确认超时、CRC/XOR 拒包和 RF payload 队列溢出 |
 
 这些日志属于 `Services/logger` 诊断输出。`App/` 可以调用日志宏，但无线硬件访问仍必须通过
 `BoardDevices/`，不得在协议层引入 STC 寄存器头、裸 GPIO 或官方驱动 API。
+
+## 烧录后行为与上位机兼容
+
+当前固件烧录后会直接进入船端业务主循环，不是单纯驱动 demo：
+
+- UART1 `P3.1/P3.0` 以 `115200 8N1` 输出日志。
+- UART2 `P1.1/P1.0` 接收 GPS NMEA，解析卫星数、航向和旧坐标拆分字段。
+- QMI8658/QMC6309 进入 AHRS、磁罗盘和 HeadingEstimator 数据链路。
+- LT8920/KCT8206 先在 `0x7F` 配对信道发送 `PAIR_REQ(0x10)`，再进入旧算法派生工作信道。
+- 收到 `0x11` 后进入 `ShipControl` 手动/巡航控制；收到 `0x13/0x14/0x15` 后进入 AutoDrive 返航、钓点或返航开关逻辑。
+- 任意合法旧协议帧分发后都会回发旧格式 `GPS_REPORT(0x12)`；船端还会主动发送 `AUTODRIVE_DIAG(0x16)` 供调试观察。
+- 电源等级通过当前板子的 `P0.0 / ADC_CH8` 转成旧协议 `0..4` 等级。`bat_mv` 仍未按真实分压电阻标定，因此仅作为工程诊断值。
+
+上位机/遥控兼容面：
+
+- 保留旧 `AA | len | cmd | payload | xor | BB` 帧格式和 `len/cmd/payload` XOR。
+- 兼容旧命令 `0x10/0x0F/0x11/0x12/0x13/0x14/0x15`。
+- `0x12` payload 固定 15 字节，字段顺序保持旧上位机/遥控期望；`payload[13]` 是电量等级，`payload[14]` 是 AutoDrive 状态。
+- `0x16` 是额外诊断帧，用于新工具或日志查看，不改变旧 `0x12` 的兼容行为。
+- 上一提交新增的 `tools/ship_log_viewer` 是本地兼容日志查看工具；固件空口协议仍按旧帧工作。
 - SPI-PS 参考实现已迁移为 `ef_spi` 和 `board_spi_ps` 两层。
 - `Examples/` 和 `need to do/` 属于本地参考材料，不纳入版本管理。
 - SPI-PS 固定资源：
@@ -370,6 +392,44 @@ main()
 - Timing source: `platform_scheduler_get_tick_ms()` reads the 1 ms Timer0 scheduler tick with interrupt-safe snapshot.
 - Current limitation: v2 static heading gate uses AHRS gyro-bias/acc/gyro-still state only. v1.1 motor-stop and ship-control-mode gates will be restored when the control layer is ported.
 
+### C251 memory layout note
+
+The C251 target uses a 4 KB EDATA/HDATA window plus external XDATA. Large state is therefore
+kept out of EDATA when it is not latency-critical:
+
+- `Components/Src/AHRS.c`: `ahrs_ctx` is `AHRS_Context_t EF_LARGE_DATA` and is placed in XDATA.
+- `BoardDevices/Src/board_wireless.c`: the 4 x 60-byte RF payload queue is `EF_LARGE_DATA` and is placed in XDATA.
+- `ChipDrivers/Src/LT8920.c`: the default LT8920 register profile uses `EF_CODE_CONST` and is placed in CODE instead of HCONST.
+- The wireless queue remains private to BoardDevices. `App/` still receives copied payloads through
+  `board_wireless_receive()`, so no XDATA pointer or LT8920 detail crosses the layer boundary.
+
+Current verified map evidence from `RVMDK/list/STC32G-LIB.map`:
+
+- EDATA used: `000F21H` bytes.
+- C251 stack: `?STACK`, `000100H` bytes, placed at `000E2DH..000F2CH`.
+- HCONST used: `000E0DH` bytes.
+- XDATA used: `00017CH` bytes.
+- XDATA segments: `?XD?BOARD_WIRELESS` and `?XD?AHRS`.
+- CODE constant segment: `?CO?LT8920` for the LT8920 default register profile.
+
+Current verified build evidence from `RVMDK/list/STC32G-LIB.build_log.htm`:
+
+```text
+Program Size: data=11.7 edata+hdata=3873 xdata=380 const=3597 code=61343
+".\list\STC32G-LIB" - 0 Error(s), 0 Warning(s).
+```
+
+Public API documentation checkpoint:
+
+- `App/Inc`: lifecycle, AutoDrive, ShipControl and protocol event APIs document ownership,
+  timing units and observable side effects.
+- `BoardDevices/Inc`: GPS, LT8920 and wireless APIs document hidden UART/SPI/GPIO resources,
+  blocking behavior and return codes.
+- `ChipDrivers/Inc/gnss_nmea.h` documents the parser-only boundary and keeps UART ownership out of
+  the parser layer.
+- `McuAbstraction/Inc/ef_iic.h` uses Doxygen comments for IIC init, transfer, recovery and
+  diagnostic APIs.
+
 ## 2026-05 GNSS and 0x12 full-field alignment record
 
 Current `0x12` status/GPS payload alignment in `App/Src/ship_protocol.c`:
@@ -431,6 +491,12 @@ Current cached power sample fields in `ship_protocol_rt`:
 - `power_sample.bat_mv`
 - `power_sample.report`
 - `power_sample.valid`
+- `power_sample.sampled`
+- `power_sample.status`
+
+`sampled == 0` 表示启动后还没有真正执行过下采样 ADC 读取，此时日志为 `adc pending`；
+`sampled != 0 && valid == 0` 表示已经尝试读取但底层返回 not-ready/sample 错误，此时日志为
+`adc not-ready rc=...`。低电返航计数只在 `valid != 0` 后累计，避免上电初始缓存误触发。
 
 Current protocol event queue:
 

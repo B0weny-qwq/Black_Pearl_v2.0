@@ -437,7 +437,8 @@ int8 QMI8658_Init(qmi8658_t *dev)
 int8 QMI8658_ReadRawSample(qmi8658_t *dev, qmi8658_sample_t *sample)
 {
     int8 ret;
-    u8 raw[14];
+    u8 raw[12];
+    u8 temp_raw[2];
     u8 status0;
 
     if (sample == 0) {
@@ -456,27 +457,24 @@ int8 QMI8658_ReadRawSample(qmi8658_t *dev, qmi8658_sample_t *sample)
     sample->temp_raw = 0;
     sample->has_temp = 0U;
 
-    ret = QMI8658_ReadRegs(dev, QMI8658_REG_TEMP_L, raw, 14U);
+    ret = QMI8658_ReadRegs(dev, QMI8658_REG_AX_L, raw, 12U);
     if (ret != QMI8658_OK) {
         return ret;
     }
 
-    sample->temp_raw = (int16)(((u16)raw[1] << 8) | raw[0]);
-    sample->acc_x_raw = (int16)(((u16)raw[3] << 8) | raw[2]);
-    sample->acc_y_raw = (int16)(((u16)raw[5] << 8) | raw[4]);
-    sample->acc_z_raw = (int16)(((u16)raw[7] << 8) | raw[6]);
-    sample->gyro_x_raw = (int16)(((u16)raw[9] << 8) | raw[8]);
-    sample->gyro_y_raw = (int16)(((u16)raw[11] << 8) | raw[10]);
-    sample->gyro_z_raw = (int16)(((u16)raw[13] << 8) | raw[12]);
-    sample->has_temp = 1U;
+    sample->acc_x_raw = (int16)(((u16)raw[1] << 8) | raw[0]);
+    sample->acc_y_raw = (int16)(((u16)raw[3] << 8) | raw[2]);
+    sample->acc_z_raw = (int16)(((u16)raw[5] << 8) | raw[4]);
+    sample->gyro_x_raw = (int16)(((u16)raw[7] << 8) | raw[6]);
+    sample->gyro_y_raw = (int16)(((u16)raw[9] << 8) | raw[8]);
+    sample->gyro_z_raw = (int16)(((u16)raw[11] << 8) | raw[10]);
 
     if ((raw[0] == 0xFFU) && (raw[1] == 0xFFU) &&
         (raw[2] == 0xFFU) && (raw[3] == 0xFFU) &&
         (raw[4] == 0xFFU) && (raw[5] == 0xFFU) &&
         (raw[6] == 0xFFU) && (raw[7] == 0xFFU) &&
         (raw[8] == 0xFFU) && (raw[9] == 0xFFU) &&
-        (raw[10] == 0xFFU) && (raw[11] == 0xFFU) &&
-        (raw[12] == 0xFFU) && (raw[13] == 0xFFU)) {
+        (raw[10] == 0xFFU) && (raw[11] == 0xFFU)) {
         return QMI8658_ERR_DATA;
     }
 
@@ -487,6 +485,11 @@ int8 QMI8658_ReadRawSample(qmi8658_t *dev, qmi8658_sample_t *sample)
         (sample->gyro_y_raw == 0) &&
         (sample->gyro_z_raw == 0)) {
         return QMI8658_ERR_DATA;
+    }
+
+    if (QMI8658_ReadRegs(dev, QMI8658_REG_TEMP_L, temp_raw, 2U) == QMI8658_OK) {
+        sample->temp_raw = (int16)(((u16)temp_raw[1] << 8) | temp_raw[0]);
+        sample->has_temp = 1U;
     }
 
     ret = QMI8658_ReadStatus0(dev, &status0);

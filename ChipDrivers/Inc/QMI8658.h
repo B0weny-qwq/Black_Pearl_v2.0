@@ -158,7 +158,7 @@ int8 QMI8658_ReadID(qmi8658_t *dev, u8 *chip_id);
 /** @brief 读取 STATUS0，并刷新本地 data_ready 状态。 */
 int8 QMI8658_ReadStatus0(qmi8658_t *dev, u8 *status0);
 
-/** @brief 读取一帧温度/加速度/陀螺原始数据。 */
+/** @brief 从 AX_L 连续读取 12 字节六轴原始数据；温度另行尝试读取。 */
 int8 QMI8658_ReadRawSample(qmi8658_t *dev, qmi8658_sample_t *sample);
 
 /** @brief 读取关键诊断寄存器，供 bring-up 失败排查使用。 */

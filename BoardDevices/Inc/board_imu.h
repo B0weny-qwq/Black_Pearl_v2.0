@@ -87,6 +87,7 @@ typedef struct
  * @brief 初始化板级 IMU。
  *
  * 本函数负责初始化板级传感器 IIC、绑定 QMI8658 芯片层并完成最小 bring-up。
+ * 返回成功前会确认 accel/gyro ready，并读取一帧真实样本。
  */
 int8 board_imu_init(void);
 

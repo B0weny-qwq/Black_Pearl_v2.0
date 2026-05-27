@@ -1,10 +1,9 @@
 /**
  * @file gnss_nmea.h
- * @brief GNSS NMEA0183 parser component.
+ * @brief GNSS NMEA0183 字节流解析器。
  *
- * This file belongs to the chip/parser layer. It only parses NMEA0183 byte
- * streams and maintains a fixed-point navigation state snapshot. UART port
- * selection, pin routing, and board scheduling belong outside this module.
+ * 本文件属于 ChipDrivers/解析器层，只解析 NMEA0183 字节流并维护定点导航状态快照。
+ * UART 端口、引脚路由、DMA/中断接收和调度节拍由 BoardDevices 层负责。
  */
 
 #ifndef __GNSS_NMEA_H__
@@ -88,11 +87,51 @@ typedef struct
     u16 fifo_count;
 } gnss_nmea_t;
 
+/**
+ * @brief 初始化 NMEA 解析器实例。
+ * @param parser 解析器对象，不能为 NULL。
+ *
+ * 函数清空运行缓冲和导航状态；不访问 UART 或任何硬件资源。
+ */
 void gnss_nmea_init(gnss_nmea_t *parser);
+
+/**
+ * @brief 复位 NMEA 解析器运行状态。
+ * @param parser 解析器对象，不能为 NULL。
+ *
+ * 会清空句子缓冲、FIFO、计数器和导航状态，但保持实例可继续使用。
+ */
 void gnss_nmea_reset(gnss_nmea_t *parser);
+
+/**
+ * @brief 输入 1 字节 NMEA 数据并推进解析。
+ * @param parser 解析器对象，必须已初始化。
+ * @param dat 输入字节。
+ * @return GNSS_NMEA_OK 投喂并解析完成。
+ * @return GNSS_NMEA_ERR_PARAM 参数非法、未初始化或内部 FIFO 溢出。
+ */
 int8 gnss_nmea_feed_byte(gnss_nmea_t *parser, u8 dat);
+
+/**
+ * @brief 输入一段连续 NMEA 数据。
+ * @param parser 解析器对象，必须已初始化。
+ * @param buf 输入缓冲区，不能为 NULL。
+ * @param len 输入长度，单位字节，不能为 0。
+ * @return GNSS_NMEA_OK 全部投喂完成；参数非法时返回 GNSS_NMEA_ERR_PARAM。
+ */
 int8 gnss_nmea_feed(gnss_nmea_t *parser, const u8 *buf, u8 len);
+
+/**
+ * @brief 记录上游 UART/板级接收源溢出。
+ * @param parser 解析器对象；为 NULL 时直接返回。
+ */
 void gnss_nmea_note_source_overflow(gnss_nmea_t *parser);
+
+/**
+ * @brief 获取当前 NMEA 解析状态。
+ * @param parser 解析器对象。
+ * @return 指向内部只读状态的指针；parser 为 NULL 时返回 NULL。
+ */
 const gnss_nmea_state_t *gnss_nmea_get_state(const gnss_nmea_t *parser);
 
 #endif

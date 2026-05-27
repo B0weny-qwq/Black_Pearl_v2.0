@@ -1,6 +1,7 @@
 #include "board_power.h"
 #include "STC32G_ADC.h"
 #include "STC32G_GPIO.h"
+#include "STC32G_NVIC.h"
 
 #define BOARD_POWER_ADC_REF_MV      3300UL
 
@@ -75,6 +76,7 @@ int8 board_power_init(void)
 
     board_power_ctx.ready = (ADC_Inilize(&adc_init) == SUCCESS) ? 1U : 0U;
     ADC_PowerControl(ENABLE);
+    NVIC_ADC_Init(DISABLE, Priority_0);
     board_power_ctx.level = BOARD_POWER_LEVEL_0;
     board_power_ctx.last.raw = 0U;
     board_power_ctx.last.adc_mv = 0U;

@@ -93,7 +93,7 @@ typedef struct
     int8 recover_ret;
 } ef_iic_diag_t;
 
-/*
+/**
  * 初始化 STC 硬件 IIC 和 IIC DMA。
  *
  * 注意：pin_group 会配置对应引脚为开漏并打开内部上拉。若板上已有外部上拉，
@@ -106,7 +106,7 @@ typedef struct
  */
 int8 ef_iic_init(const ef_iic_config_t *config);
 
-/*
+/**
  * 向 8-bit 寄存器地址写连续数据。
  *
  * dev_addr: 7-bit 设备地址。
@@ -122,7 +122,7 @@ int8 ef_iic_init(const ef_iic_config_t *config);
  */
 int8 ef_iic_write_regs(u8 dev_addr, u8 reg_addr, const u8 *buffer, u8 len);
 
-/*
+/**
  * 从 8-bit 寄存器地址读取连续数据。
  *
  * dev_addr: 7-bit 设备地址。
@@ -134,7 +134,7 @@ int8 ef_iic_write_regs(u8 dev_addr, u8 reg_addr, const u8 *buffer, u8 len);
  */
 int8 ef_iic_read_regs(u8 dev_addr, u8 reg_addr, u8 *buffer, u8 len);
 
-/*
+/**
  * 对当前硬件 IIC 总线做一次恢复。
  *
  * 典型流程：
@@ -150,9 +150,14 @@ int8 ef_iic_read_regs(u8 dev_addr, u8 reg_addr, u8 *buffer, u8 len);
  */
 int8 ef_iic_bus_recover(void);
 
+/**
+ * @brief 获取最近一次 IIC 操作诊断信息。
+ * @param diag 输出诊断结构体，不能为 NULL。
+ * @return EF_IIC_OK 获取成功；参数为空时返回 EF_IIC_ERR_PARAM。
+ */
 int8 ef_iic_get_last_diag(ef_iic_diag_t *diag);
 
-/* 查询 STC IIC 主机状态机是否忙。1 表示忙，0 表示空闲。 */
+/** @brief 查询 STC IIC 主机状态机是否忙；返回 1 表示忙，0 表示空闲。 */
 u8 ef_iic_is_busy(void);
 
 #endif

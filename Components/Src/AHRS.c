@@ -72,7 +72,11 @@ typedef struct
     u8 ready;
 } AHRS_Context_t;
 
-static EF_LARGE_DATA AHRS_Context_t ahrs_ctx;
+/*
+ * AHRS 上下文包含四元数、滤波器和诊断快照，体积较大。
+ * C251 工程把它放入 XDATA，避免挤占 EDATA 中的启动栈和驱动状态。
+ */
+static AHRS_Context_t EF_LARGE_DATA ahrs_ctx;
 
 static u32 AHRS_Abs16(int16 value)
 {

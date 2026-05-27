@@ -11,8 +11,25 @@
 
 #include "autodrive.h"
 
+/**
+ * @brief 初始化 AutoDrive 配置缓存和底层参数服务。
+ *
+ * 本函数属于 App 配置边界，不直接访问 EEPROM/IAP 驱动；实际非易失存储由
+ * Services/parameter_store 封装。
+ */
 void AutoDriveCfg_Init(void);
+
+/**
+ * @brief 读取返航配置。
+ * @param cfg 输出配置，不能为 NULL；读取失败时写入默认关闭返航配置。
+ */
 void AutoDriveCfg_Load(AutoDrive_ReturnConfig_t *cfg);
+
+/**
+ * @brief 保存返航配置。
+ * @param cfg 输入配置，不能为 NULL。
+ * @return 1 保存成功，0 参数为空或参数服务写入失败。
+ */
 u8 AutoDriveCfg_Save(const AutoDrive_ReturnConfig_t *cfg);
 
 #endif

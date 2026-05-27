@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- 2026-05-27 runtime bring-up diagnostics and v1.1 sensor alignment:
+  - Aligned `QMI8658_ReadRawSample()` with the v1.1 hot path: six-axis samples are now read as 12 bytes from `AX_L`, while temperature is read separately as optional diagnostic data.
+  - Added a board-level first-valid-sample gate in `board_imu_init()`. A QMI8658 that only accepts register writes but does not produce accel/gyro samples is now reported as an IMU init/data failure instead of a misleading `init ok`.
+  - Added `board_imu_service()` and data-ready checks before App-side one-shot/AHRS reads, and extended the AHRS warning with the actual `board_imu_read()` return code.
+  - Matched the ADC bring-up path with the v1.1 style by disabling the ADC interrupt through `NVIC_ADC_Init(DISABLE, Priority_0)` after ADC power-up.
+  - Split the protocol power cache into "sample not attempted yet" and "sample attempted but not ready" states. Startup now logs `adc pending` before the first down-sampled ADC read instead of reporting `raw=0` as a false failure, and low-power latching only counts valid samples.
+  - Corrected the documented `PAIR_REQ(0x10)` example frame XOR to `AA 06 10 65 65 A0 65 D3 BB`, matching the runtime log and the `len/cmd/payload` XOR calculation.
+  - Moved the LT8920 default register table to C251 `CODE` constants through `EF_CODE_CONST`, and shortened non-protocol diagnostic strings so HCONST fits again.
+  - Verified Keil C251 command-line build after the runtime fixes: `Program Size: data=11.7 edata+hdata=3873 xdata=380 const=3597 code=61343`, `0 Error(s), 0 Warning(s)`.
+  - Documented the burn-in behavior and upper-computer/remote compatibility surface for the current firmware.
+
+- 2026-05-27 C251 build and memory-layout fix:
+  - Fixed the C251 qualifier order for `Components/Src/AHRS.c` so the AHRS context is declared as `AHRS_Context_t EF_LARGE_DATA`, which C251 places in XDATA.
+  - Moved the 4 x 60-byte RF receive payload queue in `BoardDevices/Src/board_wireless.c` to XDATA; the queue remains BoardDevices-private and App still receives copied payloads through `board_wireless_receive()`.
+  - Kept Components pure: AHRS/HeadingEstimator remain free of board, STC, GPIO, I2C and logging dependencies.
+  - Added Chinese Doxygen comments for AHRS and HeadingEstimator public APIs, including ownership, timing units, side effects and return meanings.
+  - Completed Chinese Doxygen coverage for the touched App, BoardDevices, ChipDrivers and MCU abstraction public headers, including `app`, `autodrive`, `ship_control`, `board_gps`, `board_lt8920`, `board_wireless`, `gnss_nmea` and `ef_iic`.
+  - Documented the C251 EDATA/XDATA layout and verification evidence in `README.md`, `doc/total.md`, `doc/data.md`, and `embedforge.yaml`.
+  - Verified Keil C251 command-line build: `0 Error(s), 0 Warning(s)`.
+  - Verified architecture boundary scan: App/Components/Services still do not include vendor/platform headers or old hardware APIs directly.
+
 - 2026-05-24 protocol event follow-up:
   - Added B/C/D semantic key-action events in `ship_protocol`: B maps to `SHIP_PROTOCOL_KEY_ACTION_B_NOOP`, C maps to `SHIP_PROTOCOL_KEY_ACTION_C_NOOP`, and D maps to `SHIP_PROTOCOL_KEY_ACTION_D_NOOP`.
   - Kept A on the existing A-light `KEY_EDGE` log path only; no A `KEY_ACTION`, no `board_light`, and no GPIO/light hardware drive were added.
@@ -137,7 +158,7 @@
     `0x7F`、seed `65 65 A0 65`、pair send count `10`，合法帧后发送 cmd `0x12`
     和 15 字节 GPS payload。
   - 补齐老版本 seed 配对功能：固定 `PAIR_REQ` 帧为
-    `AA 06 10 65 65 A0 65 C3 BB`，旧算法派生 `work_rx=13`、`work_tx=77`、
+    `AA 06 10 65 65 A0 65 D3 BB`，旧算法派生 `work_rx=13`、`work_tx=77`、
     `key=32/30`、`reg36=0x2020`、`reg39=0x1E1E`；最后一次 `PAIR_REQ`
     后写 sync 并开启 500 tick 的 `PAIR_RSP(0x0F)` 响应窗口，窗口外响应忽略。
   - `0x11/0x13/0x14/0x15` 当时先迁移为空口解析和事件状态机：

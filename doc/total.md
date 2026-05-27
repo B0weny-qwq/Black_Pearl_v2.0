@@ -214,7 +214,7 @@ app_loop()
 - `ChipDrivers/Inc/QMI8658.h`、`ChipDrivers/Src/QMI8658.c`：QMI8658 寄存器层驱动，
   已支持地址探测、可靠上电等待、ready 轮询、状态读取和原始采样读取；当前移植已在板上验证成功。
 - `BoardDevices/Inc/board_imu.h`、`BoardDevices/Src/board_imu.c`：
-  板级 IMU 接口，当前已绑定 `QMI8658` + `board_sensor_bus`，用于初始化、ready 刷新和原始采样读取；应用启动时优先初始化 IMU，再初始化同总线上的 QMC6309。
+  板级 IMU 接口，当前已绑定 `QMI8658` + `board_sensor_bus`，用于初始化、ready 刷新和原始采样读取；应用启动时优先初始化 IMU，再初始化同总线上的 QMC6309。启动成功前会等待 `STATUS0` accel/gyro ready 并读取首帧，避免寄存器配置成功但数据路径异常时误报 ready。
 - `ChipDrivers/Inc/QMC6309.h`、`ChipDrivers/Src/QMC6309.c`：QMC6309 地磁计寄存器层驱动。
 - `BoardDevices/Inc/board_mag.h`、`BoardDevices/Src/board_mag.c`：
   板级磁力计接口，当前已绑定 QMC6309，并复用 `board_sensor_bus`。
@@ -302,6 +302,33 @@ The v1.1 IMU and magnetometer data-solving path is now split by layer:
 
 This keeps `Components` free of board, I2C, STC, and logging dependencies while preserving the v1.1 solver behavior.
 
+### C251 memory layout and resource discipline
+
+The current C251 build keeps the 256-byte startup stack in EDATA and moves large non-hot-path
+runtime storage into XDATA:
+
+- `Components/Src/AHRS.c`: `ahrs_ctx` is in XDATA because it contains the quaternion state,
+  filter state and diagnostic snapshot.
+- `BoardDevices/Src/board_wireless.c`: the RF receive payload queue is in XDATA because it stores
+  up to four 60-byte packets.
+- `ChipDrivers/Src/LT8920.c`: the LT8920 default register profile uses `EF_CODE_CONST`, keeping the
+  170-byte table out of the constrained HCONST area.
+- `board_wireless_receive()` still copies payloads to caller buffers, so App/User code does not see
+  XDATA pointers or LT8920 packet storage.
+
+Latest command-line C251 verification:
+
+```text
+Program Size: data=11.7 edata+hdata=3873 xdata=380 const=3597 code=61343
+".\list\STC32G-LIB" - 0 Error(s), 0 Warning(s).
+```
+
+Public interface documentation was also tightened for this C251-ready baseline. The App,
+BoardDevices, ChipDrivers/parser and MCU abstraction headers touched by the port now describe
+ownership, blocking behavior or timing units where relevant, parameter validity and return codes in
+Chinese Doxygen comments. This makes the layer boundary explicit at the API surface instead of only
+in the implementation files.
+
 ## 2026-05 protocol, control and storage layering note
 
 To keep the old wireless/control behavior without breaking the v2 layering boundary, the current design is:
@@ -338,3 +365,21 @@ The current `0x12`, power and AutoDrive chain should therefore be understood as:
 11. `app_spi_ps_poll()` publishes `SHIP_PROTOCOL_EVENT_SPI_PS_FRAME_RX` for completed SPI-PS RX frames when SPI-PS initialization succeeded.
 12. `app_ship_event_poll()` drains all queued protocol events in FIFO order once per main loop.
 13. Link timeout can trigger AutoDrive/ShipControl through explicit state-machine APIs.
+
+## 烧录后业务逻辑
+
+当前固件烧录进去后就是船端控制程序：
+
+- 启动 UART1 `115200 8N1` 日志，便于看 bring-up 和协议状态。
+- 初始化 GPS、QMI8658、QMC6309、电源 ADC、LT8920/KCT8206、电机和参数存储。
+- 在 `0x7F` 信道发送 `PAIR_REQ(0x10)`，派生 `work_rx=13`、`work_tx=77` 后进入工作 RX。
+- 接收旧遥控/上位机帧：`0x11` 控制手动/巡航，`0x13` 返航点，`0x14` 钓点，`0x15` 返航开关。
+- 通过 `ShipControl` 统一写电机，通过 `AutoDrive` 处理返航、去点、对齐、到达和低电返航。
+- 回发旧格式 `0x12` GPS/status，主动发 `0x16` AutoDrive 诊断。
+
+兼容边界：
+
+- 兼容旧 `AA | len | cmd | payload | xor | BB` 空口帧。
+- 兼容旧 `0x12` 固定 15 字节 payload；`payload[13]` 是 `0..4` 电量，`payload[14]` 是 AutoDrive 状态。
+- 新增 `0x16` 只做诊断，不替代旧上位机/遥控依赖的 `0x12`。
+- `bat_mv uncal` 只说明真实电池毫伏值分压比例待标定，不影响旧协议电量等级字段。

@@ -10,7 +10,11 @@
 
 static board_wireless_state_t board_wireless_state;
 static u8 board_wireless_rx_len[BOARD_WIRELESS_RX_QUEUE_DEPTH];
-static u8 board_wireless_rx_data[BOARD_WIRELESS_RX_QUEUE_DEPTH][BOARD_WIRELESS_MAX_PAYLOAD_LEN];
+/*
+ * RF payload 只在 BoardDevices 内部入队/出队，对 App 暴露的仍是拷贝接口。
+ * 该队列按 4 x 60 字节占用较大，放入 XDATA 以给 C251 的 EDATA 栈留出空间。
+ */
+static u8 EF_LARGE_DATA board_wireless_rx_data[BOARD_WIRELESS_RX_QUEUE_DEPTH][BOARD_WIRELESS_MAX_PAYLOAD_LEN];
 static u8 board_wireless_work_packet[BOARD_WIRELESS_MAX_PAYLOAD_LEN];
 static u8 board_wireless_rx_head;
 static u8 board_wireless_rx_tail;

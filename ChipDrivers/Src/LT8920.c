@@ -4,7 +4,7 @@
  * LT8920 默认寄存器表，迁移自旧无线初始化流程。
  * verify_mask=0 表示该项不做回读校验。
  */
-static const lt8920_reg_setting_t lt8920_default_regs[] =
+static const lt8920_reg_setting_t EF_CODE_CONST lt8920_default_regs[] =
 {
     {0U,  0x6FE0U, 0xFFFFU},
     {1U,  0x5681U, 0xFFFFU},

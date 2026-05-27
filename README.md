@@ -35,6 +35,8 @@ Keil 工程以及芯片资料对应。
 - 船端协议状态机：`App/Src/ship_protocol.c`，当前接入无线配对、旧帧截取、`0x11/0x13/0x14/0x15` 分发、事件快照队列、`0x12` GPS/status 回包和 `0x16` AutoDrive 诊断上报。
 - 船体控制状态机：`App/Src/ship_control.c`，当前拥有电机输出控制权，负责手动开环/航向保持、E 键巡航、GPS 对齐/导航输出和超时停机。
 - GPS AutoDrive 状态机：`App/Src/autodrive.c`，当前负责返航、去定点、对齐阶段、钓点表、配置加载保存和诊断快照。
+- 烧录后运行行为：固件会启动 UART1 115200 日志，初始化 GPS、QMI8658、QMC6309、电源、LT8920/KCT8206、电机和协议状态机；随后持续执行 GPS 解析、无线配对/收发、手动控制、AutoDrive、AHRS/Heading 和电机服务。
+- 上位机/遥控兼容：保留旧 `AA | len | cmd | payload | xor | BB` 帧，兼容 `0x10/0x0F/0x11/0x12/0x13/0x14/0x15`；`0x12` 仍固定 15 字节，`payload[13]` 为 `0..4` 电量等级，`payload[14]` 为 AutoDrive 状态。`0x16` 是新增主动诊断帧，不替代旧 `0x12`。
 - 板级 SPI-PS：`BoardDevices/Src/board_spi_ps.c`，当前生成配置默认关闭，并显式标记为与 LT8920 共用 STC SPI 外设，防止误启用后重配无线 SPI。
 - 芯片驱动层：`ChipDrivers/Src/`，当前含 `gnss_nmea`、`QMI8658`、`QMC6309`、`LT8920`、`KCT8206`
 - 算法组件：`Components/Src/Filter.c`、`Components/Src/PID.c`
@@ -166,7 +168,8 @@ main()
 - `ChipDrivers/Inc/QMI8658.h`、`ChipDrivers/Src/QMI8658.c`：QMI8658 寄存器层驱动，
   已支持地址探测、可靠上电等待、ready 轮询、状态读取和原始数据读取；当前移植已在板上验证成功。
 - `BoardDevices/Inc/board_imu.h`、`BoardDevices/Src/board_imu.c`：板级 IMU 接口，
-  当前已绑定 `QMI8658` + `board_sensor_bus`，初始化和读数都返回显式状态码。
+  当前已绑定 `QMI8658` + `board_sensor_bus`，初始化和读数都返回显式状态码。初始化成功前会等待
+  `STATUS0` accel/gyro ready 并实际读取首帧；如果寄存器配置成功但数据路径不出样，会返回数据错误并打印诊断，而不是继续报 `init ok`。
 - `ChipDrivers/Inc/QMC6309.h`、`ChipDrivers/Src/QMC6309.c`：QMC6309 地磁计寄存器层驱动。
 - `BoardDevices/Inc/board_mag.h`、`BoardDevices/Src/board_mag.c`：板级磁力计接口，
   当前已绑定 QMC6309，并复用 `board_sensor_bus`。
@@ -237,6 +240,8 @@ SS 高电平表示总线空闲
 - `Components/Inc/MagCompass.h` and `Components/Src/MagCompass.c` split the v1.1 QMC6309 compass solver out of `User/MainLoop.c`, including axis mapping, install offset `219.30 deg`, direction sign `-1`, norm gate, jump gate, IIR filter, and 5-sample ready gate.
 - `Platform/Src/platform_scheduler.c` now exposes `platform_scheduler_get_tick_ms()` from the 1 kHz Timer0 tick, so `App` can feed AHRS with real `dt_ms`.
 - `App/Src/app.c` now polls IMU roughly every 17 ms and MAG roughly every 100 ms, feeds `AHRS_UpdateRaw6Axis()`, `AHRS_UpdateRawMag()`, `MagCompass_Update()`, and `Heading_Update()`, then exposes attitude/heading snapshots through `app_get_*` getters. Current static gating uses AHRS gyro-bias/acc/gyro-still checks; v1.1 motor-stop gating is left for the later control-layer port.
+- C251 memory note: `ahrs_ctx` and the BoardDevices RF receive queue are placed in XDATA so the 256-byte C251 stack fits in EDATA; latest command-line build reports `0 Error(s), 0 Warning(s)`.
+- Public API comments in the touched App, BoardDevices, ChipDrivers/parser and MCU abstraction headers use Chinese Doxygen to spell out layer ownership, timing/blocking notes and return meanings.
 
 ## 2026-05 state-machine wireless/control note
 
@@ -272,6 +277,7 @@ Power reporting is also aligned back to the old discrete behavior for the curren
 - ADC/GPIO access is inside `BoardDevices/Src/board_power.c`; `App/` only calls `board_power_read()`.
 - Power sampling runs inside the 10 ms `ship_protocol_run_scheduler()` path, but the battery sample itself is down-sampled with `SHIP_POWER_SAMPLE_DIVIDER = 100`, so the effective ADC update period is about `1000 ms`.
 - The computed sampling period is stored in global runtime state as `ship_protocol_rt.power_sample_period_ms`.
+- Before the first down-sampled ADC read actually happens, the cache is marked as pending. Startup diagnostics therefore print `adc pending` instead of treating the initial `raw=0` cache value as a failed sample.
 - `0x12 payload[13]` now carries the real old-style power level `0..4`, not raw ADC counts.
 - Power sampling now publishes protocol observation events: unchanged valid samples use `SHIP_PROTOCOL_EVENT_POWER_SAMPLE`, level transitions use `SHIP_PROTOCOL_EVENT_POWER_LEVEL_CHANGED`, and both fill the snapshot `power` fields.
 - Low-power latch now requires `power_level == 0`, more than `600` scheduler ticks, `AutoDrive_GetMode() == AUTO_DRIVE_CLOSE`, and `ShipControl_GetManualAccelerator() < 10`; when latched it publishes `SHIP_PROTOCOL_EVENT_LOW_POWER_LATCHED` and calls `AutoDrive_TriggerReturnWithReason(AUTODRIVE_DIAG_REASON_LOW_POWER)`.

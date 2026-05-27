@@ -163,6 +163,14 @@ void ship_protocol_run_scheduler(void);
  */
 u8 ship_protocol_is_paired(void);
 
+/**
+ * @brief 向船端协议层发布一帧 SPI-PS 接收事件。
+ * @param buffer 接收帧缓冲区；len 非 0 时不能为 NULL。
+ * @param len 接收长度，单位字节。
+ * @param status BoardDevices SPI-PS 读取结果，用于诊断是否截断或溢出。
+ *
+ * 该接口只缓存事件供协议/日志消费，不直接访问 SPI 寄存器或改变无线链路状态。
+ */
 void ship_protocol_publish_spi_ps_frame(const u8 *buffer, u8 len, int8 status);
 
 /**

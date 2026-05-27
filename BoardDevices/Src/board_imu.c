@@ -11,6 +11,9 @@ typedef struct
     ef_iic_diag_t init_iic_diag;
 } board_imu_context_t;
 
+#define BOARD_IMU_FIRST_SAMPLE_RETRY_MAX      5U
+#define BOARD_IMU_FIRST_SAMPLE_RETRY_DELAY_MS 20U
+
 static int8 board_imu_write_reg(u8 addr, u8 reg, u8 value)
 {
     return board_sensor_bus_write_reg(addr, reg, value);
@@ -27,6 +30,12 @@ static void board_imu_delay_ms(u16 ms)
 }
 
 static board_imu_context_t board_imu_ctx = { BOARD_IMU_STATE_IDLE, 0U, {0}, QMI8658_OK, {0} };
+
+static u8 board_imu_status_is_ready(u8 status0)
+{
+    return (((status0 & (QMI8658_STATUS0_A_DA | QMI8658_STATUS0_G_DA)) ==
+             (QMI8658_STATUS0_A_DA | QMI8658_STATUS0_G_DA)) ? 1U : 0U);
+}
 
 static void board_imu_capture_iic_diag(void)
 {
@@ -47,7 +56,7 @@ static void board_imu_capture_iic_diag(void)
 static void board_imu_accept_diag_configured(const qmi8658_diag_regs_t *diag)
 {
     board_imu_ctx.chip.initialized = 1U;
-    board_imu_ctx.chip.data_ready = 0U;
+    board_imu_ctx.chip.data_ready = board_imu_status_is_ready(diag->status0);
     board_imu_ctx.chip.last_error = QMI8658_OK;
     board_imu_ctx.chip.last_id = diag->who_am_i;
     board_imu_ctx.chip.last_ctrl1 = diag->ctrl1;
@@ -74,6 +83,39 @@ static u8 board_imu_diag_is_configured(const qmi8658_diag_regs_t *diag)
     }
 
     return 0U;
+}
+
+static u8 board_imu_diag_is_ready_configured(const qmi8658_diag_regs_t *diag)
+{
+    if (board_imu_diag_is_configured(diag) == 0U) {
+        return 0U;
+    }
+    return board_imu_status_is_ready(diag->status0);
+}
+
+static int8 board_imu_wait_first_sample(void)
+{
+    qmi8658_sample_t sample;
+    u8 retry;
+    u8 status0;
+    int8 ret;
+
+    ret = QMI8658_ERR_NOT_READY;
+    for (retry = 0U; retry < BOARD_IMU_FIRST_SAMPLE_RETRY_MAX; retry++) {
+        status0 = 0U;
+        ret = QMI8658_ReadStatus0(&board_imu_ctx.chip, &status0);
+        if ((ret == QMI8658_OK) && (board_imu_status_is_ready(status0) != 0U)) {
+            ret = QMI8658_ReadRawSample(&board_imu_ctx.chip, &sample);
+            if (ret == QMI8658_OK) {
+                return QMI8658_OK;
+            }
+        }
+        if ((u8)(retry + 1U) < BOARD_IMU_FIRST_SAMPLE_RETRY_MAX) {
+            board_sensor_bus_delay_ms(BOARD_IMU_FIRST_SAMPLE_RETRY_DELAY_MS);
+        }
+    }
+
+    return ret;
 }
 
 static int8 board_imu_fill_diag(board_imu_diag_t *diag)
@@ -181,7 +223,7 @@ int8 board_imu_init(void)
         board_imu_ctx.init_error = ret;
         board_imu_capture_iic_diag();
         if ((QMI8658_ReadDiagRegs(&board_imu_ctx.chip, &diag_regs) == QMI8658_OK) &&
-            (board_imu_diag_is_configured(&diag_regs) != 0U)) {
+            (board_imu_diag_is_ready_configured(&diag_regs) != 0U)) {
             board_imu_accept_diag_configured(&diag_regs);
             board_imu_ctx.init_error = QMI8658_OK;
         } else {
@@ -189,15 +231,18 @@ int8 board_imu_init(void)
             board_sensor_bus_delay_ms(20U);
             ret = QMI8658_Init(&board_imu_ctx.chip);
             if (ret == QMI8658_OK) {
-                board_imu_ctx.state = BOARD_IMU_STATE_READY;
-                board_imu_ctx.data_ready = QMI8658_HasDataReady(&board_imu_ctx.chip);
-                board_imu_ctx.init_error = QMI8658_OK;
-                return BOARD_IMU_OK;
+                ret = board_imu_wait_first_sample();
+                if (ret == QMI8658_OK) {
+                    board_imu_ctx.state = BOARD_IMU_STATE_READY;
+                    board_imu_ctx.data_ready = QMI8658_HasDataReady(&board_imu_ctx.chip);
+                    board_imu_ctx.init_error = QMI8658_OK;
+                    return BOARD_IMU_OK;
+                }
             }
             board_imu_ctx.init_error = ret;
             board_imu_capture_iic_diag();
             if ((QMI8658_ReadDiagRegs(&board_imu_ctx.chip, &diag_regs) == QMI8658_OK) &&
-                (board_imu_diag_is_configured(&diag_regs) != 0U)) {
+                (board_imu_diag_is_ready_configured(&diag_regs) != 0U)) {
                 board_imu_accept_diag_configured(&diag_regs);
                 board_imu_ctx.init_error = QMI8658_OK;
             } else {
@@ -212,6 +257,15 @@ int8 board_imu_init(void)
      * 短路径下如果芯片层返回成功但本地 ready 尚未刷新，再用一次诊断确认。
      * 这避免启动阶段继续等待很久，同时保留真实失败返回。
      */
+    ret = board_imu_wait_first_sample();
+    if (ret != QMI8658_OK) {
+        board_imu_ctx.init_error = ret;
+        board_imu_capture_iic_diag();
+        board_imu_ctx.state = BOARD_IMU_STATE_ERROR;
+        board_imu_ctx.data_ready = 0U;
+        return BOARD_IMU_ERR_DATA;
+    }
+
     board_imu_ctx.state = BOARD_IMU_STATE_READY;
     board_imu_ctx.data_ready = QMI8658_HasDataReady(&board_imu_ctx.chip);
     board_imu_ctx.init_error = QMI8658_OK;

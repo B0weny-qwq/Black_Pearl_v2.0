@@ -82,12 +82,12 @@ void AutoDriveCfg_Load(AutoDrive_ReturnConfig_t *cfg)
     if (ret == PARAMETER_STORE_OK) {
         AutoDriveCfg_Unpack(cfg, buf);
         autodrive_cfg_cache = *cfg;
-        LOGI("ADCFG", "ld ok sw=%02X", (u16)cfg->auto_ret_onoff);
+        LOGI("ADCFG", "ld ok %02X", (u16)cfg->auto_ret_onoff);
         return;
     }
 
     autodrive_cfg_cache = *cfg;
-    LOGW("ADCFG", "ld def rc=%d", ret);
+    LOGW("ADCFG", "ld def %d", ret);
 }
 
 u8 AutoDriveCfg_Save(const AutoDrive_ReturnConfig_t *cfg)
@@ -103,10 +103,10 @@ u8 AutoDriveCfg_Save(const AutoDrive_ReturnConfig_t *cfg)
     ret = parameter_store_save_autodrive(buf, AUTODRIVE_CFG_WIRE_LEN);
     if (ret == PARAMETER_STORE_OK) {
         autodrive_cfg_cache = *cfg;
-        LOGI("ADCFG", "sv ok sw=%02X", (u16)cfg->auto_ret_onoff);
+        LOGI("ADCFG", "sv ok %02X", (u16)cfg->auto_ret_onoff);
         return 1U;
     }
 
-    LOGE("ADCFG", "sv fail rc=%d", ret);
+    LOGE("ADCFG", "sv fail %d", ret);
     return 0U;
 }

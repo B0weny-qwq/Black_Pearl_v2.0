@@ -13,6 +13,7 @@
 #include "HeadingEstimator.h"
 #include "logger.h"
 #include "MagCompass.h"
+#include "ship_control.h"
 #include "ship_protocol.h"
 
 #define APP_AHRS_LOG_DECIMATION          32U
@@ -106,7 +107,26 @@ static int32 app_float_to_deg100(float value)
 
 static u8 app_ahrs_is_static(const AHRS_State_t *att)
 {
+	int16 left_speed;
+	int16 right_speed;
+
 	if(att == 0)
+	{
+		return 0U;
+	}
+	if(ShipControl_GetMode() != SHIP_CONTROL_MODE_STOP)
+	{
+		return 0U;
+	}
+	if(board_motor_get_speed(BOARD_MOTOR_LEFT, &left_speed) != BOARD_MOTOR_OK)
+	{
+		return 0U;
+	}
+	if(board_motor_get_speed(BOARD_MOTOR_RIGHT, &right_speed) != BOARD_MOTOR_OK)
+	{
+		return 0U;
+	}
+	if((left_speed != 0) || (right_speed != 0))
 	{
 		return 0U;
 	}

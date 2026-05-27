@@ -280,7 +280,8 @@ main()
 - 收到 `0x11` 后进入 `ShipControl` 手动/巡航控制；收到 `0x13/0x14/0x15` 后进入 AutoDrive 返航、钓点或返航开关逻辑。
 - 手动控制和 yaw 自稳参数来自 `App/Inc/app_config.h`，当前对齐 v1.1 运行档位：
   轴量程 `60`、yaw 差速限幅 `320 permille`、降额阈值 `1000/2000 cd`、
-  gyro 阻尼 `4096`、PID `KP=384/KI=0/KD=96`。
+  gyro 阻尼 `4096`、PID `KP=384/KI=0/KD=96`。手动 yaw 自稳进入条件也按
+  v1.1 恢复为“左右电机差速低于当前输入的 `20%`，并连续稳定 2 帧”。
 - 任意合法旧协议帧分发后都会在旧工作 RX 信道回发旧格式 `GPS_REPORT(0x12)`；船端还会在同一工作信道主动发送 `AUTODRIVE_DIAG(0x16)` 供调试观察。
 - 电源等级通过当前板子的 `P0.0 / ADC_CH8` 转成旧协议 `0..4` 等级。`bat_mv` 仍未按真实分压电阻标定，因此仅作为工程诊断值。
   电源采样仍约 `1000 ms` 更新一次，常规 ADC 日志按 `SHIP_POWER_LOG_PERIOD_MS=10000 ms` 节流。
@@ -395,7 +396,7 @@ main()
 - App polling path: `board_imu_service()` -> `board_imu_read()` -> `AHRS_UpdateRaw6Axis()`; `board_mag_read()` -> `Filter_MagLowPass()` -> `AHRS_UpdateRawMag()` and `MagCompass_Update()`; stable heading then feeds `Heading_Update()`.
 - Exported app snapshots: `app_get_attitude_state()`, `app_get_heading_ready()`, `app_get_heading_deg100()`, `app_get_heading_relative_deg100()`.
 - Timing source: `platform_scheduler_get_tick_ms()` reads the 1 ms Timer0 scheduler tick with interrupt-safe snapshot.
-- Current limitation: v2 static heading gate uses AHRS gyro-bias/acc/gyro-still state only. v1.1 motor-stop and ship-control-mode gates will be restored when the control layer is ported.
+- Static heading gate matches v1.1: the fused heading only accepts the magnetometer heading when ShipControl is stopped, both motor speeds are zero, gyro bias is ready, acceleration is valid, and gyro readings are still.
 
 ### C251 memory layout note
 

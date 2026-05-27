@@ -5,6 +5,9 @@
 - 2026-05-27 protocol cadence and v1.1 compatibility follow-up:
   - Added `App/Inc/app_config.h` as the centralized v1.1 runtime profile for manual-control, yaw-hold, pairing cadence and power-log throttling values.
   - Aligned `ship_control` tuning with the current v1.1 profile: RC axis range `60`, yaw diff limit `320 permille`, derate thresholds `1000/2000 cd`, gyro damping `4096`, and PID `384/0/96`.
+  - Restored the v1.1 manual yaw-hold entry gate: forward throttle, low left/right motor diff under `20%` of current input, and 2 stable frames before locking the heading target.
+  - Restored the v1.1 heading-static gate by requiring stopped ShipControl mode and zero motor speeds before magnetometer heading can seed/correct the fused heading.
+  - Defaulted `SHIP_CONTROL_LOG_ENABLE` to `0` and shortened local format strings to keep C251 `HCONST` usage within the Keil link range without changing motor-control behavior.
   - Restored normal ADC log throttling to the v1.1 profile value `SHIP_POWER_LOG_PERIOD_MS=10000 ms`.
   - Corrected the LT8920 SPI pin documentation to `P3.5=CS`, `P3.4=MOSI`, `P3.3=MISO`, `P3.2=SCLK`.
   - Gated `ship_protocol_run_scheduler()` with the real `platform_scheduler_get_tick_ms()` 10 ms cadence while still draining wireless RX every call.

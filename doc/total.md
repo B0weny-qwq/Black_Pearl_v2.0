@@ -381,7 +381,8 @@ The current `0x12`, power and AutoDrive chain should therefore be understood as:
 - 初始化 GPS、QMI8658、QMC6309、电源 ADC、LT8920/KCT8206、电机和参数存储。
 - 在 `0x7F` 信道发送 `PAIR_REQ(0x10)`，派生 `work_rx=13`、`work_tx=77` 后进入工作 RX；状态/诊断回包实际使用旧工作 RX 信道。
 - 手动控制采用 v1.1 当前运行档位：遥控轴满量程按中心 `100 +/- 60` 映射，yaw 自稳采用
-  `320 permille` 差速限幅、`4096` gyro 阻尼和 `384/0/96` PID。
+  `20%` 手动进入门限、2 帧稳定确认、`320 permille` 差速限幅、`4096` gyro 阻尼和
+  `384/0/96` PID。
 - 接收旧遥控/上位机帧：`0x11` 控制手动/巡航，`0x13` 返航点，`0x14` 钓点，`0x15` 返航开关。
 - 通过 `ShipControl` 统一写电机，通过 `AutoDrive` 处理返航、去点、对齐、到达和低电返航。
 - 回发旧格式 `0x12` GPS/status，主动发 `0x16` AutoDrive 诊断；两者都不替换旧遥控器依赖的 15 字节 `0x12`。

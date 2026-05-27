@@ -13,6 +13,7 @@
 #define SHIP_FB_DEAD_LOW                  90U
 #define SHIP_FB_DEAD_HIGH                 110U
 #define SHIP_CENTER_STOP_CONFIRM_FRAMES   2U
+#define SHIP_TURN_COMPARE_BIAS            5U
 
 #define SHIP_CONTROL_REASON_MANUAL_OPEN   20U
 #define SHIP_CONTROL_REASON_MANUAL_YAW    21U
@@ -121,29 +122,49 @@ static void ShipControl_ResetAxisFilter(void)
     ship_ctrl.filtered_ud_q8 = ((int32)SHIP_AXIS_CENTER << 8);
 }
 
+static u8 ShipControl_YawHoldGateStable(void)
+{
+    if (ship_ctrl.yaw_hold_stable_count < SHIP_YAW_HOLD_STEER_STABLE_FRAMES) {
+        ship_ctrl.yaw_hold_stable_count++;
+        return 0U;
+    }
+    return 1U;
+}
+
+#if (SHIP_CONTROL_LOG_ENABLE != 0U)
 static void ShipControl_LogModeEvent(u8 old_mode, u8 new_mode, u8 reason)
 {
     LOGI(SHIP_CONTROL_TAG,
-         "ev old=%u new=%u rsn=%u yaw=%u tgt=%u",
+         "ev %u>%u r=%u y=%u t=%u",
          (u16)old_mode,
          (u16)new_mode,
          (u16)reason,
          (u16)ship_ctrl.yaw_hold_active,
          ship_ctrl.yaw_hold_target_cd);
 }
+#else
+#define ShipControl_LogModeEvent(old_mode, new_mode, reason) do { } while (0)
+#endif
 
+#if (SHIP_CONTROL_LOG_ENABLE != 0U)
 static void ShipControl_SetMode(u8 mode, u8 reason)
+#else
+static void ShipControl_SetMode(u8 mode)
+#endif
 {
     u8 old_mode;
 
     old_mode = ship_ctrl.mode;
     ship_ctrl.mode = mode;
     if ((old_mode != mode) || (ship_ctrl.last_logged_mode != mode)) {
+#if (SHIP_CONTROL_LOG_ENABLE != 0U)
         ShipControl_LogModeEvent(old_mode, mode, reason);
+#endif
         ship_ctrl.last_logged_mode = mode;
     }
 }
 
+#if (SHIP_CONTROL_LOG_ENABLE != 0U)
 static void ShipControl_LogMotorOutput(u8 force)
 {
     u32 now_ms;
@@ -165,7 +186,7 @@ static void ShipControl_LogMotorOutput(u8 force)
     ship_ctrl.motor_last_log_motion = (u8)ship_ctrl.motion;
 
     LOGI(SHIP_CONTROL_TAG,
-         "out mode=%u motion=%u base=%d diff=%d left=%d right=%d",
+         "out m=%u mo=%u b=%d d=%d l=%d r=%d",
          (u16)ship_ctrl.mode,
          (u16)ship_ctrl.motion,
          ship_ctrl.base_speed,
@@ -173,6 +194,9 @@ static void ShipControl_LogMotorOutput(u8 force)
          ship_ctrl.left_speed,
          ship_ctrl.right_speed);
 }
+#else
+#define ShipControl_LogMotorOutput(force) do { } while (0)
+#endif
 
 static void ShipControl_SetMotorTargets(int16 left_speed, int16 right_speed)
 {
@@ -538,12 +562,16 @@ static u8 ShipControl_ApplyYawHoldTargetEx(u16 target_heading_cd,
     left_speed = ShipControl_LimitSpeed((int16)(yaw_base_speed + yaw_output));
     right_speed = ShipControl_LimitSpeed((int16)(yaw_base_speed - yaw_output));
 
+#if (SHIP_CONTROL_LOG_ENABLE != 0U)
     ShipControl_SetMode(mode,
                         (mode == SHIP_CONTROL_MODE_MANUAL_YAW_HOLD) ?
                         SHIP_CONTROL_REASON_MANUAL_YAW :
                         ((mode == SHIP_CONTROL_MODE_CRUISE_HEADING_HOLD) ?
                          SHIP_CONTROL_REASON_CRUISE :
                          SHIP_CONTROL_REASON_GPS_NAV));
+#else
+    ShipControl_SetMode(mode);
+#endif
     if (yaw_base_speed > 0) {
         ship_ctrl.motion = SHIP_CONTROL_MOTION_FORWARD;
     } else if (yaw_base_speed < 0) {
@@ -571,8 +599,12 @@ static void ShipControl_ApplyOpenLoop(ShipControl_Motion_t motion,
 {
     ShipControl_SetMode((motion == SHIP_CONTROL_MOTION_STOP) ?
                         SHIP_CONTROL_MODE_MANUAL_IDLE :
-                        SHIP_CONTROL_MODE_MANUAL_OPEN_LOOP,
-                        SHIP_CONTROL_REASON_MANUAL_OPEN);
+                        SHIP_CONTROL_MODE_MANUAL_OPEN_LOOP
+#if (SHIP_CONTROL_LOG_ENABLE != 0U)
+                        ,
+                        SHIP_CONTROL_REASON_MANUAL_OPEN
+#endif
+                        );
     ship_ctrl.motion = motion;
     ship_ctrl.throttle_speed = throttle_speed;
     ship_ctrl.base_speed = 0;
@@ -587,7 +619,14 @@ static void ShipControl_ApplyManualControl(void)
     int16 steering_speed;
     int16 left_speed;
     int16 right_speed;
+    int16 abs_throttle;
     int16 abs_steering;
+    int16 abs_left;
+    int16 abs_right;
+    int16 max_input;
+    int16 diff_input;
+    int16 diff_gate;
+    u8 yaw_gate_open;
     ShipControl_Motion_t motion;
 
     if ((ship_ctrl.lr >= SHIP_LR_DEAD_LOW) && (ship_ctrl.lr <= SHIP_LR_DEAD_HIGH) &&
@@ -597,7 +636,11 @@ static void ShipControl_ApplyManualControl(void)
         }
         ShipControl_Stop(SHIP_CONTROL_STOP_REASON_MANUAL_CENTER);
         ship_ctrl.manual_valid = 1U;
+#if (SHIP_CONTROL_LOG_ENABLE != 0U)
         ShipControl_SetMode(SHIP_CONTROL_MODE_MANUAL_IDLE, SHIP_CONTROL_REASON_MANUAL_OPEN);
+#else
+        ShipControl_SetMode(SHIP_CONTROL_MODE_MANUAL_IDLE);
+#endif
         return;
     }
     ship_ctrl.center_stop_count = 0U;
@@ -606,27 +649,46 @@ static void ShipControl_ApplyManualControl(void)
         ShipControl_FilterAxis(ship_ctrl.ud, &ship_ctrl.filtered_ud_q8));
     steering_speed = ShipControl_SteeringToSignedSpeed(
         ShipControl_FilterAxis(ship_ctrl.lr, &ship_ctrl.filtered_lr_q8));
+    abs_throttle = ShipControl_AbsSpeed(throttle_speed);
     abs_steering = ShipControl_AbsSpeed(steering_speed);
     left_speed = ShipControl_LimitSpeed((int16)(throttle_speed + steering_speed));
     right_speed = ShipControl_LimitSpeed((int16)(throttle_speed - steering_speed));
+    abs_left = ShipControl_AbsSpeed(left_speed);
+    abs_right = ShipControl_AbsSpeed(right_speed);
+    max_input = (abs_left >= abs_right) ? abs_left : abs_right;
+    diff_input = ShipControl_AbsSpeed((int16)(left_speed - right_speed));
+    diff_gate = (int16)(((int32)max_input *
+                         (int32)SHIP_MANUAL_YAW_HOLD_DIFF_PERCENT) / 100L);
+    yaw_gate_open = 0U;
 
-    if ((throttle_speed > 0) && (abs_steering == 0) &&
-        (app_get_heading_ready() != 0U)) {
-        if (ship_ctrl.mode != SHIP_CONTROL_MODE_MANUAL_YAW_HOLD) {
-            ShipControl_ResetYawHoldController();
-            ship_ctrl.yaw_hold_target_cd = app_get_heading_deg100();
+    if ((throttle_speed > 0) &&
+        (max_input > 0) &&
+        (diff_input < diff_gate)) {
+        yaw_gate_open = 1U;
+        if (ShipControl_YawHoldGateStable() != 0U) {
+            if (app_get_heading_ready() != 0U) {
+                if (ship_ctrl.mode != SHIP_CONTROL_MODE_MANUAL_YAW_HOLD) {
+                    ShipControl_ResetYawHoldController();
+                    ship_ctrl.yaw_hold_target_cd = app_get_heading_deg100();
+                    ship_ctrl.yaw_hold_stable_count = SHIP_YAW_HOLD_STEER_STABLE_FRAMES;
+                }
+                (void)ShipControl_ApplyYawHoldTargetEx(ship_ctrl.yaw_hold_target_cd,
+                                                       throttle_speed,
+                                                       SHIP_CONTROL_MODE_MANUAL_YAW_HOLD,
+                                                       0U);
+                return;
+            }
         }
-        (void)ShipControl_ApplyYawHoldTargetEx(ship_ctrl.yaw_hold_target_cd,
-                                               throttle_speed,
-                                               SHIP_CONTROL_MODE_MANUAL_YAW_HOLD,
-                                               0U);
-        return;
+    }
+    if (yaw_gate_open == 0U) {
+        ship_ctrl.yaw_hold_stable_count = 0U;
+        ship_ctrl.yaw_hold_last_yaw_speed = 0;
     }
     if (ship_ctrl.mode == SHIP_CONTROL_MODE_MANUAL_YAW_HOLD) {
         ShipControl_ResetYawHoldController();
     }
 
-    if (ShipControl_AbsSpeed(throttle_speed) >= ShipControl_AbsSpeed(steering_speed)) {
+    if ((abs_throttle + SHIP_TURN_COMPARE_BIAS) >= abs_steering) {
         motion = (throttle_speed >= 0) ?
                  SHIP_CONTROL_MOTION_FORWARD :
                  SHIP_CONTROL_MOTION_BACKWARD;
@@ -646,7 +708,7 @@ static void ShipControl_ApplyManualControl(void)
 void ShipControl_Init(void)
 {
     ship_ctrl.initialized = 1U;
-    ship_ctrl.mode = SHIP_CONTROL_MODE_POWER_GUARD;
+    ship_ctrl.mode = SHIP_CONTROL_MODE_STOP;
     ship_ctrl.lr = SHIP_AXIS_CENTER;
     ship_ctrl.ud = SHIP_AXIS_CENTER;
     ship_ctrl.key = 0U;
@@ -676,7 +738,7 @@ void ShipControl_Init(void)
     ship_ctrl.motor_last_log_right = 0;
     ship_ctrl.motor_last_log_mode = SHIP_CONTROL_MODE_STOP;
     ship_ctrl.motor_last_log_motion = SHIP_CONTROL_MOTION_STOP;
-    ship_ctrl.last_logged_mode = SHIP_CONTROL_MODE_POWER_GUARD;
+    ship_ctrl.last_logged_mode = SHIP_CONTROL_MODE_STOP;
     ship_ctrl.motion = SHIP_CONTROL_MOTION_STOP;
 
     PID_Init(&ship_ctrl_yaw_pid,
@@ -830,8 +892,12 @@ void ShipControl_Stop(u8 reason)
     ShipControl_ResetAxisFilter();
     ShipControl_SetMode((reason == SHIP_CONTROL_STOP_REASON_FAILSAFE) ?
                         SHIP_CONTROL_MODE_FAILSAFE_STOP :
-                        SHIP_CONTROL_MODE_STOP,
-                        reason);
+                        SHIP_CONTROL_MODE_STOP
+#if (SHIP_CONTROL_LOG_ENABLE != 0U)
+                        ,
+                        reason
+#endif
+                        );
     ship_ctrl.manual_valid = 0U;
     ship_ctrl.manual_accelerator = 0U;
     ship_ctrl.center_stop_count = 0U;

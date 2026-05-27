@@ -220,7 +220,7 @@ main()
 | `0x11` | `THROTTLE` | 遥控器 -> 船 | `lr, ud, key` | `ship_protocol_handle_throttle()` -> `ShipControl_UpdateManualInput()` | 开机/航向保护内只保活；AutoDrive busy 时不抢电机；正常时更新手动控制；A/E/unknown 保持 `KEY_EDGE`；B/C/D 发布 `KEY_ACTION_*_NOOP`；E 键可进入/退出巡航 |
 | `0x12` | `GPS_REPORT` | 船 -> 遥控器 | 固定 15 字节 | `ship_protocol_send_gps_once()` | 任意合法 `0x0F/0x11/0x13/0x14/0x15` 分发后回包；方向字节继续固定 `E/W` |
 | `0x13` | `RETURN_HOME` | 遥控器 -> 船 | 10 字节旧点位 | `AutoDrive_SetReturnPositionRaw()` | 保存返航点到配置并尝试进入返航；随后统一回 `0x12` |
-| `0x14` | `GOTO_POINT` | 遥控器 -> 船 | 10 字节旧点位 | `AutoDrive_SetFishPositionRaw()` | RAM 5 点表查重；未知点存储/拒绝，命中已知点才距离检查并尝试启动去点；日志输出结果码和 index |
+| `0x14` | `GOTO_POINT` | 遥控器 -> 船 | 10 字节旧点位 | `AutoDrive_SetFishPositionRaw()` | RAM 5 点表查重；未知点在表未满时先存储并立即尝试去点，快速重复帧抑制；日志拆分 save/nav 结果和 index |
 | `0x15` | `RETURN_SWITCH` | 遥控器 -> 船 | `switch` + 可选 10 字节返航点 | `AutoDrive_SetSwitchRaw()` | 保存返航开关和可选返航点；开关不为 `0x30` 时尝试返航；随后统一回 `0x12` |
 | `0x16` | `AUTODRIVE_DIAG` | 船 -> 遥控器/调试 | 固定 36 字节 | `ship_protocol_send_autodrive_diag_once()` | 船端主动诊断上报 AutoDrive 状态、模式、原因、距离、当前点和目标点；不替代 `0x12` |
 
@@ -255,7 +255,7 @@ main()
 | 电机输出 | `CTRL out mode=` | `ShipControl` 统一输出 mode、motion、base、diff、left、right |
 | 返航点事件 | `0x13 ret` | 解析 10 字节返航点并调用 AutoDrive 返航入口 |
 | 钓点事件 | `0x14 fish` | 解析 10 字节钓点坐标，并进入 5 点表保存/查重/启动状态机 |
-| 钓点诊断 | `0x14 rx fl=` | 打印 frame/payload/xor/result/index，便于联调 0x14 结果码 |
+| 钓点诊断 | `0x14 rx fl=` | 打印 frame/payload/xor/save/nav/index，便于联调 0x14 存点和导航结果 |
 | 返航开关事件 | `0x15 sw=` | 解析 `switch_state` 和可选返航点，保存配置并按开关触发返航 |
 | GPS 回包 | `tx cmd=12` | 任意合法协议帧分发后发送固定 15 字节 GPS payload |
 | AutoDrive 诊断 | `tx16 st=` | 主动上报 state、mode、switch、reason、GPS、卫星数和距离 |
@@ -277,7 +277,7 @@ main()
 - QMI8658/QMC6309 进入 AHRS、磁罗盘和 HeadingEstimator 数据链路。
 - LT8920/KCT8206 先在 `0x7F` 配对信道发送 `PAIR_REQ(0x10)`，再进入旧算法派生工作信道。
 - 收到 `0x11` 后进入 `ShipControl` 手动/巡航控制；收到 `0x13/0x14/0x15` 后进入 AutoDrive 返航、钓点或返航开关逻辑。
-- 任意合法旧协议帧分发后都会回发旧格式 `GPS_REPORT(0x12)`；船端还会主动发送 `AUTODRIVE_DIAG(0x16)` 供调试观察。
+- 任意合法旧协议帧分发后都会在旧工作 RX 信道回发旧格式 `GPS_REPORT(0x12)`；船端还会在同一工作信道主动发送 `AUTODRIVE_DIAG(0x16)` 供调试观察。
 - 电源等级通过当前板子的 `P0.0 / ADC_CH8` 转成旧协议 `0..4` 等级。`bat_mv` 仍未按真实分压电阻标定，因此仅作为工程诊断值。
 
 上位机/遥控兼容面：
@@ -286,7 +286,7 @@ main()
 - 兼容旧命令 `0x10/0x0F/0x11/0x12/0x13/0x14/0x15`。
 - `0x12` payload 固定 15 字节，字段顺序保持旧上位机/遥控期望；`payload[13]` 是电量等级，`payload[14]` 是 AutoDrive 状态。
 - `0x16` 是额外诊断帧，用于新工具或日志查看，不改变旧 `0x12` 的兼容行为。
-- 上一提交新增的 `tools/ship_log_viewer` 是本地兼容日志查看工具；固件空口协议仍按旧帧工作。
+- `tools/ship_log_viewer` 是唯一保留的本地兼容日志查看工具；固件空口协议仍按旧帧工作。
 - SPI-PS 参考实现已迁移为 `ef_spi` 和 `board_spi_ps` 两层。
 - `Examples/` 和 `need to do/` 属于本地参考材料，不纳入版本管理。
 - SPI-PS 固定资源：

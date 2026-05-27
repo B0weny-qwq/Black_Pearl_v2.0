@@ -372,10 +372,10 @@ The current `0x12`, power and AutoDrive chain should therefore be understood as:
 
 - 启动 UART1 `115200 8N1` 日志，便于看 bring-up 和协议状态。
 - 初始化 GPS、QMI8658、QMC6309、电源 ADC、LT8920/KCT8206、电机和参数存储。
-- 在 `0x7F` 信道发送 `PAIR_REQ(0x10)`，派生 `work_rx=13`、`work_tx=77` 后进入工作 RX。
+- 在 `0x7F` 信道发送 `PAIR_REQ(0x10)`，派生 `work_rx=13`、`work_tx=77` 后进入工作 RX；状态/诊断回包实际使用旧工作 RX 信道。
 - 接收旧遥控/上位机帧：`0x11` 控制手动/巡航，`0x13` 返航点，`0x14` 钓点，`0x15` 返航开关。
 - 通过 `ShipControl` 统一写电机，通过 `AutoDrive` 处理返航、去点、对齐、到达和低电返航。
-- 回发旧格式 `0x12` GPS/status，主动发 `0x16` AutoDrive 诊断。
+- 回发旧格式 `0x12` GPS/status，主动发 `0x16` AutoDrive 诊断；两者都不替换旧遥控器依赖的 15 字节 `0x12`。
 
 兼容边界：
 

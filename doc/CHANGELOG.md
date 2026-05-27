@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- 2026-05-27 protocol cadence and v1.1 compatibility follow-up:
+  - Gated `ship_protocol_run_scheduler()` with the real `platform_scheduler_get_tick_ms()` 10 ms cadence while still draining wireless RX every call.
+  - Restored v1.1 pairing behavior: response-window timeout retries the seed burst, and a 60 s fallback forces work-RX mode if no pair response arrives.
+  - Restored old work-channel compatibility for `0x12` GPS/status and `0x16` AutoDrive diagnostics: runtime sends them on `rf_channel[0]`; derived `work_tx=77` remains a compatibility parameter/log value.
+  - Changed `0x14` unknown fish-point handling so a newly stored point immediately attempts goto when GPS/distance allow; quick duplicate frames are still suppressed.
+  - Split `0x14` diagnostics into save and navigation results, matching the v1.1 `save=... nav=... idx=...` observability.
+  - Updated `Switch_config()` to use generated board-resource mux macros for console UART, GPS UART, sensor I2C and LT8920 SPI.
+  - Made `tools/ship_log_viewer` the canonical viewer, added parsing for compact current firmware logs, and removed the duplicate root-level `ship_log_viewer/` copy.
+
 - 2026-05-27 runtime bring-up diagnostics and v1.1 sensor alignment:
   - Aligned `QMI8658_ReadRawSample()` with the v1.1 hot path: six-axis samples are now read as 12 bytes from `AX_L`, while temperature is read separately as optional diagnostic data.
   - Added a board-level first-valid-sample gate in `board_imu_init()`. A QMI8658 that only accepts register writes but does not produce accel/gyro samples is now reported as an IMU init/data failure instead of a misleading `init ok`.
@@ -60,7 +69,7 @@
     - `payload[1..2]`: heading degrees from `course_deg_x100 / 100`, big-endian.
     - `payload[4..7]` and `payload[9..12]`: prefer `legacy_lon1/lon2/lat1/lat2`, fallback to runtime conversion from `deg1e7` into old NMEA split fields.
     - `payload[3]` and `payload[8]`: keep legacy fixed marker bytes for remote compatibility.
-    - `0x12` TX channel restored to the old work TX channel path `rf_channel[2]`.
+    - Historical note: the follow-up above corrected the TX channel wording and runtime behavior to the old work RX channel path `rf_channel[0]`.
   - Restored the old power-sampling/reporting chain inside `ship_protocol` for the current board hardware:
     - ADC sample pin is the current board `P0.0 / ADC_CH8`, not the old-board `ADC_CH9`.
     - `ship_protocol_init()` now performs the ADC-related board-side init and first sample read.

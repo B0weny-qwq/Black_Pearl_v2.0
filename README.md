@@ -260,7 +260,7 @@ The current tree now aligns the old wireless/control behavior with the v2 layere
   - coordinates prefer the old split legacy fields and fall back to runtime conversion from `deg1e7`
   - `payload[13]` comes from `board_power`
   - `payload[14]` comes from `AutoDrive_InActive()`
-  - transmit channel uses the old work TX path `rf_channel[2]`
+  - transmit channel uses the old work RX channel path `rf_channel[0]`; derived `work_tx=77` remains a compatibility parameter/log value
 - `0x11` now feeds `ShipControl_UpdateManualInput()` after boot/heading guards, and E-key cruise uses heading hold.
 - `0x11` key-edge handling keeps A/E/unknown on the existing `SHIP_PROTOCOL_EVENT_KEY_EDGE` path. B/C/D key edges now publish `SHIP_PROTOCOL_EVENT_KEY_ACTION` with `SHIP_PROTOCOL_KEY_ACTION_B_NOOP`, `SHIP_PROTOCOL_KEY_ACTION_C_NOOP`, or `SHIP_PROTOCOL_KEY_ACTION_D_NOOP`; these are semantic no-op events and do not drive hardware.
 - `ship_protocol_event_snapshot_t` now exposes `key_action`, `power`, and `spi_ps` observation fields for App-side or external subscribers.
@@ -268,7 +268,7 @@ The current tree now aligns the old wireless/control behavior with the v2 layere
 - `App/Src/app.c` now drains protocol events in `app_ship_event_poll()` each loop. High-rate throttle/power sample events stay mostly quiet, while key/action/point/power-latch/SPI-PS/error events have explicit dispatch logs.
 - `0x13/0x14/0x15` now dispatch to `AutoDrive_SetReturnPositionRaw()`,
   `AutoDrive_SetFishPositionRaw()`, and `AutoDrive_SetSwitchRaw()`.
-- `0x14` logs fish-point result codes and matched indexes; unknown points are stored only while the RAM table has space.
+- `0x14` logs save and navigation results separately. A new unknown point is stored while the RAM table has space and then immediately attempts goto when GPS/distance allow; quick duplicate frames are suppressed.
 - `0x16` sends the 36-byte AutoDrive diagnostic payload on state/reason changes or periodic diagnostic cadence.
 
 Power reporting is also aligned back to the old discrete behavior for the current board:

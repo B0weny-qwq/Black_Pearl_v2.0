@@ -1382,6 +1382,10 @@
     }
 
     function cmdName(cmd) {
+      const raw = String(cmd || "").trim();
+      const normalized = raw.toUpperCase().startsWith("0X")
+        ? `0x${raw.slice(2).toUpperCase()}`
+        : `0x${raw.toUpperCase().padStart(2, "0")}`;
       const map = {
         "0x0F": "0x0F 配对响应",
         "0x10": "0x10 配对请求",
@@ -1392,7 +1396,7 @@
         "0x15": "0x15 返航开关",
         "0x16": "0x16 自动驾驶诊断"
       };
-      return map[cmd] || cmd;
+      return map[normalized] || normalized;
     }
 
     function formatDeg1e7(dir, raw) {
@@ -1407,6 +1411,23 @@
       const p1 = String(part1);
       const p2 = String(part2).padStart(4, "0");
       return `${dir}${p1}.${p2}`;
+    }
+
+    function asciiByteHexToChar(hexValue) {
+      const value = Number.parseInt(hexValue, 16);
+      if (!Number.isFinite(value)) {
+        return `0x${hexValue}`;
+      }
+      const ch = String.fromCharCode(value);
+      return /^[A-Z]$/.test(ch) ? ch : `0x${hexValue.toUpperCase()}`;
+    }
+
+    function formatCentideg(value, digits = 2) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) {
+        return String(value);
+      }
+      return (num / 100).toFixed(digits);
     }
 
     function formatAhrsFlags(flagHex) {
@@ -1518,6 +1539,29 @@
         important = true;
       }
 
+      const ahrsPacked = line.match(/^\[AHRS\] I: rpy=(-?\d+),(-?\d+),(-?\d+) gy=(-?\d+),(-?\d+),(-?\d+) flg=0x([0-9A-Fa-f]{2})$/);
+      if (ahrsPacked) {
+        const rollDeg = formatCentideg(ahrsPacked[1]);
+        const pitchDeg = formatCentideg(ahrsPacked[2]);
+        const yawDeg = formatCentideg(ahrsPacked[3]);
+        const gyroX = formatCentideg(ahrsPacked[4]);
+        const gyroY = formatCentideg(ahrsPacked[5]);
+        const gyroZ = formatCentideg(ahrsPacked[6]);
+        const flagHex = ahrsPacked[7].toUpperCase();
+        const magState = formatAhrsMagState(flagHex, "");
+        state.last.ahrsPoseValue = `r ${rollDeg}\np ${pitchDeg}\ny ${yawDeg}`;
+        state.last.ahrsPoseMeta = "roll / pitch / yaw (deg), current firmware";
+        state.last.ahrsGyroValue = `${gyroX} / ${gyroY} / ${gyroZ}`;
+        state.last.ahrsGyroMeta = "gX / gY / gZ (deg/s), current firmware";
+        state.last.ahrsYawValue = "ABS";
+        state.last.ahrsYawMeta = `absolute yaw ${yawDeg}`;
+        state.last.ahrsFlagValue = `0x${flagHex}`;
+        state.last.ahrsFlagMeta = `${formatAhrsFlags(flagHex)} / ${magState}`;
+        state.last.ahrsInfo =
+          `rpy=${rollDeg},${pitchDeg},${yawDeg} gyro=${gyroX},${gyroY},${gyroZ} f=0x${flagHex} ${magState}`;
+        important = true;
+      }
+
       const hdgRel = line.match(/^\[HDG\] I: yr=([+\-]\d+\.\d+) yg=([+\-]\d+\.\d+) ym=([+\-]\d+\.\d+) gz=([+\-]\d+\.\d+)(?: bz=([+\-]\d+\.\d+))?(?: mv=(\d+))?(?: mu=(\d+))?(?: sf=(\d+))?(?: err=([+\-]\d+\.\d+))?(?: hp=([+\-]\d+\.\d+))?(?: hd=([+\-]\d+\.\d+))?(?: hm=([+\-]\d+\.\d+))? f=([0-9A-Fa-f]{2})(?: (mv=0|me=0))?$/);
       if (hdgRel) {
         const flagHex = hdgRel[13].toUpperCase();
@@ -1548,6 +1592,28 @@
           + (hdgRel[11] ? ` hd=${hdgRel[11]}` : "")
           + (hdgRel[12] ? ` hm=${hdgRel[12]}` : "")
           + ` f=0x${flagHex} ${magState}`;
+        important = true;
+      }
+
+      const hdgPacked = line.match(/^\[HDG\] I: abs=(\d+) rel=(-?\d+) mag=(\d+) rdy=(\d+) st=(\d+) set=(\d+) err=(-?\d+) pred=(-?\d+)$/);
+      if (hdgPacked) {
+        const absDeg = formatCentideg(hdgPacked[1]);
+        const relDeg = formatCentideg(hdgPacked[2]);
+        const magDeg = formatCentideg(hdgPacked[3]);
+        const errDeg = formatCentideg(hdgPacked[7]);
+        const predDeg = formatCentideg(hdgPacked[8]);
+        state.last.hdgValue = `abs ${absDeg}\nrel ${relDeg}\nmag ${magDeg}`;
+        state.last.magValue = `mag=${magDeg}`;
+        state.last.magMeta = `rdy=${hdgPacked[4]} / set=${hdgPacked[6]} / err=${errDeg} / pred=${predDeg}`;
+        state.last.hdgMeta =
+          `rdy=${hdgPacked[4]} / static=${hdgPacked[5]} / settled=${hdgPacked[6]} / err=${errDeg} / pred=${predDeg}`;
+        state.last.hdgInfo =
+          `HDG current abs=${absDeg} rel=${relDeg} mag=${magDeg} rdy=${hdgPacked[4]} st=${hdgPacked[5]} set=${hdgPacked[6]} err=${errDeg} pred=${predDeg}`;
+        updateCompassHeading(
+          absDeg,
+          "HDG current",
+          `abs=${absDeg} / rel=${relDeg} / mag=${magDeg} / rdy=${hdgPacked[4]} / set=${hdgPacked[6]} / err=${errDeg}`
+        );
         important = true;
       }
 
@@ -1766,6 +1832,19 @@
         important = true;
       }
 
+      const rcCurrent = line.match(/\[SHIP\] I: rc cmd=0x11 lr=(\d+) ud=(\d+) tv=([-\d]+) sv=([-\d]+) key=0x([0-9A-Fa-f]{2})/);
+      if (rcCurrent) {
+        const keyHex = `0x${rcCurrent[5].toUpperCase()}`;
+        state.manualCount += 1;
+        markRemoteOnline("在线，收到当前固件 0x11 控制帧");
+        state.last.rcMeta =
+          `ud=${rcCurrent[2]} lr=${rcCurrent[1]} throttle=${rcCurrent[3]} steering=${rcCurrent[4]} key=${keyHex}`;
+        updateKeyFromFrame(keyHex, keyHex, "0x11 current");
+        updateRcInputIntent(rcCurrent[2], rcCurrent[1], rcCurrent[3], rcCurrent[4], keyHex, "rc cmd=0x11");
+        pushTimeline(`收到 0x11：ud=${rcCurrent[2]} lr=${rcCurrent[1]} key=${keyHex}`);
+        important = true;
+      }
+
       const throttle = line.match(/\[SHIP\] I: throttle_raw=(\d+) steering_raw=(\d+) throttle_val=([-\d]+) steering_val=([-\d]+) key=(0x[0-9A-Fa-f]{2})\(([^)]+)\)/);
       if (throttle) {
         state.last.rcMeta = `throttle=${throttle[3]} steering=${throttle[4]} key=${throttle[5]}(${throttle[6]})`;
@@ -1796,6 +1875,16 @@
         state.last.rcMeta = `u=${rcShort[1]} l=${rcShort[2]} throttle=${rcShort[3]} steering=${rcShort[4]} key=0x${rcShort[5]}`;
         updateKeyFromFrame(`0x${rcShort[5]}`, `0x${rcShort[5]}`, "0x11");
         updateRcInputIntent(rcShort[1], rcShort[2], rcShort[3], rcShort[4], `0x${rcShort[5]}`, "rc11");
+        important = true;
+      }
+
+      const keyEdge = line.match(/\[SHIP\] I: key edge key=0x([0-9A-Fa-f]{2}) action=([a-zA-Z0-9-]+)/);
+      if (keyEdge) {
+        const keyHex = `0x${keyEdge[1].toUpperCase()}`;
+        state.last.keyValue = keyLabel(keyHex, keyEdge[2]);
+        state.last.keyMeta = `edge / ${keyEdge[2]}`;
+        pushTimeline(`按键 edge：${keyHex} ${keyEdge[2]}`);
+        renderCardsNow();
         important = true;
       }
 
@@ -1855,6 +1944,29 @@
         important = true;
       }
 
+      const ctrlOutCurrent = line.match(/\[CTRL\] I: out mode=(\d+) motion=(\d+) base=([-\d]+) diff=([-\d]+) left=([-\d]+) right=([-\d]+)/);
+      if (ctrlOutCurrent) {
+        const ctrlModeText = shipControlModeText(Number(ctrlOutCurrent[1]));
+        const motionLabel = motionText(Number(ctrlOutCurrent[2]));
+        state.last.controlModeValue = ctrlModeText;
+        state.last.controlModeMeta = `base=${ctrlOutCurrent[3]} diff=${ctrlOutCurrent[4]}`;
+        state.last.throttleOutputValue = formatMotorOutputPercent(ctrlOutCurrent[5], ctrlOutCurrent[6]);
+        state.last.throttleOutputMeta =
+          `CTRL out ${ctrlModeText} / ${motionLabel}\nleft=${ctrlOutCurrent[5]} right=${ctrlOutCurrent[6]}\n`
+          + `base=${ctrlOutCurrent[3]} diff=${ctrlOutCurrent[4]}`;
+        updateMotionDecision(
+          motionLabel,
+          `left=${ctrlOutCurrent[5]} right=${ctrlOutCurrent[6]}\nbase=${ctrlOutCurrent[3]} diff=${ctrlOutCurrent[4]}`,
+          `CTRL out ${ctrlModeText}: ${motionLabel} left=${ctrlOutCurrent[5]} right=${ctrlOutCurrent[6]}`
+        );
+        state.last.selfStabilizeValue =
+          (Number(ctrlOutCurrent[1]) === 2 || Number(ctrlOutCurrent[1]) === 3 || Number(ctrlOutCurrent[1]) === 4) ? "ON" : "OFF";
+        state.last.selfStabilizeMeta = state.last.selfStabilizeValue === "ON"
+          ? `角度闭环 ${ctrlModeText} / diff=${ctrlOutCurrent[4]}`
+          : `CTRL ${ctrlModeText}`;
+        important = true;
+      }
+
       const cruiseRun = line.match(/\[DATA\] I: cruise run req=([-\d]+) base=([-\d]+) l=([-\d]+) r=([-\d]+) err=([-\d]+) pid=([-\d]+) diff=([-\d]+) tgt=(\d+)/);
       if (cruiseRun) {
         state.last.controlModeValue = "CRUISE_HEADING_HOLD";
@@ -1872,6 +1984,34 @@
           `left=${cruiseRun[3]} right=${cruiseRun[4]}\nbase=${cruiseRun[2]} diff=${cruiseRun[7]}`,
           `DATA cruise run: speed=${cruiseRun[1]} base=${cruiseRun[2]} left=${cruiseRun[3]} right=${cruiseRun[4]}`
         );
+        important = true;
+      }
+
+      const cruiseEnterCurrent = line.match(/\[DATA\] I: cruise enter input=([-\d]+) raw_ud=(\d+) speed=([-\d]+) hd=(\d+)/);
+      if (cruiseEnterCurrent) {
+        state.last.controlModeValue = "CRUISE_HEADING_HOLD";
+        state.last.controlModeMeta =
+          `input=${cruiseEnterCurrent[1]} raw_ud=${cruiseEnterCurrent[2]} speed=${cruiseEnterCurrent[3]} hd=${formatCentideg(cruiseEnterCurrent[4])}`;
+        state.last.autoDriveValue = "巡航锁定";
+        state.last.autoDriveMeta = "E cruise enter, not GPS navigation";
+        state.last.selfStabilizeValue = "ON";
+        state.last.selfStabilizeMeta = `CRUISE_HEADING_HOLD / target=${formatCentideg(cruiseEnterCurrent[4])}`;
+        updateMotionDecision("E定速闭环", state.last.controlModeMeta, `DATA cruise enter speed=${cruiseEnterCurrent[3]} hd=${formatCentideg(cruiseEnterCurrent[4])}`);
+        important = true;
+      }
+
+      const cruiseExitCurrent = line.match(/\[DATA\] I: cruise exit reason=([a-zA-Z0-9-]+) input=([-\d]+) raw_ud=(\d+)(?: stop_th=([-\d]+))?/);
+      if (cruiseExitCurrent) {
+        state.last.controlModeValue = "STOP";
+        state.last.controlModeMeta =
+          `cruise exit ${cruiseExitCurrent[1]} input=${cruiseExitCurrent[2]} raw_ud=${cruiseExitCurrent[3]}`
+          + (cruiseExitCurrent[4] ? ` stop_th=${cruiseExitCurrent[4]}` : "");
+        state.last.autoDriveValue = "未运行";
+        state.last.autoDriveMeta = "cruise exited";
+        state.last.selfStabilizeValue = "OFF";
+        state.last.selfStabilizeMeta = "CRUISE_HEADING_HOLD exited";
+        clearMotorOutputOnStop("cruise exit", state.last.controlModeMeta);
+        updateMotionDecision("stop", state.last.controlModeMeta, `DATA cruise exit ${cruiseExitCurrent[1]}`);
         important = true;
       }
 
@@ -2076,7 +2216,7 @@
         important = true;
       }
 
-      const txCmd = line.match(/\[SHIP\] I: tx cmd=(0x[0-9A-Fa-f]{2}) ch=(\d+) payload_len=(\d+) sat=(\d+) angle=(\d+) power=(0x[0-9A-Fa-f]{2}) auto=(0x[0-9A-Fa-f]{2})/);
+      const txCmd = line.match(/\[SHIP\] I: tx cmd=(0x[0-9A-Fa-f]{2}|[0-9A-Fa-f]{2}) ch=(\d+) (?:payload_len|len)=(\d+) sat=(\d+) angle=(\d+) power=(0x[0-9A-Fa-f]{2}) auto=(0x[0-9A-Fa-f]{2})/);
       if (txCmd) {
         state.gpsTxCount += 1;
         state.last.lastTxCmd = `${cmdName(txCmd[1])} ch=${txCmd[2]}`;
@@ -2085,6 +2225,19 @@
         state.last.gpsTxInfo = `ch=${txCmd[2]} payload=${txCmd[3]} sat=${txCmd[4]} angle=${txCmd[5]} power=${txCmd[6]}`;
         state.last.gpsAngle = `${txCmd[5]} deg`;
         pushTimeline(`发送 0x12：sat=${txCmd[4]} angle=${txCmd[5]} power=${txCmd[6]} ch=${txCmd[2]}`);
+        important = true;
+      }
+
+      const txCmdGeneric = line.match(/\[SHIP\] I: tx cmd=(0x[0-9A-Fa-f]{2}|[0-9A-Fa-f]{2}) ch=(\d+) (?:payload_len|len)=(\d+)$/);
+      if (txCmdGeneric) {
+        state.last.lastTxCmd = `${cmdName(txCmdGeneric[1])} ch=${txCmdGeneric[2]}`;
+        state.last.txValue = `${txCmdGeneric[1]} / ch ${txCmdGeneric[2]}`;
+        state.last.txMeta = `payload=${txCmdGeneric[3]}`;
+        if (cmdName(txCmdGeneric[1]).startsWith("0x12")) {
+          state.gpsTxCount += 1;
+          state.last.gpsTxInfo = `ch=${txCmdGeneric[2]} payload=${txCmdGeneric[3]} (current firmware compact log)`;
+          pushTimeline(`发送 0x12：ch=${txCmdGeneric[2]} payload=${txCmdGeneric[3]}`);
+        }
         important = true;
       }
 
@@ -2136,13 +2289,63 @@
         important = true;
       }
 
+      const pointCurrent = line.match(/\[SHIP\] I: (0x13 return-home event|0x14 fish-point event|0x14 point|0x15 return-switch point) ew=0x([0-9A-Fa-f]{2}) lon=(\d+)\.(\d+) ns=0x([0-9A-Fa-f]{2}) lat=(\d+)\.(\d+)$/);
+      if (pointCurrent) {
+        const lonDir = asciiByteHexToChar(pointCurrent[2]);
+        const latDir = asciiByteHexToChar(pointCurrent[5]);
+        const coordText =
+          `lon=${lonDir}${pointCurrent[3]}.${pointCurrent[4]} / lat=${latDir}${pointCurrent[6]}.${pointCurrent[7]}`;
+        if (pointCurrent[1].startsWith("0x13")) {
+          state.coordTarget = "return-home";
+          state.last.gpsReturnHome = coordText;
+          state.last.autoDriveValue = "RETURN_HOME";
+          state.last.autoDriveMeta = "收到当前固件 0x13 return-home event";
+        } else if (pointCurrent[1].startsWith("0x14")) {
+          state.coordTarget = "goto-point";
+          state.last.gpsGotoPoint = coordText;
+          state.last.autoDriveValue = "GOTO_POINT";
+          state.last.autoDriveMeta = "收到当前固件 0x14 fish-point event";
+        } else {
+          state.coordTarget = "return-switch";
+          state.last.gpsReturnSwitch = coordText;
+        }
+        pushTimeline(`${pointCurrent[1]}：${coordText}`);
+        important = true;
+      }
+
+      const gotoDiag = line.match(/\[SHIP\] I: 0x14 rx fl=(\d+) pl=(\d+) xor=([0-9A-Fa-f]{2})\/([0-9A-Fa-f]{2})(?: save=(\d+)\(([^)]+)\) nav=(\d+)\(([^)]+)\)| res=(\d+)\(([^)]+)\)) idx=(\d+)/);
+      if (gotoDiag) {
+        const saveText = gotoDiag[6] ? `${gotoDiag[5]}(${gotoDiag[6]})` : "--";
+        const navCode = gotoDiag[7] || gotoDiag[9];
+        const navText = gotoDiag[8] || gotoDiag[10];
+        const idxText = gotoDiag[11];
+        state.coordTarget = "goto-point";
+        state.last.gpsRawInfo =
+          `0x14 fl=${gotoDiag[1]} pl=${gotoDiag[2]} xor=${gotoDiag[3]}/${gotoDiag[4]} save=${saveText} nav=${navCode}(${navText}) idx=${idxText}`;
+        state.last.autoDriveValue = "GOTO_POINT";
+        state.last.autoDriveMeta = `0x14 save=${saveText} nav=${navText} idx=${idxText}`;
+        pushTimeline(`0x14 目标点：save=${saveText} nav=${navText} idx=${idxText}`);
+        important = true;
+      }
+
+      const returnSwitchCurrent = line.match(/\[SHIP\] I: 0x15 return-switch event state=0x([0-9A-Fa-f]{2}) point=(\d+) len=(\d+)/);
+      if (returnSwitchCurrent) {
+        state.coordTarget = "return-switch";
+        state.last.gpsReturnSwitch =
+          `state=0x${returnSwitchCurrent[1].toUpperCase()} point=${returnSwitchCurrent[2]} len=${returnSwitchCurrent[3]}`;
+        state.last.autoDriveValue = "RETURN_SWITCH";
+        state.last.autoDriveMeta = `0x15 state=0x${returnSwitchCurrent[1].toUpperCase()} point=${returnSwitchCurrent[2]}`;
+        pushTimeline(`0x15 返航开关：state=0x${returnSwitchCurrent[1].toUpperCase()} point=${returnSwitchCurrent[2]}`);
+        important = true;
+      }
+
       const returnSwitchShort = line.match(/\[SHIP\] W: return-switch short len=(\d+)/);
       if (returnSwitchShort) {
         state.last.gpsReturnSwitch = `short len=${returnSwitchShort[1]}`;
         important = true;
       }
 
-      const autoDiag = line.match(/\[SHIP\] I: tx cmd=0x16 state=(\d+) mode=(\d+) sw=0x([0-9A-Fa-f]{2}) reason=(\d+) gps=(\d+) sat=(\d+) dist=(\d+)/);
+      const autoDiag = line.match(/\[SHIP\] I: (?:tx cmd=(?:0x16|16) state=|tx16 st=)(\d+) (?:mode|md)=(\d+) sw=(?:0x)?([0-9A-Fa-f]{2}) (?:reason|rsn)=(\d+) gps=(\d+) sat=(\d+) dist=(\d+)/);
       if (autoDiag) {
         const autoStateNum = Number(autoDiag[1]);
         const autoModeNum = Number(autoDiag[2]);
@@ -2286,20 +2489,47 @@
         important = true;
       }
 
-      const pairExpired = line.match(/\[SHIP\] W: pair rsp window expired, no rsp/);
+      const pairExpired = line.match(/\[SHIP\] W: pair rsp window expired, (no rsp|retry seed burst)/);
       if (pairExpired) {
-        state.last.warnInfo = "配对窗口超时";
-        pushTimeline("配对窗口超时，没有收到 0x0F");
+        state.last.warnInfo = pairExpired[1] === "retry seed burst" ? "配对窗口超时，重新发送 seed" : "配对窗口超时";
+        pushTimeline(pairExpired[1] === "retry seed burst" ? "配对窗口超时，重发 0x10 seed burst" : "配对窗口超时，没有收到 0x0F");
         important = true;
       }
 
-      const warn = line.match(/\[(WL|SHIP|MAG|GPS|IMU|AHRS)\] W: (.+)$/);
+      const pairForce = line.match(/\[SHIP\] W: pair force work-rx after (\d+)ms/);
+      if (pairForce) {
+        state.last.warnInfo = `配对超时 ${pairForce[1]}ms，强制进入工作 RX`;
+        state.last.channelInfo = "强制进入工作 RX";
+        pushTimeline(`配对超时 ${pairForce[1]}ms，强制进入工作 RX`);
+        important = true;
+      }
+
+      const knownInfo = line.match(/^\[(SYS|APP|WL|SHIP|MAG|GPS|IMU|AHRS|CTRL|DATA|POWER|SPI-PS|MOTOR|ADCFG|EVT)\] I: (.+)$/);
+      if (knownInfo && !important) {
+        const tag = knownInfo[1];
+        const message = knownInfo[2];
+        if (tag === "POWER") {
+          state.last.powerMeta = message;
+        } else if (tag === "GPS") {
+          state.last.gpsRawInfo = message;
+        } else if (tag === "ADCFG") {
+          state.last.autoDriveMeta = message;
+        } else if (tag === "EVT") {
+          state.last.lastRxCmd = message;
+        } else if (tag === "SHIP" && /pair|work|scheduler|manual|cmd=0x12|0x14 payload|0x14 frame/i.test(message)) {
+          state.last.channelInfo = message;
+        }
+        pushTimeline(`[${tag}] ${message}`);
+        important = true;
+      }
+
+      const warn = line.match(/\[(WL|SHIP|MAG|GPS|IMU|AHRS|CTRL|DATA|POWER|SPI-PS|MOTOR|ADCFG|EVT|APP)\] W: (.+)$/);
       if (warn) {
         state.last.warnInfo = `[${warn[1]}] ${warn[2]}`;
         important = true;
       }
 
-      const err = line.match(/\[(WL|SHIP|MAG|GPS|IMU|AHRS)\] E: (.+)$/);
+      const err = line.match(/\[(WL|SHIP|MAG|GPS|IMU|AHRS|CTRL|DATA|POWER|SPI-PS|MOTOR|ADCFG|EVT|APP)\] E: (.+)$/);
       if (err) {
         state.last.warnInfo = `[${err[1]}] ${err[2]}`;
         pushTimeline(`错误：${err[2]}`);

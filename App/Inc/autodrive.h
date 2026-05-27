@@ -63,6 +63,13 @@ typedef struct
 #define AUTODRIVE_FISH_CMD_STARTED         5U
 #define AUTODRIVE_FISH_CMD_INVALID         6U
 
+#define AUTODRIVE_FISH_SAVE_NONE           0U
+#define AUTODRIVE_FISH_SAVE_STORED         1U
+#define AUTODRIVE_FISH_SAVE_EXISTS         2U
+#define AUTODRIVE_FISH_SAVE_FULL_TEMP      3U
+#define AUTODRIVE_FISH_SAVE_BUSY           4U
+#define AUTODRIVE_FISH_SAVE_INVALID        5U
+
 typedef struct
 {
     u8 auto_ret_onoff;
@@ -242,6 +249,7 @@ u8 AutoDrive_GetFishPositionByIndexRaw(u8 index, AutoDrive_PointRaw_t *point);
  * @return 0 表示未匹配；1..AUTODRIVE_FISH_POINT_COUNT 表示钓点槽位。
  */
 u8 AutoDrive_GetLastFishCommandIndex(void);
+u8 AutoDrive_GetLastFishSaveResult(void);
 
 /**
  * @brief 获取自动驾驶诊断快照。

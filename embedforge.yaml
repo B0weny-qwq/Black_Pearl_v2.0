@@ -326,9 +326,7 @@ init_sequence:
   loop:
     - board_gps_poll
     - board_wireless_poll
-    - ship_protocol_run_scheduler
-    - AutoDrive_Poll
-    - ShipControl_Tick
+    - ship_protocol_run_scheduler (10ms-gated; drains RX and calls AutoDrive_Poll/ShipControl_Tick)
     - board_wireless_search_signal_poll
     - app_spi_ps_poll
     - app_ship_event_poll

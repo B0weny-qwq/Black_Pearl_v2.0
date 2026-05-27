@@ -803,4 +803,3 @@ meta 里还会显示：
 - PowerShell 启动脚本：
   [start_ship_log_viewer.ps1](tools/ship_log_viewer/start_ship_log_viewer.ps1)
 - 兼容跳转页：
-  [doc/tools/ship_log_viewer.html](doc/tools/ship_log_viewer.html)

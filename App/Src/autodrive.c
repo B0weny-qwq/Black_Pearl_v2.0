@@ -41,6 +41,7 @@ static AutoDrive_PointRaw_t return_position;
 static AutoDrive_PointRaw_t fish_position;
 static AutoDrive_FishPointStore_t fish_points;
 static u8 last_fish_cmd_index = 0U;
+static u8 last_fish_save_result = AUTODRIVE_FISH_SAVE_NONE;
 static AutoDrive_PointRaw_t last_fish_rx_point;
 static u32 last_fish_rx_ms = 0UL;
 static u8 last_fish_rx_valid = 0U;
@@ -663,15 +664,19 @@ u8 AutoDrive_SetFishPositionRaw(const u8 *data_m)
 
     AutoDrive_SetDiagReason(AUTODRIVE_DIAG_REASON_CMD_GOTO_POINT);
     last_fish_cmd_index = 0U;
+    last_fish_save_result = AUTODRIVE_FISH_SAVE_NONE;
     if (autodrive_state != AUTO_DRIVE_IDLE) {
+        last_fish_save_result = AUTODRIVE_FISH_SAVE_BUSY;
         return AUTODRIVE_FISH_CMD_BUSY;
     }
     if (data_m == 0) {
+        last_fish_save_result = AUTODRIVE_FISH_SAVE_INVALID;
         return AUTODRIVE_FISH_CMD_INVALID;
     }
 
     AutoDrive_PointFromLegacyWire(&rx_point, data_m);
     if (AutoDrive_PointRawValid(&rx_point) == 0U) {
+        last_fish_save_result = AUTODRIVE_FISH_SAVE_INVALID;
         return AUTODRIVE_FISH_CMD_INVALID;
     }
 
@@ -679,6 +684,9 @@ u8 AutoDrive_SetFishPositionRaw(const u8 *data_m)
     matched_index = AutoDrive_FindFishPointIndex(&rx_point);
     if (AutoDrive_IsFishRxDuplicate(&rx_point, now_ms) != 0U) {
         last_fish_cmd_index = matched_index;
+        if (matched_index != 0U) {
+            last_fish_save_result = AUTODRIVE_FISH_SAVE_EXISTS;
+        }
         AutoDrive_RecordFishRxPoint(&rx_point, now_ms);
         return AUTODRIVE_FISH_CMD_DUP_WAIT;
     }
@@ -687,16 +695,21 @@ u8 AutoDrive_SetFishPositionRaw(const u8 *data_m)
         if (AutoDrive_FishPointsReady() == 0U) {
             stored_index = AutoDrive_StoreFishPoint(&rx_point);
             if (stored_index == 0xFFU) {
+                last_fish_save_result = AUTODRIVE_FISH_SAVE_FULL_TEMP;
                 return AUTODRIVE_FISH_CMD_REJECT_UNKNOWN;
             }
             last_fish_cmd_index = (u8)(stored_index + 1U);
-            AutoDrive_RecordFishRxPoint(&rx_point, now_ms);
-            return AUTODRIVE_FISH_CMD_STORED;
+            matched_index = last_fish_cmd_index;
+            last_fish_save_result = AUTODRIVE_FISH_SAVE_STORED;
+        } else {
+            last_fish_save_result = AUTODRIVE_FISH_SAVE_FULL_TEMP;
+            return AUTODRIVE_FISH_CMD_REJECT_UNKNOWN;
         }
-        return AUTODRIVE_FISH_CMD_REJECT_UNKNOWN;
+    } else {
+        last_fish_cmd_index = matched_index;
+        last_fish_save_result = AUTODRIVE_FISH_SAVE_EXISTS;
     }
 
-    last_fish_cmd_index = matched_index;
     AutoDrive_RecordFishRxPoint(&rx_point, now_ms);
     AutoDrive_CopyPoint(&fish_position, &rx_point);
     if (AutoDrive_IsCanActive(&fish_position) == 0U) {
@@ -800,6 +813,11 @@ u8 AutoDrive_GetFishPositionByIndexRaw(u8 index, AutoDrive_PointRaw_t *point)
 u8 AutoDrive_GetLastFishCommandIndex(void)
 {
     return last_fish_cmd_index;
+}
+
+u8 AutoDrive_GetLastFishSaveResult(void)
+{
+    return last_fish_save_result;
 }
 
 u8 AutoDrive_GetDirectionNowToDestination(const u8 *nowpositionData,
@@ -1131,6 +1149,7 @@ void AutoDrive_Init(void)
     AutoDrive_ClearPoint(&fish_position);
     AutoDrive_ClearFishPoints();
     last_fish_cmd_index = 0U;
+    last_fish_save_result = AUTODRIVE_FISH_SAVE_NONE;
     AutoDrive_ClearPoint(&last_fish_rx_point);
     last_fish_rx_ms = 0UL;
     last_fish_rx_valid = 0U;

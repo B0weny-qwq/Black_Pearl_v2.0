@@ -290,11 +290,11 @@ memory_layout:
     stack_bytes: 256
     latest_verified:
       date: 2026-05-27
-      edata_hdata_bytes: 3873
+      edata_hdata_bytes: 3890
       xdata_bytes: 380
-      code_bytes: 61343
-      const_bytes: 3597
-      hconst_bytes: 3597
+      code_bytes: 60331
+      const_bytes: 2919
+      hconst_bytes: 2919
       result: "0 Error(s), 0 Warning(s)"
     xdata_objects:
       - object: Components/Src/AHRS.c::ahrs_ctx

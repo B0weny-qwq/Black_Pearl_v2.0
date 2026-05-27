@@ -256,15 +256,15 @@ main()
 | 配对成功 | `pair ok` | 收到合法 `PAIR_RSP(0x0F)` 或任意合法旧帧后刷新 `paired` |
 | 工作信道 | `enter work-state` | 已切入旧算法派生工作信道 RX |
 | 手动输入 | `rc cmd=0x11` | 解析 `lr/ud/key`，通过保护条件后提交给 `ShipControl` |
-| 按键动作 | `key edge key=` | A/E/unknown 仍是 `KEY_EDGE`；B/C/D 日志为 `B-noop`/`C-noop`/`D-noop` 并发布 `KEY_ACTION_*_NOOP` |
+| 按键动作 | `key edge key=... action=0..3` | A/E/unknown 仍是 `KEY_EDGE`；B/C/D 短日志用数字 action 表示并发布 `KEY_ACTION_*_NOOP`，上位机映射为 `B-noop`/`C-noop`/`D-noop` |
 | 开机保护 | `boot blk` / `boot ready` | 上电短暂阻塞手动电机输出，可等待航向 ready |
 | 巡航状态 | `cruise enter` / `cruise exit` / `cruise reject` | E 键巡航准入、退出和拒绝原因 |
 | 电机输出 | `CTRL out mode=` | `ShipControl` 统一输出 mode、motion、base、diff、left、right |
 | 返航点事件 | `0x13 ret` | 解析 10 字节返航点并调用 AutoDrive 返航入口 |
 | 钓点事件 | `0x14 fish` | 解析 10 字节钓点坐标，并进入 5 点表保存/查重/启动状态机 |
-| 钓点诊断 | `0x14 rx fl=` | 打印 frame/payload/xor/save/nav/index，便于联调 0x14 存点和导航结果 |
+| 钓点诊断 | `0x14 rx save=... nav=... idx=...` | 默认短日志只打印保存结果、导航结果和命中 index；verbose 档位才打印 frame/payload/xor 长诊断 |
 | 返航开关事件 | `0x15 sw=` | 解析 `switch_state` 和可选返航点，保存配置并按开关触发返航 |
-| GPS 回包 | `tx cmd=12` | 任意合法协议帧分发后发送固定 15 字节 GPS payload |
+| GPS 回包 | `0x12` payload；verbose 档位下另有 `tx cmd=12` | 任意合法协议帧分发后发送固定 15 字节 GPS payload |
 | AutoDrive 诊断 | `tx16 st=` | 主动上报 state、mode、switch、reason、GPS、卫星数和距离 |
 | 配置保存 | `ADCFG ld` / `ADCFG sv` | AutoDrive 配置经 `parameter_store -> board_storage` 读写 |
 | 电源采样 | `POWER init ok` / `adc raw=` / `low power latched` | 电源底层初始化、电量采样、`POWER_SAMPLE` / `POWER_LEVEL_CHANGED` 观察事件和低电返航触发；`bat_mv` 未标定时启动日志会提示 `bat_mv uncal` |
@@ -426,9 +426,9 @@ kept out of EDATA when it is not latency-critical:
 
 Current verified map evidence from `RVMDK/list/STC32G-LIB.map`:
 
-- EDATA used: `000F21H` bytes.
-- C251 stack: `?STACK`, `000100H` bytes, placed at `000E2DH..000F2CH`.
-- HCONST used: `000E0DH` bytes.
+- EDATA used: `000F32H` bytes.
+- C251 stack: `?STACK`, `000100H` bytes, placed at `000E3EH..000F3DH`.
+- HCONST used: `000B67H` bytes.
 - XDATA used: `00017CH` bytes.
 - XDATA segments: `?XD?BOARD_WIRELESS` and `?XD?AHRS`.
 - CODE constant segment: `?CO?LT8920` for the LT8920 default register profile.
@@ -436,7 +436,7 @@ Current verified map evidence from `RVMDK/list/STC32G-LIB.map`:
 Current verified build evidence from `RVMDK/list/STC32G-LIB.build_log.htm`:
 
 ```text
-Program Size: data=11.7 edata+hdata=3873 xdata=380 const=3597 code=61343
+Program Size: data=11.7 edata+hdata=3890 xdata=380 const=2919 code=60331
 ".\list\STC32G-LIB" - 0 Error(s), 0 Warning(s).
 ```
 
@@ -541,6 +541,13 @@ Current protocol event snapshot extensions:
   `raw`, `adc_mv`, `bat_mv`, `level`, and `valid`.
 - `spi_ps`: filled for `SHIP_PROTOCOL_EVENT_SPI_PS_FRAME_RX`; fields are `status`, `len`,
   `stored_len`, and the first `16` bytes in `bytes`.
+
+Current C251 log-footprint policy:
+
+- `SHIP_PROTOCOL_VERBOSE_LOG_ENABLE = 0U` and `SHIP_APP_BRINGUP_VERBOSE_LOG_ENABLE = 0U` are the default C251 build profile.
+- The default profile keeps the logs used by the maintained upper-computer cards and field triage, including `[CTRL]`, `[AHRS]`, `[HDG]`, `adc raw`, `rc cmd=0x11`, `key edge key=... action=0..3`, `0x14 rx save=... nav=... idx=...`, `tx16 st=...`, warnings and errors.
+- Verbose protocol logs restore transmit-success lines, pair payload details and 0x14 frame/payload diagnostics. Verbose bring-up logs restore startup success banners and first-frame IMU diagnostics.
+- Enabling either verbose switch increases CODE/HCONST use. On C251 this can re-open the HCONST overflow risk, so keep them disabled for release handoff unless a short debug session requires the extra text.
 
 Current SPI-PS App bridge:
 

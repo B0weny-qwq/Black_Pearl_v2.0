@@ -1,4 +1,5 @@
 #include "app.h"
+#include "app_config.h"
 #include "app_extension.h"
 #include "board_console.h"
 #include "board_gps.h"
@@ -190,6 +191,7 @@ static void app_ahrs_reset(void)
 
 static void app_log_imu_diag(void)
 {
+#if (SHIP_APP_BRINGUP_VERBOSE_LOG_ENABLE != 0U)
 	board_imu_diag_t imu_diag;
 
 	if(board_imu_get_diag(&imu_diag) != BOARD_IMU_OK)
@@ -223,6 +225,7 @@ static void app_log_imu_diag(void)
 		 imu_diag.i2c_recover_ret,
 		 (u16)imu_diag.i2c_msst,
 		 (u16)imu_diag.i2c_mscr);
+#endif
 }
 
 static void app_try_imu_after_bringup(void)
@@ -232,7 +235,9 @@ static void app_try_imu_after_bringup(void)
 	ret = board_imu_init();
 	if(ret == BOARD_IMU_OK)
 	{
+#if (SHIP_APP_BRINGUP_VERBOSE_LOG_ENABLE != 0U)
 		LOGI("IMU", "QMI8658 init ok");
+#endif
 	}
 	else
 	{
@@ -243,6 +248,7 @@ static void app_try_imu_after_bringup(void)
 
 static void app_read_imu_once(void)
 {
+#if (SHIP_APP_BRINGUP_VERBOSE_LOG_ENABLE != 0U)
 	int8 ret;
 	board_imu_sample_t imu_sample;
 
@@ -275,6 +281,7 @@ static void app_read_imu_once(void)
 	{
 		LOGW("IMU", "sample not ready rc=%d", ret);
 	}
+#endif
 }
 
 /* 板级 bring-up 顺序：App 只调用 BoardDevices API，不直接碰外设寄存器。 */
@@ -282,13 +289,12 @@ static void app_bring_up_devices(void)
 {
 	int8 ret;
 
-	LOGI("APP", "Black Pearl v2.0");
-	LOGI("APP", "v1.0 port baseline");
-
 	ret = board_gps_init();
 	if(ret == BOARD_GPS_OK)
 	{
+#if (SHIP_APP_BRINGUP_VERBOSE_LOG_ENABLE != 0U)
 		LOGI("GPS", "init ok ready=%u", (u16)board_gps_is_ready());
+#endif
 	}
 	else
 	{
@@ -300,7 +306,9 @@ static void app_bring_up_devices(void)
 	ret = board_mag_init();
 	if(ret == BOARD_MAG_OK)
 	{
+#if (SHIP_APP_BRINGUP_VERBOSE_LOG_ENABLE != 0U)
 		LOGI("MAG", "QMC6309 init ok");
+#endif
 	}
 	else
 	{
@@ -310,7 +318,9 @@ static void app_bring_up_devices(void)
 	ret = board_power_init();
 	if(ret == BOARD_POWER_OK)
 	{
+#if (SHIP_APP_BRINGUP_VERBOSE_LOG_ENABLE != 0U)
 		LOGI("POWER", "init ok");
+#endif
 #if BOARD_POWER_BAT_MV_UNCALIBRATED
 		LOGW("POWER", "bat_mv uncal");
 #endif
@@ -323,7 +333,9 @@ static void app_bring_up_devices(void)
 	ret = board_wireless_init();
 	if(ret == BOARD_WIRELESS_OK)
 	{
+#if (SHIP_APP_BRINGUP_VERBOSE_LOG_ENABLE != 0U)
 		LOGI("WL", "init ok");
+#endif
 		ship_protocol_init();
 	}
 	else
@@ -335,7 +347,9 @@ static void app_bring_up_devices(void)
 	if(ret == BOARD_SPI_PS_OK)
 	{
 		app_spi_ps_ready = 1U;
+#if (SHIP_APP_BRINGUP_VERBOSE_LOG_ENABLE != 0U)
 		LOGI("SPI-PS", "init ok");
+#endif
 	}
 	else
 	{
@@ -349,7 +363,9 @@ static void app_bring_up_devices(void)
     ret = board_motor_init();
     if(ret == BOARD_MOTOR_OK)
 	{
+#if (SHIP_APP_BRINGUP_VERBOSE_LOG_ENABLE != 0U)
 		LOGI("MOTOR", "init ok");
+#endif
 	}
 	else
 	{

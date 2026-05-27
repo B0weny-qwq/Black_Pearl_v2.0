@@ -1054,6 +1054,47 @@
       return `${map[action] || action}${extra ? ` / ${extra}` : ""}`;
     }
 
+    function keyEdgeActionText(actionCode, keyHex) {
+      const map = {
+        0: "none",
+        1: "B-noop",
+        2: "C-noop",
+        3: "D-noop"
+      };
+      const code = Number(actionCode);
+      if (Number.isFinite(code)) {
+        return map[code] || `action-${code}`;
+      }
+      return actionCode || keyHex || "unknown";
+    }
+
+    function fishSaveText(codeText) {
+      const code = Number(codeText);
+      const map = {
+        0: "none",
+        1: "stored",
+        2: "exists",
+        3: "full-temp",
+        4: "busy",
+        5: "invalid"
+      };
+      return `${codeText}(${map[code] || "unknown"})`;
+    }
+
+    function fishNavText(codeText) {
+      const code = Number(codeText);
+      const map = {
+        0: "busy",
+        1: "stored",
+        2: "dup-wait",
+        3: "reject-unknown",
+        4: "reject-distance",
+        5: "started",
+        6: "invalid"
+      };
+      return `${codeText}(${map[code] || "unknown"})`;
+    }
+
     function shipControlModeText(mode) {
       const map = {
         0: "STOP",
@@ -1897,9 +1938,10 @@
       const keyEdge = line.match(/\[SHIP\] I: key edge key=0x([0-9A-Fa-f]{2}) action=([a-zA-Z0-9-]+)/);
       if (keyEdge) {
         const keyHex = `0x${keyEdge[1].toUpperCase()}`;
-        state.last.keyValue = keyLabel(keyHex, keyEdge[2]);
-        state.last.keyMeta = `edge / ${keyEdge[2]}`;
-        pushTimeline(`按键 edge：${keyHex} ${keyEdge[2]}`);
+        const actionText = keyEdgeActionText(keyEdge[2], keyHex);
+        state.last.keyValue = keyLabel(keyHex, actionText);
+        state.last.keyMeta = `edge / ${actionText}`;
+        pushTimeline(`按键 edge：${keyHex} ${actionText}`);
         renderCardsNow();
         important = true;
       }
@@ -2331,6 +2373,19 @@
         state.coordTarget = "goto-point";
         state.last.gpsRawInfo =
           `0x14 fl=${gotoDiag[1]} pl=${gotoDiag[2]} xor=${gotoDiag[3]}/${gotoDiag[4]} save=${saveText} nav=${navCode}(${navText}) idx=${idxText}`;
+        state.last.autoDriveValue = "GOTO_POINT";
+        state.last.autoDriveMeta = `0x14 save=${saveText} nav=${navText} idx=${idxText}`;
+        pushTimeline(`0x14 目标点：save=${saveText} nav=${navText} idx=${idxText}`);
+        important = true;
+      }
+
+      const gotoDiagShort = line.match(/\[SHIP\] I: 0x14 rx save=(\d+) nav=(\d+) idx=(\d+)/);
+      if (gotoDiagShort) {
+        const saveText = fishSaveText(gotoDiagShort[1]);
+        const navText = fishNavText(gotoDiagShort[2]);
+        const idxText = gotoDiagShort[3];
+        state.coordTarget = "goto-point";
+        state.last.gpsRawInfo = `0x14 save=${saveText} nav=${navText} idx=${idxText}`;
         state.last.autoDriveValue = "GOTO_POINT";
         state.last.autoDriveMeta = `0x14 save=${saveText} nav=${navText} idx=${idxText}`;
         pushTimeline(`0x14 目标点：save=${saveText} nav=${navText} idx=${idxText}`);

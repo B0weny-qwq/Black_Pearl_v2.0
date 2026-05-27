@@ -62,12 +62,12 @@ App/Src/app_extension.c
 | 电机输出 | `[CTRL] I: out m=... mo=... th=... base=... st=... df=... l=... r=...` | `ShipControl_LogMotorOutput()` | `board_motor_set_both_speed()` |
 | 角度闭环 | 同上，模式 `MANUAL_YAW_HOLD/CRUISE_HEADING_HOLD/GPS_NAV_HEADING_HOLD` | `ShipControl_ApplyYawHoldTargetEx()` | `app_get_heading_*()` + `PID` |
 | 遥控输入 | `[SHIP] I: rc cmd=0x11 lr=... ud=...` | `ship_protocol_handle_throttle()` | `board_wireless_receive()` |
-| 按键状态 | `[SHIP] I: key edge key=...`、`[EVT] I: key/act ...` | `ship_protocol_handle_key_edge()`、`app_dispatch_ship_event()` | 0x11 payload key 字节 |
+| 按键状态 | `[SHIP] I: key edge key=... action=0..3`、`[EVT] I: key/act ...` | `ship_protocol_handle_key_edge()`、`app_dispatch_ship_event()` | 0x11 payload key 字节 |
 | 电量采样 | `[SHIP] I: adc raw=... mv=... bat=... p=...` | `ship_protocol_log_power_sample()` | `board_power_read()` |
 | AHRS R/P/Y | `[AHRS] I: rpy=... gy=... flg=...` | `app_ahrs_log()` | `board_imu_read()` + `AHRS_UpdateRaw6Axis()` |
 | 地磁数据 | `[MAG] I: raw=... norm=... yaw=... self=...` | `app_ahrs_log()` | `board_mag_read()` + `MagCompass_Update()` |
 | 船头朝向/HDG | `[HDG] I: abs=... rel=... mag=...` | `app_ahrs_log()` | `Heading_Update()` |
-| GPS 状态回包 | `[SHIP] I: tx cmd=12 ...`、`0x12` payload | `ship_protocol_build_gps_payload()` | `board_gps_get_state()` |
+| GPS 状态回包 | `0x12` payload、verbose 档位下的 `[SHIP] I: tx cmd=12 ...` | `ship_protocol_build_gps_payload()` | `board_gps_get_state()` |
 | AutoDrive | `[SHIP] I: tx16 st=... md=...`、`0x13/0x14/0x15` 日志 | `AutoDrive_GetDebugSnapshot()`、`AutoDrive_*Raw()` | `board_gps_get_state()` + `ShipControl_RequestGps*()` |
 
 扩展到页面全部显示项的追踪关系如下：
@@ -78,12 +78,12 @@ App/Src/app_extension.c
 | 遥控链路 | `rc cmd=0x11`、`remote timeout`、完整 AA...BB 帧 | `ship_protocol_poll_rx_frames()` -> `board_wireless_receive()` |
 | 动作 / 巡航 | `rc cmd=0x11`、`cruise enter/exit`、`CTRL out` | `ship_protocol_handle_throttle()` -> `ShipControl_UpdateManualInput()` |
 | 自稳定状态 | `CTRL out` 的 v2 模式 `5/6/7` | `ShipControl_ApplyYawHoldTargetEx()` -> `Heading_Update()` |
-| 状态回包 | `tx cmd=12 ch=... len=...` | `ship_protocol_send_gps_once()` -> `board_wireless_send_on_channel()` |
+| 状态回包 | `0x12` payload；verbose 档位下另有 `tx cmd=12 ch=... len=...` | `ship_protocol_send_gps_once()` -> `board_wireless_send_on_channel()` |
 | 定位有效 | `gps state fix=...` 或 `gps12 ... fix=...` | `board_gps_get_state()` -> `gnss_nmea` |
 | 卫星数 | `gps sat source ...`、`gps12 ... sat=...` | `board_gps_get_state()` |
 | 经度/纬度 | `gps state lon=... lat=...`、`gps12 ... lon=... lat=...` | `gnss_nmea` legacy/deg1e7 字段 |
 | 航向角 | `gps state angle=...`、`0x12 angle` | `board_gps_get_state()->course_deg_x100` |
-| 最近 0x12 | `tx cmd=12`、`gps12 ...` | `ship_protocol_build_gps_payload()` |
+| 最近 0x12 | `0x12` payload；verbose 档位下可看 `tx cmd=12` | `ship_protocol_build_gps_payload()` |
 | 遥控器旧格式 | `gps payload oldfmt`、`gps payload bytes`、`0x12` payload | `ship_protocol_to_legacy_nmea_coord()` |
 | 返航点 | `0x13 ret`、`coord return-home` | `AutoDrive_SetReturnPositionRaw()` |
 | 目标点 | `0x14 fish`、`0x14 rx ... save/nav` | `AutoDrive_SetFishPositionRaw()` |
@@ -111,7 +111,7 @@ App/Src/app_extension.c
 - 参数服务：`Services/Src/parameter_store.c`，当前通过 `board_storage` 保存 AutoDrive 返航开关和返航点配置。
 - 船端协议状态机：`App/Src/ship_protocol.c`，当前接入无线配对、旧帧截取、`0x11/0x13/0x14/0x15` 分发、事件快照队列、`0x12` GPS/status 回包和 `0x16` AutoDrive 诊断上报。
 - App 扩展入口：`App/Src/app_extension.c`，当前保留按键/事件回调和主循环轮询插入点，供外包追加 LED 闪烁等业务。
-- 应用运行档位：`App/Inc/app_config.h`，集中保存从 v1.1 迁移来的手动控制、yaw 自稳、协议配对和电源日志节流参数。
+- 应用运行档位：`App/Inc/app_config.h`，集中保存从 v1.1 迁移来的手动控制、yaw 自稳、协议配对、电源日志节流和 C251 日志瘦身开关。
 - 船体控制状态机：`App/Src/ship_control.c`，当前拥有电机输出控制权，负责手动开环/航向保持、E 键巡航、GPS 对齐/导航输出和超时停机。
 - GPS AutoDrive 状态机：`App/Src/autodrive.c`，当前负责返航、去定点、对齐阶段、钓点表、配置加载保存和诊断快照。
 - 烧录后运行行为：固件会启动 UART1 115200 日志，初始化 GPS、QMI8658、QMC6309、电源、LT8920/KCT8206、电机和协议状态机；随后持续执行 GPS 解析、无线配对/收发、手动控制、AutoDrive、AHRS/Heading 和电机服务。
@@ -347,6 +347,7 @@ The current tree now aligns the old wireless/control behavior with the v2 layere
   - transmit channel uses the old work RX channel path `rf_channel[0]`; derived `work_tx=77` remains a compatibility parameter/log value
 - `0x11` now feeds `ShipControl_UpdateManualInput()` after boot/heading guards, and E-key cruise uses heading hold.
 - `0x11` key-edge handling keeps A/E/unknown on the existing `SHIP_PROTOCOL_EVENT_KEY_EDGE` path. B/C/D key edges now publish `SHIP_PROTOCOL_EVENT_KEY_ACTION` with `SHIP_PROTOCOL_KEY_ACTION_B_NOOP`, `SHIP_PROTOCOL_KEY_ACTION_C_NOOP`, or `SHIP_PROTOCOL_KEY_ACTION_D_NOOP`; these are semantic no-op events and do not drive hardware.
+- C251 默认使用短日志档位：`SHIP_PROTOCOL_VERBOSE_LOG_ENABLE=0`、`SHIP_APP_BRINGUP_VERBOSE_LOG_ENABLE=0`。默认日志保留上位机卡片必需的 `[CTRL]`、`[AHRS]`、`[HDG]`、`adc raw`、`rc cmd=0x11`、`key edge key=... action=0..3`、`0x14 rx save=... nav=... idx=...` 和错误日志；打开 verbose 可恢复发送成功、pair payload、0x14 frame/payload 等长日志，但会增加 CODE/HCONST 占用。
 - Manual control and yaw-hold tuning now come from `App/Inc/app_config.h`, aligned with the current v1.1 runtime profile: `SHIP_RC_AXIS_MAX_DELTA=60`, `SHIP_MANUAL_YAW_HOLD_DIFF_PERCENT=20`, `SHIP_YAW_HOLD_DIFF_LIMIT_PERMILLE=320`, `SHIP_YAW_HOLD_DERATE_START_CD=1000`, `SHIP_YAW_HOLD_DERATE_FULL_CD=2000`, `SHIP_YAW_HOLD_GYRO_DAMP_Q10=4096`, `SHIP_YAW_HOLD_KP_Q10=384`, and `SHIP_YAW_HOLD_KD_Q10=96`. Manual yaw hold also uses the v1.1 diff-ratio gate and 2-frame stable gate instead of requiring exact zero steering.
 - `ship_protocol_event_snapshot_t` now exposes `key_action`, `power`, and `spi_ps` observation fields for App-side or external subscribers.
 - Protocol events are no longer a single overwritten slot: `ship_protocol_publish_event()` pushes snapshots into an 8-entry ring queue, `ship_protocol_take_event()` drains them FIFO, and `ship_protocol_get_event_snapshot()` remains a latest-snapshot helper.

@@ -359,7 +359,7 @@ runtime storage into XDATA:
 Latest command-line C251 verification:
 
 ```text
-Program Size: data=11.7 edata+hdata=3873 xdata=380 const=3597 code=61343
+Program Size: data=11.7 edata+hdata=3890 xdata=380 const=2919 code=60331
 ".\list\STC32G-LIB" - 0 Error(s), 0 Warning(s).
 ```
 
@@ -399,12 +399,14 @@ The current `0x12`, power and AutoDrive chain should therefore be understood as:
 5. `payload[13]` reports the cached old-style power level.
 6. `payload[14]` reports `AutoDrive_InActive()`.
 7. `0x13/0x14/0x15` call AutoDrive real entries; AutoDrive submits movement through `ShipControl`.
-8. B/C/D key edges publish `SHIP_PROTOCOL_EVENT_KEY_ACTION` with `B_NOOP`, `C_NOOP`, or `D_NOOP`; A remains the existing A-light `KEY_EDGE` log path and does not drive hardware.
+8. B/C/D key edges publish `SHIP_PROTOCOL_EVENT_KEY_ACTION` with `B_NOOP`, `C_NOOP`, or `D_NOOP`; A remains the existing A-light `KEY_EDGE` log path and does not drive hardware. The default C251 log line is `key edge key=... action=0..3`, and the upper-computer viewer maps the numeric action back to text.
 9. Valid power samples publish `SHIP_PROTOCOL_EVENT_POWER_SAMPLE`; level changes publish `SHIP_PROTOCOL_EVENT_POWER_LEVEL_CHANGED`.
 10. Low power latches only when `power_level == 0`, more than `600` scheduler ticks have elapsed, AutoDrive mode is `AUTO_DRIVE_CLOSE`, and manual accelerator is below `10`; the latch publishes `SHIP_PROTOCOL_EVENT_LOW_POWER_LATCHED`.
 11. `app_spi_ps_poll()` publishes `SHIP_PROTOCOL_EVENT_SPI_PS_FRAME_RX` for completed SPI-PS RX frames when SPI-PS initialization succeeded.
 12. `app_ship_event_poll()` drains all queued protocol events in FIFO order once per main loop.
 13. Link timeout can trigger AutoDrive/ShipControl through explicit state-machine APIs.
+
+Default release logging is size-conscious for C251. `SHIP_PROTOCOL_VERBOSE_LOG_ENABLE=0` keeps protocol output to card-critical short logs such as `rc cmd=0x11`, `0x14 rx save=... nav=... idx=...`, `tx16 st=...` and errors; `SHIP_APP_BRINGUP_VERBOSE_LOG_ENABLE=0` suppresses startup success banners and first-frame IMU diagnostics. Re-enable either switch only for short debug sessions, because long strings increase CODE/HCONST pressure.
 
 ## 烧录后业务逻辑
 

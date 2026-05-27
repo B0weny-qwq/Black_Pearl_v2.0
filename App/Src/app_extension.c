@@ -15,7 +15,9 @@ void app_extension_init(void)
 
 void app_extension_poll(u32 now_ms)
 {
-    (void)now_ms;
+    if (now_ms == 0xFFFFFFFFUL) {
+        return;
+    }
 }
 
 void app_extension_on_ship_event(const ship_protocol_event_snapshot_t *event)

@@ -37,7 +37,8 @@
   - Split the protocol power cache into "sample not attempted yet" and "sample attempted but not ready" states. Startup now logs `adc pending` before the first down-sampled ADC read instead of reporting `raw=0` as a false failure, and low-power latching only counts valid samples.
   - Corrected the documented `PAIR_REQ(0x10)` example frame XOR to `AA 06 10 65 65 A0 65 D3 BB`, matching the runtime log and the `len/cmd/payload` XOR calculation.
   - Moved the LT8920 default register table to C251 `CODE` constants through `EF_CODE_CONST`, and shortened non-protocol diagnostic strings so HCONST fits again.
-  - Verified Keil C251 command-line build after the runtime fixes: `Program Size: data=11.7 edata+hdata=3873 xdata=380 const=3597 code=61343`, `0 Error(s), 0 Warning(s)`.
+  - Added default short-log gates for C251 (`SHIP_PROTOCOL_VERBOSE_LOG_ENABLE=0`, `SHIP_APP_BRINGUP_VERBOSE_LOG_ENABLE=0`) while keeping the upper-computer card-critical logs enabled.
+  - Verified Keil C251 command-line build after the runtime fixes: `Program Size: data=11.7 edata+hdata=3890 xdata=380 const=2919 code=60331`, `0 Error(s), 0 Warning(s)`.
   - Documented the burn-in behavior and upper-computer/remote compatibility surface for the current firmware.
 
 - 2026-05-27 C251 build and memory-layout fix:

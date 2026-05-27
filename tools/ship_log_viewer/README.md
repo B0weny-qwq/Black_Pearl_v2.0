@@ -148,12 +148,12 @@
 | 控制模式 | `[CTRL] I: event=mode old=... new=... reason=... yaw=... tgt=...` | `App/Src/ship_control.c` |
 | 电机输出 | `[CTRL] I: out m=... mo=... th=... base=... st=... df=... l=... r=...` | `ShipControl_LogMotorOutput()` |
 | 遥控输入 | `[SHIP] I: rc cmd=0x11 lr=... ud=... tv=... sv=... key=...` | `ship_protocol_handle_throttle()` |
-| 按键状态 | `[SHIP] I: key edge key=... action=...`、`[EVT] I: key/act ...` | `ship_protocol_handle_key_edge()`、`app_dispatch_ship_event()` |
+| 按键状态 | `[SHIP] I: key edge key=... action=0..3`、`[EVT] I: key/act ...` | `ship_protocol_handle_key_edge()`、`app_dispatch_ship_event()` |
 | 电量采样 | `[SHIP] I: adc raw=... mv=... bat=... p=...` | `ship_protocol_log_power_sample()` |
 | AHRS R/P/Y | `[AHRS] I: rpy=... gy=... flg=0x..` | `app_ahrs_log()` |
 | 地磁数据 | `[MAG] I: raw=... norm=... yaw=... self=...` | `app_ahrs_log()` |
 | 船头朝向/HDG | `[HDG] I: abs=... rel=... mag=... rdy=... st=... set=... err=... pred=...` | `Heading_Update()` 后的 App 快照 |
-| GPS 回包 | `[SHIP] I: tx cmd=12 ...` 和旧 `0x12` payload | `ship_protocol_build_gps_payload()` |
+| GPS 回包 | 旧 `0x12` payload；verbose 档位下另有 `[SHIP] I: tx cmd=12 ...` | `ship_protocol_build_gps_payload()` |
 | AutoDrive | `[SHIP] I: tx16 st=... md=...`、`0x13/0x14/0x15` 日志 | `AutoDrive_GetDebugSnapshot()` |
 | 配对状态 | `pair req sent`、`pair ok ...`、`enter work-state` | `ship_protocol_try_pair_send()` / `ship_protocol_handle_pair_rsp()` |
 | 遥控链路 | `rc cmd=0x11`、`remote timeout`、完整 AA...BB 帧 | `ship_protocol_poll_rx_frames()` |
@@ -163,6 +163,8 @@
 | 返航点/目标点/返航开关 | `0x13 ret`、`0x14 fish`、`0x15 sw` | `AutoDrive_SetReturnPositionRaw()` / `AutoDrive_SetFishPositionRaw()` / `AutoDrive_SetSwitchRaw()` |
 
 若卡片为空，优先确认上表对应日志是否出现；如果固件没有输出该日志，上位机不会凭空生成卡片数据。
+
+当前固件默认关闭 `SHIP_PROTOCOL_VERBOSE_LOG_ENABLE` 和 `SHIP_APP_BRINGUP_VERBOSE_LOG_ENABLE`，以降低 C251 的 CODE/HCONST 占用。页面已同时兼容短日志和旧长日志；现场交付优先使用短日志，只有需要追 frame/payload 细节时再临时打开 verbose。
 
 ## 7.1 联调摘要区
 

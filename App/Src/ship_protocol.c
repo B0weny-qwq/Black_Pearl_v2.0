@@ -549,10 +549,12 @@ static int8 ship_protocol_send_frame(u8 channel, u8 cmd, const u8 *payload, u8 p
 
     ret = board_wireless_send_on_channel(channel, ship_protocol_tx_frame, idx);
     if (ret == BOARD_WIRELESS_OK) {
+#if (SHIP_PROTOCOL_VERBOSE_LOG_ENABLE != 0U)
         LOGI(SHIP_TAG, "tx cmd=%02X ch=%u len=%u",
              (u16)cmd,
              (u16)channel,
              (u16)payload_len);
+#endif
     } else {
         LOGE(SHIP_TAG, "tx cmd=%02X fail rc=%d", (u16)cmd, ret);
     }
@@ -896,6 +898,7 @@ static ship_protocol_key_action_t ship_protocol_key_to_action(u8 key)
     }
 }
 
+#if (SHIP_PROTOCOL_VERBOSE_LOG_ENABLE != 0U)
 static const char *ship_protocol_fish_result_name(u8 result)
 {
     switch (result) {
@@ -937,6 +940,7 @@ static const char *ship_protocol_fish_save_name(u8 result)
         return "unknown";
     }
 }
+#endif
 
 static void ship_protocol_log_goto_point(const u8 *frame,
                                          u8 frame_len,
@@ -946,24 +950,20 @@ static void ship_protocol_log_goto_point(const u8 *frame,
                                          u8 xor_recv,
                                          u8 result)
 {
+#if (SHIP_PROTOCOL_VERBOSE_LOG_ENABLE != 0U)
     ship_protocol_point_t point;
+#endif
     u8 idx;
     u8 save_result;
 
     idx = AutoDrive_GetLastFishCommandIndex();
     save_result = AutoDrive_GetLastFishSaveResult();
-    LOGI(SHIP_TAG,
-         "0x14 rx fl=%u pl=%u xor=%02X/%02X save=%u(%s) nav=%u(%s) idx=%u",
-         (u16)frame_len,
-         (u16)payload_len,
-         (u16)xor_calc,
-         (u16)xor_recv,
+    LOGI(SHIP_TAG, "0x14 rx save=%u nav=%u idx=%u",
          (u16)save_result,
-         ship_protocol_fish_save_name(save_result),
          (u16)result,
-         ship_protocol_fish_result_name(result),
          (u16)idx);
 
+#if (SHIP_PROTOCOL_VERBOSE_LOG_ENABLE != 0U)
     if ((payload != 0) && (payload_len >= SHIP_PROTOCOL_POINT_PAYLOAD_LEN)) {
         ship_protocol_parse_point_payload(payload, &point);
         ship_protocol_log_point("0x14 point", &point);
@@ -989,41 +989,25 @@ static void ship_protocol_log_goto_point(const u8 *frame,
              (u16)frame[2],
              (u16)frame[frame_len - 1U]);
     }
+#else
+    if ((frame != 0) ||
+        (frame_len != 0U) ||
+        (payload != 0) ||
+        (payload_len != 0U) ||
+        (xor_calc != xor_recv)) {
+        return;
+    }
+#endif
 }
 
 /* 0x11 按键语义分发：A/E 兼容旧行为，B/C/D 只发事件，留给 app_extension 追加业务。 */
 static void ship_protocol_handle_key_edge(u8 key)
 {
-    const char *name;
     ship_protocol_key_action_t key_action;
     int16 throttle_input;
     int16 steering_input;
     int16 yaw_rate_dps;
     u16 heading_cd;
-
-    switch (key) {
-    case SHIP_PROTOCOL_KEY_A_LIGHT:
-        name = "A-light";
-        break;
-    case SHIP_PROTOCOL_KEY_B_UNUSED:
-        name = "B-noop";
-        break;
-    case SHIP_PROTOCOL_KEY_C_UNUSED:
-        name = "C-noop";
-        break;
-    case SHIP_PROTOCOL_KEY_D_UNUSED:
-        name = "D-noop";
-        break;
-    case SHIP_PROTOCOL_KEY_E_RESERVED:
-        name = "E-reserved";
-        break;
-    case SHIP_PROTOCOL_KEY_NONE:
-        name = "none";
-        break;
-    default:
-        name = "unknown";
-        break;
-    }
 
     key_action = ship_protocol_key_to_action(key);
     ship_protocol_rt.event.throttle.lr = ship_protocol_rt.lr;
@@ -1048,7 +1032,9 @@ static void ship_protocol_handle_key_edge(u8 key)
                                     SHIP_CMD_THROTTLE,
                                     3U);
     }
-    LOGI(SHIP_TAG, "key edge key=0x%02X action=%s", (u16)key, name);
+    LOGI(SHIP_TAG, "key edge key=0x%02X action=%u",
+         (u16)key,
+         (u16)key_action);
 
     if (key != SHIP_PROTOCOL_KEY_E_RESERVED) {
         return;
@@ -1115,6 +1101,7 @@ static void ship_protocol_handle_pair_rsp(const u8 *payload, u8 payload_len)
     LOGI(SHIP_TAG, "pair ok work rx=%u tx=%u",
          (u16)ship_protocol_rt.rf_channel[0],
          (u16)ship_protocol_rt.rf_channel[0]);
+#if (SHIP_PROTOCOL_VERBOSE_LOG_ENABLE != 0U)
     if ((payload != 0) && (payload_len == 4U)) {
         LOGI(SHIP_TAG,
              "pair ok rx=%u tx=%u key=%u/%u rsp=%02X%02X%02X%02X",
@@ -1135,6 +1122,11 @@ static void ship_protocol_handle_pair_rsp(const u8 *payload, u8 payload_len)
              (u16)ship_protocol_rt.rf_send_key[1],
              (u16)payload_len);
     }
+#else
+    if ((payload == 0) && (payload_len == 0U)) {
+        return;
+    }
+#endif
 }
 
 /* 0x11 摇杆主入口：协议解析、启动保护、巡航退出和 ShipControl 手动输入都在这里汇合。 */
@@ -1612,9 +1604,11 @@ static void ship_protocol_check_timeouts(void)
 
 void ship_protocol_init(void)
 {
+#if (SHIP_PROTOCOL_VERBOSE_LOG_ENABLE != 0U)
     u8 seed[4];
 
     ship_protocol_get_pair_seed(seed);
+#endif
     ship_protocol_apply_default_rf();
 
     ship_protocol_rt.lr = SHIP_AXIS_CENTER;
@@ -1691,6 +1685,7 @@ void ship_protocol_init(void)
     ship_protocol_initialized = 1U;
     ship_protocol_log_power_sample(&ship_protocol_rt.power_sample, 1U);
 
+#if (SHIP_PROTOCOL_VERBOSE_LOG_ENABLE != 0U)
     LOGI(SHIP_TAG, "scheduler init wait=%u pair=%u ch=%02X seed=%02X%02X%02X%02X",
          (u16)ship_protocol_rt.wait_ticks,
          (u16)ship_protocol_rt.pair_left,
@@ -1699,6 +1694,7 @@ void ship_protocol_init(void)
          (u16)seed[1],
          (u16)seed[2],
          (u16)seed[3]);
+#endif
 }
 
 /* 调度主循环：高频收字节，约 10 ms 推进配对、电量、超时、AutoDrive 和 ShipControl。 */

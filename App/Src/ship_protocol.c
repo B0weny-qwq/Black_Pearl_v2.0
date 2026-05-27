@@ -21,7 +21,7 @@
 #define SHIP_LOWPOWER_CHECK_TICKS        600U
 #define SHIP_LOWPOWER_ACCEL_MAX          10U
 #define SHIP_CRUISE_KEY_START_INPUT      60
-#define SHIP_CRUISE_KEY_STOP_INPUT       (-50)
+#define SHIP_CRUISE_KEY_STOP_INPUT       (-40)
 #define SHIP_CRUISE_KEY_SPEED            760
 #define SHIP_CRUISE_STEER_START_MAX      8
 #define SHIP_CRUISE_GYRO_START_MAX_DPS   8
@@ -1064,7 +1064,7 @@ static void ship_protocol_handle_key_edge(u8 key)
         return;
     }
 
-    if ((throttle_input >= SHIP_CRUISE_KEY_START_INPUT) &&
+    if ((throttle_input > SHIP_CRUISE_KEY_START_INPUT) &&
         (steering_input <= SHIP_CRUISE_STEER_START_MAX) &&
         (steering_input >= (int16)(-SHIP_CRUISE_STEER_START_MAX)) &&
         (yaw_rate_dps <= SHIP_CRUISE_GYRO_START_MAX_DPS) &&
@@ -1212,7 +1212,7 @@ static void ship_protocol_handle_throttle(const u8 *payload, u8 payload_len)
     }
 
     if ((ShipControl_GetMode() == SHIP_CONTROL_MODE_CRUISE_HEADING_HOLD) &&
-        (ship_protocol_raw_ud_to_input(ship_protocol_rt.ud) <= SHIP_CRUISE_KEY_STOP_INPUT)) {
+        (ship_protocol_raw_ud_to_input(ship_protocol_rt.ud) < SHIP_CRUISE_KEY_STOP_INPUT)) {
         ShipControl_Stop(SHIP_CONTROL_STOP_REASON_CRUISE_KEY);
         LOGI("DATA", "cruise exit reason=throttle input=%d raw_ud=%u stop_th=%d",
              ship_protocol_raw_ud_to_input(ship_protocol_rt.ud),

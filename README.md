@@ -77,7 +77,7 @@ App/Src/app_extension.c
 | 配对状态 | `pair req sent`、`pair ok ...`、`enter work-state` | `ship_protocol_try_pair_send()` / `ship_protocol_handle_pair_rsp()` -> `board_wireless_*()` |
 | 遥控链路 | `rc cmd=0x11`、`remote timeout`、完整 AA...BB 帧 | `ship_protocol_poll_rx_frames()` -> `board_wireless_receive()` |
 | 动作 / 巡航 | `rc cmd=0x11`、`cruise enter/exit`、`CTRL out` | `ship_protocol_handle_throttle()` -> `ShipControl_UpdateManualInput()` |
-| 自稳定状态 | 固定 `OFF`，当前上位机不解析该项 | 预留 UI，不作为控制判据 |
+| 自稳定状态 | `CTRL out` / `cruise enter/exit` / `key action=E ...` | E + 油门 `> 60` 进入定速航向保持后显示 `ON`，再按 E 或反向油门 `< -40` 后显示 `OFF` |
 | 状态回包 | `0x12` payload；verbose 档位下另有 `tx cmd=12 ch=... len=...` | `ship_protocol_send_gps_once()` -> `board_wireless_send_on_channel()` |
 | 定位有效 | `gps state fix=...` 或 `gps12 ... fix=...` | `board_gps_get_state()` -> `gnss_nmea` |
 | 卫星数 | `gps sat source ...`、`gps12 ... sat=...` | `board_gps_get_state()` |

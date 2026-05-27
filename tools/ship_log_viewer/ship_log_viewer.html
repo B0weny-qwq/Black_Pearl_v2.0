@@ -502,7 +502,7 @@
           <div class="card">
             <div class="label">自稳定状态</div>
             <button id="selfStabilizeValue" class="value state-pill off" disabled>OFF</button>
-            <div id="selfStabilizeMeta" class="meta">当前不解析自稳定</div>
+            <div id="selfStabilizeMeta" class="meta">等待 E + 油门 > 60 进入定速航向保持</div>
           </div>
           <div class="card">
             <div class="label">按键状态</div>
@@ -643,6 +643,7 @@
   <script>
     const RENDER_INTERVAL_MS = 120;
     const CRUISE_START_INPUT = 60;
+    const CRUISE_STOP_INPUT = -40;
     const CRUISE_SPEED = 760;
 
     const state = {
@@ -698,7 +699,7 @@
         autoDriveValue: "--",
         autoDriveMeta: "等待 gps12 auto / 0x16 诊断",
         selfStabilizeValue: "OFF",
-        selfStabilizeMeta: "当前不解析自稳定",
+        selfStabilizeMeta: `等待 E + 油门 > ${CRUISE_START_INPUT} 进入定速航向保持`,
         keyValue: "--",
         keyMeta: "等待 key 日志",
         txValue: "--",
@@ -1310,9 +1311,16 @@
       renderCardsNow();
     }
 
-    function setSelfStabilizeOff(meta = "当前不解析自稳定") {
+    function setSelfStabilizeOn(meta) {
+      state.last.selfStabilizeValue = "ON";
+      state.last.selfStabilizeMeta = meta;
+      markDirty("cards");
+    }
+
+    function setSelfStabilizeOff(meta = `等待 E + 油门 > ${CRUISE_START_INPUT} 进入定速航向保持`) {
       state.last.selfStabilizeValue = "OFF";
       state.last.selfStabilizeMeta = meta;
+      markDirty("cards");
     }
 
     function updateMotionDecision(value, meta, timelineText) {
@@ -1367,8 +1375,8 @@
         + `u=${rawUd} l=${rawLr} / left=${diffInfo.left} right=${diffInfo.right}\n`
         + `左右输出差=${diffInfo.percent.toFixed(1)}%`;
 
-      if (key === "0XA1" && Number.isFinite(throttle) && throttle >= CRUISE_START_INPUT) {
-        state.last.controlModeMeta = `E + 油门 > +${CRUISE_START_INPUT}，等待 CTRL / cruise enter 确认`;
+      if (key === "0XA1" && Number.isFinite(throttle) && throttle > CRUISE_START_INPUT) {
+        state.last.controlModeMeta = `E + 油门 > ${CRUISE_START_INPUT}，等待 CTRL / cruise enter 确认`;
         state.last.motionMeta = `${outputMeta}\nE键准备定速，动作以 CTRL out 为准`;
         pushTimeline(`${source} E键准备定速巡航`);
         markDirty("cards");
@@ -1955,7 +1963,13 @@
           `left=${ctrlOut[7]} right=${ctrlOut[8]}\nth=${ctrlOut[3]} base=${ctrlOut[4]} st=${ctrlOut[5]} df=${ctrlOut[6]}`,
           `CTRL out ${ctrlModeText}: ${motionLabel} left=${ctrlOut[7]} right=${ctrlOut[8]}`
         );
-        setSelfStabilizeOff(`CTRL ${ctrlModeText} / self-stabilize disabled`);
+        if (modeNum === 6) {
+          setSelfStabilizeOn(`E 定速航向保持 ON / th=${ctrlOut[3]} base=${ctrlOut[4]}`);
+        } else if (modeNum === 5 || modeNum === 7) {
+          setSelfStabilizeOn(`${ctrlModeText} ON / th=${ctrlOut[3]} base=${ctrlOut[4]}`);
+        } else if (modeNum === 0 || modeNum === 8) {
+          setSelfStabilizeOff(`CTRL ${ctrlModeText} / 已退出`);
+        }
         important = true;
       }
 
@@ -1977,7 +1991,13 @@
           `left=${ctrlOutCurrent[5]} right=${ctrlOutCurrent[6]}\nbase=${ctrlOutCurrent[3]} diff=${ctrlOutCurrent[4]}`,
           `CTRL out ${ctrlModeText}: ${motionLabel} left=${ctrlOutCurrent[5]} right=${ctrlOutCurrent[6]}`
         );
-        setSelfStabilizeOff(`CTRL ${ctrlModeText} / self-stabilize disabled`);
+        if (modeNum === 6) {
+          setSelfStabilizeOn(`E 定速航向保持 ON / base=${ctrlOutCurrent[3]}`);
+        } else if (modeNum === 5 || modeNum === 7) {
+          setSelfStabilizeOn(`${ctrlModeText} ON / base=${ctrlOutCurrent[3]}`);
+        } else if (modeNum === 0 || modeNum === 8) {
+          setSelfStabilizeOff(`CTRL ${ctrlModeText} / 已退出`);
+        }
         important = true;
       }
 
@@ -1992,7 +2012,7 @@
         state.last.throttleOutputMeta =
           `DATA cruise run speed=${cruiseRun[1]} base=${cruiseRun[2]}\n`
           + `left=${cruiseRun[3]} right=${cruiseRun[4]}`;
-        setSelfStabilizeOff("CRUISE_HEADING_HOLD / self-stabilize disabled");
+        setSelfStabilizeOn(`E 定速航向保持 ON / req=${cruiseRun[1]} base=${cruiseRun[2]}`);
         updateMotionDecision(
           "定速巡航",
           `left=${cruiseRun[3]} right=${cruiseRun[4]}\nbase=${cruiseRun[2]} diff=${cruiseRun[7]}`,
@@ -2008,7 +2028,7 @@
           `input=${cruiseEnterCurrent[1]} raw_ud=${cruiseEnterCurrent[2]} speed=${cruiseEnterCurrent[3]} hd=${formatCentideg(cruiseEnterCurrent[4])}`;
         state.last.autoDriveValue = "巡航锁定";
         state.last.autoDriveMeta = "E cruise enter, not GPS navigation";
-        setSelfStabilizeOff("CRUISE_HEADING_HOLD / self-stabilize disabled");
+        setSelfStabilizeOn(`E 定速航向保持 ON / speed=${cruiseEnterCurrent[3]} hd=${formatCentideg(cruiseEnterCurrent[4])}`);
         updateMotionDecision("定速巡航", state.last.controlModeMeta, `DATA cruise enter speed=${cruiseEnterCurrent[3]} hd=${formatCentideg(cruiseEnterCurrent[4])}`);
         important = true;
       }
@@ -2021,7 +2041,7 @@
           + (cruiseExitCurrent[4] ? ` stop_th=${cruiseExitCurrent[4]}` : "");
         state.last.autoDriveValue = "未运行";
         state.last.autoDriveMeta = "cruise exited";
-        setSelfStabilizeOff("CRUISE_HEADING_HOLD exited");
+        setSelfStabilizeOff(`定速航向保持 OFF / ${cruiseExitCurrent[1]}`);
         clearMotorOutputOnStop("cruise exit", state.last.controlModeMeta);
         updateMotionDecision("stop", state.last.controlModeMeta, `DATA cruise exit ${cruiseExitCurrent[1]}`);
         important = true;
@@ -2037,9 +2057,10 @@
         state.last.keyValue = "E";
         state.last.keyMeta = keyActionText("cruise-reverse-stop", extra);
         state.last.controlModeValue = "STOP";
-        state.last.controlModeMeta = "带符号油门低于退出门限，等待 CTRL out 停机确认";
+        state.last.controlModeMeta = `反向油门 < ${CRUISE_STOP_INPUT}，等待 CTRL out 停机确认`;
         state.last.autoDriveValue = "未运行";
         state.last.autoDriveMeta = "定速巡航退出；GPS 自动驾驶未见 0x16 busy";
+        setSelfStabilizeOff(`定速航向保持 OFF / 反向油门退出 ${extra}`);
         clearMotorOutputOnStop("cruise-reverse-stop", extra);
         updateMotionDecision("stop", state.last.controlModeMeta, `定速巡航退出：${extra}`);
         important = true;
@@ -2054,7 +2075,13 @@
           `mode ${oldMode} -> ${newMode} / reason=${ctrlModeEvent[3]}\n`
           + `yaw=${ctrlModeEvent[4]} tgt=${ctrlModeEvent[5]}`
           + (ctrlModeEvent[6] ? ` left=${ctrlModeEvent[6]} right=${ctrlModeEvent[7]}` : "");
-        setSelfStabilizeOff(`${newMode} / self-stabilize disabled`);
+        if (Number(ctrlModeEvent[2]) === 6) {
+          setSelfStabilizeOn(`E 定速航向保持 ON / mode ${oldMode} -> ${newMode}`);
+        } else if (Number(ctrlModeEvent[2]) === 5 || Number(ctrlModeEvent[2]) === 7) {
+          setSelfStabilizeOn(`${newMode} ON / mode ${oldMode} -> ${newMode}`);
+        } else if (Number(ctrlModeEvent[2]) === 0 || Number(ctrlModeEvent[2]) === 8) {
+          setSelfStabilizeOff(`${newMode} / 已退出`);
+        }
         if (Number(ctrlModeEvent[2]) === 0 || Number(ctrlModeEvent[2]) === 8) {
           clearMotorOutputOnStop("CTRL event", `mode ${oldMode} -> ${newMode} reason=${ctrlModeEvent[3]}`);
         }
@@ -2088,7 +2115,9 @@
           state.last.controlModeValue = modeNum === 5 ? "MANUAL_YAW_HOLD" : modeText;
           state.last.controlModeMeta = gateMeta;
         }
-        setSelfStabilizeOff(`${gateText} / diff=${ctrlGate[9]} gate=${ctrlGate[10]}`);
+        if (modeNum === 5) {
+          setSelfStabilizeOn(`手动航向保持 ON / diff=${ctrlGate[9]} gate=${ctrlGate[10]}`);
+        }
         const gateMotionLabel = modeNum === 5 ? "直线航向保持" :
                                 (gateState === 2 ? "航向保持门槛满足" :
                                 (gateState === 3 ? "纯手动转向" : gateText));
@@ -2124,7 +2153,13 @@
           `left=${ctrlFull[10]} right=${ctrlFull[11]}\nbase=${ctrlFull[8]} diff=${ctrlFull[6]}`,
           `CTRL ${modeText}: tgt=${ctrlFull[2]} err=${ctrlFull[3]} left=${ctrlFull[10]} right=${ctrlFull[11]}`
         );
-        setSelfStabilizeOff(`CTRL ${modeText} / self-stabilize disabled`);
+        if (mode === 6) {
+          setSelfStabilizeOn(`E 定速航向保持 ON / throttle=${ctrlFull[7]} base=${ctrlFull[8]}`);
+        } else if (mode === 5 || mode === 7) {
+          setSelfStabilizeOn(`${modeText} ON / throttle=${ctrlFull[7]} base=${ctrlFull[8]}`);
+        } else if (mode === 0 || mode === 8) {
+          setSelfStabilizeOff(`CTRL ${modeText} / 已退出`);
+        }
         important = true;
       }
 
@@ -2161,10 +2196,10 @@
         state.last.keyMeta = keyActionText(action, extra);
         if (keyAction[1] === "E" && keyAction[2] === "cruise-high") {
           state.last.controlModeValue = "CRUISE_HEADING_HOLD";
-          state.last.controlModeMeta = `E + 油门 > +${CRUISE_START_INPUT} 进入定速巡航，定速=${CRUISE_SPEED}，等待 CTRL out 确认`;
+          state.last.controlModeMeta = `E + 油门 > ${CRUISE_START_INPUT} 进入定速巡航，定速=${CRUISE_SPEED}，等待 CTRL out 确认`;
           state.last.autoDriveValue = "巡航键";
           state.last.autoDriveMeta = "E cruise-high = 定速航向保持；不是 GPS 定点巡航";
-          setSelfStabilizeOff(`定速巡航 / speed=${CRUISE_SPEED}`);
+          setSelfStabilizeOn(`E 定速航向保持 ON / speed=${CRUISE_SPEED}`);
           updateMotionDecision("定速巡航", state.last.controlModeMeta, "E 键进入定速巡航");
         } else if (keyAction[1] === "E" &&
                    (keyAction[2] === "cruise-stop" ||
@@ -2174,7 +2209,7 @@
           state.last.controlModeMeta = keyActionText(action, extra);
           state.last.autoDriveValue = "未运行";
           state.last.autoDriveMeta = "E 键退出巡航；GPS 自动驾驶未见 0x16 busy";
-          setSelfStabilizeOff("定速巡航已退出");
+          setSelfStabilizeOff("定速航向保持 OFF / E 或反向油门退出");
           clearMotorOutputOnStop(keyAction[2], state.last.controlModeMeta);
           updateMotionDecision("stop", state.last.controlModeMeta, `定速巡航退出：${state.last.controlModeMeta}`);
         } else if (keyAction[1] === "E" && keyAction[2] === "cruise-ignore") {
@@ -2378,7 +2413,7 @@
         if (autoModeNum !== 0 && autoStateNum !== 0) {
           state.last.controlModeValue = "GPS_NAV_HEADING_HOLD";
           state.last.controlModeMeta = `${gpsPhase}，目标航向由 AutoDrive 计算，CTRL mode=4 为准`;
-          setSelfStabilizeOff(`GPS 定点巡航 / ${gpsPhase}`);
+          setSelfStabilizeOn(`GPS_NAV_HEADING_HOLD ON / ${gpsPhase}`);
           updateMotionDecision("GPS导航", `${gpsPhase}\ndist=${autoDiag[7]}m sat=${autoDiag[6]}`, `GPS 定点巡航：${gpsPhase}`);
         } else if (autoModeNum === 0 && autoStateNum === 0) {
           state.last.controlModeValue = state.last.controlModeValue === "GPS_NAV_HEADING_HOLD" ? "STOP" : state.last.controlModeValue;
@@ -2726,7 +2761,7 @@
         autoDriveValue: "--",
         autoDriveMeta: "等待 gps12 auto / 0x16 诊断",
         selfStabilizeValue: "OFF",
-        selfStabilizeMeta: "当前不解析自稳定",
+        selfStabilizeMeta: `等待 E + 油门 > ${CRUISE_START_INPUT} 进入定速航向保持`,
         keyValue: "--",
         keyMeta: "等待 key 日志",
         txValue: "--",

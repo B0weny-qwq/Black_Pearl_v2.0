@@ -158,7 +158,7 @@
 | 配对状态 | `pair req sent`、`pair ok ...`、`enter work-state` | `ship_protocol_try_pair_send()` / `ship_protocol_handle_pair_rsp()` |
 | 遥控链路 | `rc cmd=0x11`、`remote timeout`、完整 AA...BB 帧 | `ship_protocol_poll_rx_frames()` |
 | 动作 / 巡航 | `rc cmd=0x11`、`cruise enter/exit`、`CTRL out` | `ship_protocol_handle_throttle()` / `ShipControl_UpdateManualInput()` |
-| 自稳定状态 | 固定 `OFF`，当前上位机不解析该项 | 预留卡片 |
+| 自稳定状态 | `CTRL out`、`cruise enter/exit`、`key action=E ...` | E + 油门 `> 60` 进入定速航向保持后显示 `ON`，再按 E 或反向油门 `< -40` 后显示 `OFF` |
 | GPS 摘要 | `gps state`、`gps sat source`、`gps12`、`0x12 payload` | `board_gps_get_state()` / `ship_protocol_build_gps_payload()` |
 | 返航点/目标点/返航开关 | `0x13 ret`、`0x14 fish`、`0x15 sw` | `AutoDrive_SetReturnPositionRaw()` / `AutoDrive_SetFishPositionRaw()` / `AutoDrive_SetSwitchRaw()` |
 
@@ -329,10 +329,10 @@ meta 里还会显示：
 
 - 直推且左右输出差小于 20%，若航向 ready，应看到 `MANUAL_YAW_HOLD`
 - 明显打方向，应回到 `MANUAL_OPEN_LOOP`
-- 带符号油门 `>= +60` 时按 E，应看到 `CRUISE_HEADING_HOLD`
+- 带符号油门 `> +60` 时按 E，应看到 `CRUISE_HEADING_HOLD`
 - 进入定速后 `CTRL out` 里 `th=760` 是请求定速，`base=520..760` 是固件斜坡输出，不应把 `base` 的初始值误判成巡航失败
 - 定速巡航中再按一次 E，应看到 `STOP`，时间线显示 `cruise-toggle-stop`
-- 定速巡航中带符号油门 `<= -50`，应看到 `STOP`，时间线显示 `cruise-reverse-stop`
+- 定速巡航中反向油门 `< -40`，应看到 `STOP`，时间线显示 `cruise-reverse-stop`
 
 ### `自动驾驶`
 

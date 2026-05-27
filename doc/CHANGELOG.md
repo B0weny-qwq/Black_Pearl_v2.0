@@ -4,8 +4,12 @@
 
 - 2026-05-27 host-viewer telemetry simplification:
   - Removed GX/GY/GZ from App-side AHRS/IMU logs and from host-viewer parsing; `[AHRS]` now reports `rpy/flg`, and `[IMU] raw` reports accel only.
-  - Removed the host-viewer gyro card. The self-stabilize card is now a fixed `OFF` placeholder, while control mode, action/cruise and motor output continue to come from `CTRL out`.
+  - Removed the host-viewer gyro card. The self-stabilize card now follows E-key cruise heading hold: `ON` after E + throttle `> 60`, `OFF` after E-toggle or reverse throttle `< -40`.
   - Kept cruise/action cards stable by treating `CTRL out` as authoritative and by preventing auxiliary manual/gate/key logs from clearing motor output before a confirmed stop output arrives.
+
+- 2026-05-28 cruise self-stabilize display correction:
+  - Corrected the host-viewer self-stabilize card from a fixed `OFF` placeholder to the actual E-key cruise heading-hold state.
+  - Adjusted cruise entry to require throttle `> 60` and reverse-throttle exit to require `< -40`, matching the requested field behavior.
 
 - 2026-05-27 cruise and power ADC field fix:
   - Fixed E-key cruise speed retention in `ShipControl_Tick()`: the requested cruise speed stays in `throttle_speed`, while `base_speed` remains the ramped motor-frame output, so cruise no longer collapses to the ramp minimum after the first frame.

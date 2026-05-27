@@ -3,6 +3,10 @@
 ## Unreleased
 
 - 2026-05-27 protocol cadence and v1.1 compatibility follow-up:
+  - Added `App/Inc/app_config.h` as the centralized v1.1 runtime profile for manual-control, yaw-hold, pairing cadence and power-log throttling values.
+  - Aligned `ship_control` tuning with the current v1.1 profile: RC axis range `60`, yaw diff limit `320 permille`, derate thresholds `1000/2000 cd`, gyro damping `4096`, and PID `384/0/96`.
+  - Restored normal ADC log throttling to the v1.1 profile value `SHIP_POWER_LOG_PERIOD_MS=10000 ms`.
+  - Corrected the LT8920 SPI pin documentation to `P3.5=CS`, `P3.4=MOSI`, `P3.3=MISO`, `P3.2=SCLK`.
   - Gated `ship_protocol_run_scheduler()` with the real `platform_scheduler_get_tick_ms()` 10 ms cadence while still draining wireless RX every call.
   - Restored v1.1 pairing behavior: response-window timeout retries the seed burst, and a 60 s fallback forces work-RX mode if no pair response arrives.
   - Restored old work-channel compatibility for `0x12` GPS/status and `0x16` AutoDrive diagnostics: runtime sends them on `rf_channel[0]`; derived `work_tx=77` remains a compatibility parameter/log value.

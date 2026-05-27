@@ -410,6 +410,11 @@
               <FilePath>..\App\Src\ship_protocol.c</FilePath>
             </File>
             <File>
+              <FileName>app_config.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\App\Inc\app_config.h</FilePath>
+            </File>
+            <File>
               <FileName>ship_control.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\App\Inc\ship_control.h</FilePath>

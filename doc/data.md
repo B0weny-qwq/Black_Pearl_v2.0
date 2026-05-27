@@ -150,6 +150,7 @@ main()
   - 板级 `board_mag` 已复用 `board_sensor_bus` 并返回显式初始化/读数状态
 - LT8920 当前状态：
   - 板级 `board_lt8920` 已完成 SPI 路由、RST、KCT8206 前端控制绑定
+  - SPI 固定资源为 `P3.5=CS`、`P3.4=MOSI`、`P3.3=MISO`、`P3.2=SCLK`
   - `board_wireless` 复用 `board_lt8920` 的实例绑定，所有 SPI、RST、RXEN、TXEN、
     ANT_SEL 细节仍留在 `BoardDevices/Src`
   - `App/` 当前通过 `board_wireless_init()` 完成无线 bring-up，成功后初始化
@@ -277,8 +278,12 @@ main()
 - QMI8658/QMC6309 进入 AHRS、磁罗盘和 HeadingEstimator 数据链路。
 - LT8920/KCT8206 先在 `0x7F` 配对信道发送 `PAIR_REQ(0x10)`，再进入旧算法派生工作信道。
 - 收到 `0x11` 后进入 `ShipControl` 手动/巡航控制；收到 `0x13/0x14/0x15` 后进入 AutoDrive 返航、钓点或返航开关逻辑。
+- 手动控制和 yaw 自稳参数来自 `App/Inc/app_config.h`，当前对齐 v1.1 运行档位：
+  轴量程 `60`、yaw 差速限幅 `320 permille`、降额阈值 `1000/2000 cd`、
+  gyro 阻尼 `4096`、PID `KP=384/KI=0/KD=96`。
 - 任意合法旧协议帧分发后都会在旧工作 RX 信道回发旧格式 `GPS_REPORT(0x12)`；船端还会在同一工作信道主动发送 `AUTODRIVE_DIAG(0x16)` 供调试观察。
 - 电源等级通过当前板子的 `P0.0 / ADC_CH8` 转成旧协议 `0..4` 等级。`bat_mv` 仍未按真实分压电阻标定，因此仅作为工程诊断值。
+  电源采样仍约 `1000 ms` 更新一次，常规 ADC 日志按 `SHIP_POWER_LOG_PERIOD_MS=10000 ms` 节流。
 
 上位机/遥控兼容面：
 
@@ -303,7 +308,7 @@ main()
   - 如果未确认独立 SPI 或仲裁策略就启用 SPI-PS，`board_spi_ps_init()` 会返回
     `BOARD_SPI_PS_ERR_RESOURCE`，避免在无线初始化后把 STC SPI 改成 SPI-PS 从机模式。
 - LT8920 板级固定资源：
-  - SPI 路由：P3.5=CS、P3.4=MISO、P3.3=MOSI、P3.2=SCLK
+  - SPI 路由：P3.5=CS、P3.4=MOSI、P3.3=MISO、P3.2=SCLK
   - RST：P5.0
   - ANT_SEL：P5.1
   - RXEN：P1.3

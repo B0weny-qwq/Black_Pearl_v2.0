@@ -1,5 +1,6 @@
 #include "ship_control.h"
 #include "app.h"
+#include "app_config.h"
 #include "board_motor.h"
 #include "PID.h"
 #include "logger.h"
@@ -7,45 +8,11 @@
 
 #define SHIP_CONTROL_TAG                  "CTRL"
 #define SHIP_CONTROL_DATA_TAG             "DATA"
-#define SHIP_AXIS_CENTER                  100U
 #define SHIP_LR_DEAD_LOW                  90U
 #define SHIP_LR_DEAD_HIGH                 110U
 #define SHIP_FB_DEAD_LOW                  90U
 #define SHIP_FB_DEAD_HIGH                 110U
 #define SHIP_CENTER_STOP_CONFIRM_FRAMES   2U
-#define SHIP_MANUAL_CONTROL_PERIOD_MS     10UL
-#define SHIP_YAW_HOLD_PERIOD_MS           50UL
-#define SHIP_MOT_LOG_PERIOD_MS            200UL
-
-#define SHIP_AXIS_FILTER_SHIFT            1U
-#define SHIP_RC_AXIS_MAX_DELTA            100
-#define SHIP_THROTTLE_DEADBAND            4
-#define SHIP_STEERING_DEADBAND            8
-#define SHIP_THROTTLE_MIN_COMMAND         180
-#define SHIP_THROTTLE_MAX_COMMAND         850
-#define SHIP_MOTOR_OUTPUT_MAX_COMMAND     SHIP_THROTTLE_MAX_COMMAND
-#define SHIP_STEERING_MAX_COMMAND         700
-#define SHIP_CRUISE_BASE_SPEED            SHIP_THROTTLE_MAX_COMMAND
-#define SHIP_CRUISE_RAMP_MS               1800UL
-#define SHIP_CRUISE_RAMP_MIN_BASE         520
-#define SHIP_YAW_HOLD_FULL_ERROR_CD       1000
-#define SHIP_YAW_HOLD_DIFF_LIMIT_PERMILLE 400
-#define SHIP_YAW_HOLD_OUTPUT_SIGN         1
-#define SHIP_YAW_HOLD_DERATE_START_CD     300
-#define SHIP_YAW_HOLD_DERATE_FULL_CD      1000
-#define SHIP_YAW_HOLD_DERATE_MIN_BASE     500
-#define SHIP_YAW_HOLD_GYRO_DAMP_Q10       3072
-#define SHIP_YAW_HOLD_DIFF_SLEW_PER_STEP  30
-#define SHIP_YAW_HOLD_STEER_STABLE_FRAMES 2U
-#define SHIP_YAW_HOLD_OUTPUT_LIMIT        1000
-#define SHIP_YAW_HOLD_DEADBAND_CD         50
-#define SHIP_YAW_HOLD_KP_Q10              768
-#define SHIP_YAW_HOLD_KI_Q10              0
-#define SHIP_YAW_HOLD_KD_Q10              0
-#define SHIP_GPS_ALIGN_KP_Q10             384
-#define SHIP_GPS_ALIGN_KI_Q10             0
-#define SHIP_GPS_ALIGN_KD_Q10             0
-#define SHIP_GPS_ALIGN_DIFF_PERCENT       18U
 
 #define SHIP_CONTROL_REASON_MANUAL_OPEN   20U
 #define SHIP_CONTROL_REASON_MANUAL_YAW    21U

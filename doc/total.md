@@ -59,6 +59,8 @@ Black_Pearl_v2.0/
   、`app_spi_ps_poll()`、`app_ahrs_poll()` 和 `board_motor_service()`。
 - 当前已有 `ship_protocol`、`ship_control`、`autodrive` 三个 App 状态机：
   协议负责收发和分发，控制负责电机所有权，AutoDrive 负责 GPS 返航/去点规划。
+- `App/Inc/app_config.h` 是当前应用运行档位入口，集中保存 v1.1 迁移来的手动控制、
+  yaw 自稳、协议节拍和电源日志节流参数。
 - 不应依赖 STC vendor 头文件、裸寄存器或裸端口。
 
 `Platform/`
@@ -245,6 +247,11 @@ app_loop()
 当前事件不是单槽覆盖：协议层维护 8 深度环形队列，`take_event()` 按 FIFO 消费；
 `get_event_snapshot()` 只用于查看最近一次事件快照。
   `0x16` 由船端主动上报 AutoDrive 诊断，不替代 `0x12`。
+- `App/Inc/app_config.h`：
+  应用运行档位配置，当前对齐 v1.1 的 `SHIP_RC_AXIS_MAX_DELTA=60`、
+  `SHIP_YAW_HOLD_DIFF_LIMIT_PERMILLE=320`、`SHIP_YAW_HOLD_GYRO_DAMP_Q10=4096`、
+  `SHIP_YAW_HOLD_KP_Q10=384`、`SHIP_YAW_HOLD_KD_Q10=96` 和
+  `SHIP_POWER_LOG_PERIOD_MS=10000 ms`。
 - `App/Inc/ship_control.h`、`App/Src/ship_control.c`：
   船体控制状态机，模式覆盖开机保护、等待航向、手动开环、手动航向保持、
   E 键巡航、GPS 导航航向保持和 failsafe 停机。所有最终左右电机输出统一经过
@@ -373,6 +380,8 @@ The current `0x12`, power and AutoDrive chain should therefore be understood as:
 - 启动 UART1 `115200 8N1` 日志，便于看 bring-up 和协议状态。
 - 初始化 GPS、QMI8658、QMC6309、电源 ADC、LT8920/KCT8206、电机和参数存储。
 - 在 `0x7F` 信道发送 `PAIR_REQ(0x10)`，派生 `work_rx=13`、`work_tx=77` 后进入工作 RX；状态/诊断回包实际使用旧工作 RX 信道。
+- 手动控制采用 v1.1 当前运行档位：遥控轴满量程按中心 `100 +/- 60` 映射，yaw 自稳采用
+  `320 permille` 差速限幅、`4096` gyro 阻尼和 `384/0/96` PID。
 - 接收旧遥控/上位机帧：`0x11` 控制手动/巡航，`0x13` 返航点，`0x14` 钓点，`0x15` 返航开关。
 - 通过 `ShipControl` 统一写电机，通过 `AutoDrive` 处理返航、去点、对齐、到达和低电返航。
 - 回发旧格式 `0x12` GPS/status，主动发 `0x16` AutoDrive 诊断；两者都不替换旧遥控器依赖的 15 字节 `0x12`。

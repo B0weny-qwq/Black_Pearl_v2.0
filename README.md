@@ -33,6 +33,7 @@ Keil 工程以及芯片资料对应。
 - 板级存储：`BoardDevices/Src/board_storage.c`，当前隐藏 STC EEPROM/IAP 细节，供服务层保存少量配置。
 - 参数服务：`Services/Src/parameter_store.c`，当前通过 `board_storage` 保存 AutoDrive 返航开关和返航点配置。
 - 船端协议状态机：`App/Src/ship_protocol.c`，当前接入无线配对、旧帧截取、`0x11/0x13/0x14/0x15` 分发、事件快照队列、`0x12` GPS/status 回包和 `0x16` AutoDrive 诊断上报。
+- 应用运行档位：`App/Inc/app_config.h`，集中保存从 v1.1 迁移来的手动控制、yaw 自稳、协议配对和电源日志节流参数。
 - 船体控制状态机：`App/Src/ship_control.c`，当前拥有电机输出控制权，负责手动开环/航向保持、E 键巡航、GPS 对齐/导航输出和超时停机。
 - GPS AutoDrive 状态机：`App/Src/autodrive.c`，当前负责返航、去定点、对齐阶段、钓点表、配置加载保存和诊断快照。
 - 烧录后运行行为：固件会启动 UART1 115200 日志，初始化 GPS、QMI8658、QMC6309、电源、LT8920/KCT8206、电机和协议状态机；随后持续执行 GPS 解析、无线配对/收发、手动控制、AutoDrive、AHRS/Heading 和电机服务。
@@ -199,6 +200,8 @@ main()
   分发后发送 `GPS_REPORT(0x12)`；`0x16` 作为 AutoDrive 主动诊断上报，不替代 `0x12`。
   协议事件通过 8 深度环形队列交给 `ship_protocol_take_event()`，`ship_protocol_get_event_snapshot()`
   仍保留最近一次快照语义。
+- `App/Inc/app_config.h`：v2 当前应用运行档位来源，集中定义 v1.1 遥控轴量程 `60`、
+  yaw 自稳差速限幅 `320 permille`、阻尼/PID 参数、配对 burst 节拍和电源日志周期。
 - `App/Inc/ship_control.h`、`App/Src/ship_control.c`：船体控制状态机，协议层只提交
   手动输入、巡航请求和 GPS 导航请求；最终左右电机输出统一从这里写入 `board_motor`。
 - `App/Inc/autodrive.h`、`App/Src/autodrive.c`：GPS 自动驾驶状态机，`0x13/0x14/0x15`
@@ -263,6 +266,7 @@ The current tree now aligns the old wireless/control behavior with the v2 layere
   - transmit channel uses the old work RX channel path `rf_channel[0]`; derived `work_tx=77` remains a compatibility parameter/log value
 - `0x11` now feeds `ShipControl_UpdateManualInput()` after boot/heading guards, and E-key cruise uses heading hold.
 - `0x11` key-edge handling keeps A/E/unknown on the existing `SHIP_PROTOCOL_EVENT_KEY_EDGE` path. B/C/D key edges now publish `SHIP_PROTOCOL_EVENT_KEY_ACTION` with `SHIP_PROTOCOL_KEY_ACTION_B_NOOP`, `SHIP_PROTOCOL_KEY_ACTION_C_NOOP`, or `SHIP_PROTOCOL_KEY_ACTION_D_NOOP`; these are semantic no-op events and do not drive hardware.
+- Manual control and yaw-hold tuning now come from `App/Inc/app_config.h`, aligned with the current v1.1 runtime profile: `SHIP_RC_AXIS_MAX_DELTA=60`, `SHIP_YAW_HOLD_DIFF_LIMIT_PERMILLE=320`, `SHIP_YAW_HOLD_DERATE_START_CD=1000`, `SHIP_YAW_HOLD_DERATE_FULL_CD=2000`, `SHIP_YAW_HOLD_GYRO_DAMP_Q10=4096`, `SHIP_YAW_HOLD_KP_Q10=384`, and `SHIP_YAW_HOLD_KD_Q10=96`.
 - `ship_protocol_event_snapshot_t` now exposes `key_action`, `power`, and `spi_ps` observation fields for App-side or external subscribers.
 - Protocol events are no longer a single overwritten slot: `ship_protocol_publish_event()` pushes snapshots into an 8-entry ring queue, `ship_protocol_take_event()` drains them FIFO, and `ship_protocol_get_event_snapshot()` remains a latest-snapshot helper.
 - `App/Src/app.c` now drains protocol events in `app_ship_event_poll()` each loop. High-rate throttle/power sample events stay mostly quiet, while key/action/point/power-latch/SPI-PS/error events have explicit dispatch logs.
@@ -275,7 +279,7 @@ Power reporting is also aligned back to the old discrete behavior for the curren
 
 - The actual board voltage-detect pin is `P0.0 / ADC_CH8`.
 - ADC/GPIO access is inside `BoardDevices/Src/board_power.c`; `App/` only calls `board_power_read()`.
-- Power sampling runs inside the 10 ms `ship_protocol_run_scheduler()` path, but the battery sample itself is down-sampled with `SHIP_POWER_SAMPLE_DIVIDER = 100`, so the effective ADC update period is about `1000 ms`.
+- Power sampling runs inside the 10 ms `ship_protocol_run_scheduler()` path, but the battery sample itself is down-sampled with `SHIP_POWER_SAMPLE_DIVIDER = 100`, so the effective ADC update period is about `1000 ms`; normal ADC log output is throttled by `SHIP_POWER_LOG_PERIOD_MS = 10000 ms`.
 - The computed sampling period is stored in global runtime state as `ship_protocol_rt.power_sample_period_ms`.
 - Before the first down-sampled ADC read actually happens, the cache is marked as pending. Startup diagnostics therefore print `adc pending` instead of treating the initial `raw=0` cache value as a failed sample.
 - `0x12 payload[13]` now carries the real old-style power level `0..4`, not raw ADC counts.

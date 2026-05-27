@@ -1,5 +1,6 @@
 #include "ship_protocol.h"
 #include "app.h"
+#include "app_config.h"
 #include "autodrive.h"
 #include "board_gps.h"
 #include "board_power.h"
@@ -9,23 +10,6 @@
 #include "ship_control.h"
 
 #define SHIP_TAG                         "SHIP"
-#define SHIP_PAIR_CHANNEL_DEFAULT        0x7FU
-#define SHIP_PAIR_SEED0                  0x65U
-#define SHIP_PAIR_SEED1                  0x65U
-#define SHIP_PAIR_SEED2                  0xA0U
-#define SHIP_PAIR_SEED3                  0x65U
-#define SHIP_PAIR_SEND_TIMES             10U
-#define SHIP_WAIT_TICKS_DEFAULT          30U
-#define SHIP_PAIR_WAIT_RSP_TICKS         500U
-#define SHIP_PAIR_RSP_EXPIRE_LOG_MS      5000UL
-#define SHIP_PAIR_FORCE_WORK_MS          60000UL
-#define SHIP_WORK_RX_REOPEN_TICKS        200U
-#define SHIP_RX_IDLE_WARN_MS             3000UL
-#define SHIP_THROTTLE_TIMEOUT_MS         1500UL
-#define SHIP_THROTTLE_RECOVER_MS         3000UL
-#define SHIP_MANUAL_BOOT_BLOCK_MS        3000UL
-#define SHIP_MANUAL_BOOT_WAIT_HEADING    1U
-#define SHIP_AXIS_CENTER                 100U
 #define SHIP_KEY_NULL                    SHIP_PROTOCOL_KEY_NONE
 #define SHIP_GPS_REPORT_PAYLOAD_LEN      15U
 #define SHIP_AUTODRIVE_DIAG_PAYLOAD_LEN  36U
@@ -36,9 +20,6 @@
 #define SHIP_POWER_LEVEL_4               4U
 #define SHIP_LOWPOWER_CHECK_TICKS        600U
 #define SHIP_LOWPOWER_ACCEL_MAX          10U
-#define SHIP_POWER_SAMPLE_DIVIDER        100U
-#define SHIP_POWER_LOG_PERIOD_MS         1000UL
-#define SHIP_ADC_LOG_ENABLE              1
 #define SHIP_CRUISE_KEY_START_INPUT      60
 #define SHIP_CRUISE_KEY_STOP_INPUT       (-50)
 #define SHIP_CRUISE_KEY_SPEED            760

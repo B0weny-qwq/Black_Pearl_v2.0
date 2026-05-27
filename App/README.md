@@ -36,8 +36,8 @@
 | 控制模式 | `[CTRL] I: event=mode ...` | `ShipControl_LogModeEvent()` | `ShipControl_SetMode()` |
 | 电机输出 | `[CTRL] I: out m=... l=... r=...` | `ShipControl_LogMotorOutput()` | `board_motor_set_both_speed()` |
 | 电量 | `[SHIP] I: adc raw=... bat=... p=...` | `ship_protocol_log_power_sample()` | `board_power_read()` |
-| AHRS R/P/Y 与 gyro | `[AHRS] I: rpy=... gy=... flg=...` | `app_ahrs_log()` | `board_imu_read()` + `AHRS_UpdateRaw6Axis()` |
-| IMU 原始 a/g | `[IMU] I: raw a=... g=...` | `app_ahrs_poll()` | `board_imu_read()` |
+| AHRS R/P/Y | `[AHRS] I: rpy=... flg=...` | `app_ahrs_log()` | `board_imu_read()` + `AHRS_UpdateRaw6Axis()` |
+| IMU 原始加速度 | `[IMU] I: raw a=...` | `app_ahrs_poll()` | `board_imu_read()` |
 | 磁力计 | `[MAG] I: test raw=... norm1=...`、`[MAG] I: raw=... norm=... yaw=...` | `app_mag_observe_poll()`、`app_ahrs_log()` | `board_mag_read()` + `MagCompass_Update()` |
 | 航向调试 | `[HDG] I: abs=... rel=...` | `app_ahrs_log()` | `Heading_Update()` |
 | 遥控输入 | `[SHIP] I: rc cmd=0x11 ...` | `ship_protocol_handle_throttle()` | `board_wireless_receive()` |
@@ -49,5 +49,5 @@
 - E 键定速巡航由 `ship_protocol_handle_key_edge()` 请求，`ShipControl` 保存请求速度并单独输出 ramp 后的 `base`。上位机看到 `CRUISE_HEADING_HOLD`、`th=760`、`base=520..760` 时表示巡航正在正常斜坡加速。
 - 电量采样仍按 `SHIP_POWER_SAMPLE_DIVIDER` 降频、`SHIP_POWER_LOG_PERIOD_MS` 节流；但首个有效 ADC 样本会强制输出一次 `[SHIP] I: adc raw=... mv=... bat=... p=...`。
 - 若日志为 `adc not-ready rc=-3`，这是 ADC 采样无效而不是上位机解析错误；继续追 `BoardDevices/Src/board_power.c` 的 P0.0/ADC_CH8 采样链路。
-- `app_ahrs_poll()` 每约 1 秒输出一次 `[IMU] I: raw a=... g=...`，用于区分 QMI8658 原始加速度和原始陀螺仪。
+- `app_ahrs_poll()` 每约 1 秒输出一次 `[IMU] I: raw a=...`；GX/GY/GZ 不再发给上位机，AHRS 内部仍使用 gyro 参与解算。
 - `app_mag_observe_poll()` 独立于 AHRS 每约 1 秒读取一次 QMC6309 并输出 `[MAG] I: test raw=... norm1=...`；若读失败，会输出 `[MAG] W: read fail ...` 和 `addr/id/c1/c2` 诊断。

@@ -60,11 +60,11 @@ App/Src/app_extension.c
 | --- | --- | --- | --- |
 | 控制模式 | `[CTRL] I: event=mode old=... new=...` | `ShipControl_LogModeEvent()` | `ShipControl_SetMode()` |
 | 电机输出 | `[CTRL] I: out m=... mo=... th=... base=... st=... df=... l=... r=...` | `ShipControl_LogMotorOutput()` | `board_motor_set_both_speed()` |
-| 角度闭环 | 同上，模式 `MANUAL_YAW_HOLD/CRUISE_HEADING_HOLD/GPS_NAV_HEADING_HOLD` | `ShipControl_ApplyYawHoldTargetEx()` | `app_get_heading_*()` + `PID` |
+| 航向保持 | 同上，模式 `MANUAL_YAW_HOLD/CRUISE_HEADING_HOLD/GPS_NAV_HEADING_HOLD` | `ShipControl_ApplyYawHoldTargetEx()` | `app_get_heading_*()` + `PID` |
 | 遥控输入 | `[SHIP] I: rc cmd=0x11 lr=... ud=...` | `ship_protocol_handle_throttle()` | `board_wireless_receive()` |
 | 按键状态 | `[SHIP] I: key edge key=... action=0..3`、`[EVT] I: key/act ...` | `ship_protocol_handle_key_edge()`、`app_dispatch_ship_event()` | 0x11 payload key 字节 |
 | 电量采样 | `[SHIP] I: adc raw=... mv=... bat=... p=...` | `ship_protocol_log_power_sample()` | `board_power_read()` |
-| AHRS R/P/Y | `[AHRS] I: rpy=... gy=... flg=...` | `app_ahrs_log()` | `board_imu_read()` + `AHRS_UpdateRaw6Axis()` |
+| AHRS R/P/Y | `[AHRS] I: rpy=... flg=...` | `app_ahrs_log()` | `board_imu_read()` + `AHRS_UpdateRaw6Axis()` |
 | 地磁数据 | `[MAG] I: raw=... norm=... yaw=... self=...` | `app_ahrs_log()` | `board_mag_read()` + `MagCompass_Update()` |
 | 船头朝向/HDG | `[HDG] I: abs=... rel=... mag=...` | `app_ahrs_log()` | `Heading_Update()` |
 | GPS 状态回包 | `0x12` payload、verbose 档位下的 `[SHIP] I: tx cmd=12 ...` | `ship_protocol_build_gps_payload()` | `board_gps_get_state()` |
@@ -77,7 +77,7 @@ App/Src/app_extension.c
 | 配对状态 | `pair req sent`、`pair ok ...`、`enter work-state` | `ship_protocol_try_pair_send()` / `ship_protocol_handle_pair_rsp()` -> `board_wireless_*()` |
 | 遥控链路 | `rc cmd=0x11`、`remote timeout`、完整 AA...BB 帧 | `ship_protocol_poll_rx_frames()` -> `board_wireless_receive()` |
 | 动作 / 巡航 | `rc cmd=0x11`、`cruise enter/exit`、`CTRL out` | `ship_protocol_handle_throttle()` -> `ShipControl_UpdateManualInput()` |
-| 自稳定状态 | `CTRL out` 的 v2 模式 `5/6/7` | `ShipControl_ApplyYawHoldTargetEx()` -> `Heading_Update()` |
+| 自稳定状态 | 固定 `OFF`，当前上位机不解析该项 | 预留 UI，不作为控制判据 |
 | 状态回包 | `0x12` payload；verbose 档位下另有 `tx cmd=12 ch=... len=...` | `ship_protocol_send_gps_once()` -> `board_wireless_send_on_channel()` |
 | 定位有效 | `gps state fix=...` 或 `gps12 ... fix=...` | `board_gps_get_state()` -> `gnss_nmea` |
 | 卫星数 | `gps sat source ...`、`gps12 ... sat=...` | `board_gps_get_state()` |

@@ -335,13 +335,10 @@ static void app_read_imu_once(void)
 	ret = board_imu_read(&imu_sample);
 	if(ret == BOARD_IMU_OK)
 	{
-		LOGI("IMU", "sample a=%d,%d,%d g=%d,%d,%d t=%d",
+		LOGI("IMU", "sample a=%d,%d,%d t=%d",
 			 imu_sample.acc_x_raw,
 			 imu_sample.acc_y_raw,
 			 imu_sample.acc_z_raw,
-			 imu_sample.gyro_x_raw,
-			 imu_sample.gyro_y_raw,
-			 imu_sample.gyro_z_raw,
 			 imu_sample.temp_raw);
 	}
 	else
@@ -460,13 +457,10 @@ static void app_ahrs_log(const AHRS_State_t *att,
 
 	heading_err_cd = app_float_to_deg100(app_heading.heading_err_deg);
 	heading_pred_cd = app_float_to_deg100(app_heading.heading_pred_deg);
-	LOGI("AHRS", "rpy=%d,%d,%d gy=%d,%d,%d flg=0x%02X",
+	LOGI("AHRS", "rpy=%d,%d,%d flg=0x%02X",
 		 att->roll_deg100,
 		 att->pitch_deg100,
 		 att->yaw_deg100,
-		 att->gyro_x_dps100,
-		 att->gyro_y_dps100,
-		 att->gyro_z_dps100,
 		 (u16)att->flags);
 	if(app_last_mag_valid != 0U)
 	{
@@ -569,13 +563,10 @@ static void app_ahrs_poll(void)
 	else
 	{
 		imu_raw_log_div = 0U;
-		LOGI("IMU", "raw a=%d,%d,%d g=%d,%d,%d",
+		LOGI("IMU", "raw a=%d,%d,%d",
 			 imu_sample.acc_x_raw,
 			 imu_sample.acc_y_raw,
-			 imu_sample.acc_z_raw,
-			 imu_sample.gyro_x_raw,
-			 imu_sample.gyro_y_raw,
-			 imu_sample.gyro_z_raw);
+			 imu_sample.acc_z_raw);
 	}
 #endif
 

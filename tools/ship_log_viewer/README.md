@@ -11,7 +11,7 @@
 - 遥控器是否真的在线
 - 左右遥杆输入是否被固件正确收到
 - 实际左右输出油门是否按预期下发
-- AHRS / Heading / 地磁 / 陀螺仪是否稳定
+- AHRS / Heading / 地磁是否稳定
 - 船头朝向是否像手机指南针一样随船体旋转
 - GPS 状态、卫星数、航向角、返航点、目标点、返航开关是否正常
 - 按键动作是否已经被固件识别
@@ -150,7 +150,7 @@
 | 遥控输入 | `[SHIP] I: rc cmd=0x11 lr=... ud=... tv=... sv=... key=...` | `ship_protocol_handle_throttle()` |
 | 按键状态 | `[SHIP] I: key edge key=... action=0..3`、`[EVT] I: key/act ...` | `ship_protocol_handle_key_edge()`、`app_dispatch_ship_event()` |
 | 电量采样 | `[SHIP] I: adc raw=... mv=... bat=... p=...` | `ship_protocol_log_power_sample()` |
-| AHRS R/P/Y | `[AHRS] I: rpy=... gy=... flg=0x..` | `app_ahrs_log()` |
+| AHRS R/P/Y | `[AHRS] I: rpy=... flg=0x..` | `app_ahrs_log()` |
 | 地磁数据 | `[MAG] I: raw=... norm=... yaw=... self=...` | `app_ahrs_log()` |
 | 船头朝向/HDG | `[HDG] I: abs=... rel=... mag=... rdy=... st=... set=... err=... pred=...` | `Heading_Update()` 后的 App 快照 |
 | GPS 回包 | 旧 `0x12` payload；verbose 档位下另有 `[SHIP] I: tx cmd=12 ...` | `ship_protocol_build_gps_payload()` |
@@ -158,7 +158,7 @@
 | 配对状态 | `pair req sent`、`pair ok ...`、`enter work-state` | `ship_protocol_try_pair_send()` / `ship_protocol_handle_pair_rsp()` |
 | 遥控链路 | `rc cmd=0x11`、`remote timeout`、完整 AA...BB 帧 | `ship_protocol_poll_rx_frames()` |
 | 动作 / 巡航 | `rc cmd=0x11`、`cruise enter/exit`、`CTRL out` | `ship_protocol_handle_throttle()` / `ShipControl_UpdateManualInput()` |
-| 自稳定状态 | `CTRL out` 的 v2 模式 `5/6/7` | `ShipControl_ApplyYawHoldTargetEx()` |
+| 自稳定状态 | 固定 `OFF`，当前上位机不解析该项 | 预留卡片 |
 | GPS 摘要 | `gps state`、`gps sat source`、`gps12`、`0x12 payload` | `board_gps_get_state()` / `ship_protocol_build_gps_payload()` |
 | 返航点/目标点/返航开关 | `0x13 ret`、`0x14 fish`、`0x15 sw` | `AutoDrive_SetReturnPositionRaw()` / `AutoDrive_SetFishPositionRaw()` / `AutoDrive_SetSwitchRaw()` |
 
@@ -180,20 +180,6 @@
 
 - 看姿态解算是否在刷新
 - 看姿态是否出现突跳
-
-### `陀螺仪数据`
-
-显示 `gX / gY / gZ`
-
-用途：
-
-- 看 IMU 是否真的在输出角速度
-- 看静止时 gyro 是否接近 0
-
-说明：
-
-- 某些 AHRS 日志帧可能不带 `g=`
-- 页面不会因为单帧缺少 `g=` 就把旧数据清掉
 
 ### `Yaw 状态`
 
@@ -337,7 +323,7 @@ meta 里还会显示：
 - 看当前最终控制权在 `STOP / MANUAL_OPEN_LOOP / MANUAL_YAW_HOLD / CRUISE_HEADING_HOLD / GPS_NAV_HEADING_HOLD / FAILSAFE_STOP` 哪个模式
 - 看 E 键是否真的进入定速巡航
 - 看定速巡航是否按“再按 E”或“摇杆反向拉到底附近”退出
-- 看 yaw 自稳目标角、误差、PID 输出、左右电机目标是否在变化
+- 看航向保持目标角、误差、PID 输出、左右电机目标是否在变化
 
 现场检验：
 
@@ -723,7 +709,6 @@ meta 里还会显示：
 
 重点确认：
 
-- 静止时 gyro 是否接近 0
 - `ym` 是否稳定
 - `mu` 是否符合预期
 
@@ -787,7 +772,7 @@ meta 里还会显示：
 
 说明：
 
-- 当前主要靠 gyro / yaw 闭环
+- 当前主要靠 AHRS / yaw 航向保持
 - 磁修正可能被 gate 掉了
 
 优先看：
@@ -838,5 +823,5 @@ meta 里还会显示：
 
 - 电机输出：固件启动 `ShipControl_Init()` 会输出一帧 `[CTRL] I: out ... l=0 r=0`，没有遥控动作时卡片也能确认控制链路已接上。
 - 电量采样：首个有效 ADC 样本会强制输出 `[SHIP] I: adc raw=... mv=... bat=... p=...`；如果暂时只收到 `gps12 ... p=..`，页面先用 0x12 电量字节作占位。
-- 陀螺仪数据：页面同时识别 `[AHRS] I: rpy=... gy=...` 和 `[IMU] I: raw a=... g=...`。后者会把原始 gyro LSB 放到陀螺仪卡片，并在 meta 里保留 accel，便于判断是否误把加速度当陀螺仪。
+- AHRS/IMU：页面识别 `[AHRS] I: rpy=... flg=...` 和 `[IMU] I: raw a=...`。GX/GY/GZ 不再解析，也不再显示陀螺仪卡片；姿态算法内部仍使用 gyro。
 - 地磁数据：页面识别 `[MAG] I: test raw=... norm1=...`、`[MAG] I: raw=... norm=... yaw=...` 和 `[MAG] W: read fail ...`。读失败时会显示 `addr/id/c1/c2` 诊断，不再静默停在 0。

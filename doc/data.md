@@ -259,7 +259,7 @@ main()
 | 按键动作 | `key edge key=... action=0..3` | A/E/unknown 仍是 `KEY_EDGE`；B/C/D 短日志用数字 action 表示并发布 `KEY_ACTION_*_NOOP`，上位机映射为 `B-noop`/`C-noop`/`D-noop` |
 | 开机保护 | `boot blk` / `boot ready` | 上电短暂阻塞手动电机输出，可等待航向 ready |
 | 巡航状态 | `cruise enter` / `cruise exit` / `cruise reject` | E 键巡航准入、退出和拒绝原因 |
-| 电机输出 | `CTRL out mode=` | `ShipControl` 统一输出 mode、motion、base、diff、left、right |
+| 电机输出 | `CTRL out m=` | `ShipControl` 统一输出 mode、motion、throttle、base、steer、diff、left、right |
 | 返航点事件 | `0x13 ret` | 解析 10 字节返航点并调用 AutoDrive 返航入口 |
 | 钓点事件 | `0x14 fish` | 解析 10 字节钓点坐标，并进入 5 点表保存/查重/启动状态机 |
 | 钓点诊断 | `0x14 rx save=... nav=... idx=...` | 默认短日志只打印保存结果、导航结果和命中 index；verbose 档位才打印 frame/payload/xor 长诊断 |
@@ -277,7 +277,8 @@ main()
 - 控制模式：`[CTRL] I: event=mode old=... new=... reason=... yaw=... tgt=...`
 - 电机输出：`[CTRL] I: out m=... mo=... th=... base=... st=... df=... l=... r=...`
 - 电量采样：`[SHIP] I: adc raw=... mv=... bat=... p=...`
-- AHRS：`[AHRS] I: rpy=... gy=... flg=0x..`
+- AHRS：`[AHRS] I: rpy=... flg=0x..`
+- IMU 原始加速度：`[IMU] I: raw a=...`
 - 地磁：`[MAG] I: raw=... norm=... yaw=... self=...`
 - 航向：`[HDG] I: abs=... rel=... mag=... rdy=... st=... set=... err=... pred=...`
 

@@ -235,7 +235,7 @@ app_loop()
 | 控制模式 | `[CTRL] I: event=mode old=... new=...` | `ShipControl_LogModeEvent()` |
 | 电机输出 | `[CTRL] I: out m=... mo=... th=... base=... st=... df=... l=... r=...` | `ShipControl_LogMotorOutput()` -> `board_motor_set_both_speed()` |
 | 电量采样 | `[SHIP] I: adc raw=... mv=... bat=... p=...` | `ship_protocol_log_power_sample()` -> `board_power_read()` |
-| AHRS | `[AHRS] I: rpy=... gy=... flg=...` | `app_ahrs_log()` -> `board_imu_read()` |
+| AHRS | `[AHRS] I: rpy=... flg=...` | `app_ahrs_log()` -> `board_imu_read()` |
 | 地磁 | `[MAG] I: raw=... norm=... yaw=... self=...` | `app_ahrs_log()` -> `board_mag_read()` |
 | 航向 | `[HDG] I: abs=... rel=... mag=...` | `Heading_Update()` 快照 |
 | 遥控 | `[SHIP] I: rc cmd=0x11 ...` | `ship_protocol_handle_throttle()` -> `board_wireless_receive()` |

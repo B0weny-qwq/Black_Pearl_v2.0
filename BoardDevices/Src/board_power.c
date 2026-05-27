@@ -4,6 +4,7 @@
 #include "STC32G_NVIC.h"
 
 #define BOARD_POWER_ADC_REF_MV      3300UL
+#define BOARD_POWER_ADC_INVALID_RAW 4096U
 
 #ifdef BOARD_12V
 #define BOARD_POWER_FULL_RAW        2000U
@@ -25,6 +26,40 @@ typedef struct
 } board_power_context_t;
 
 static board_power_context_t board_power_ctx;
+
+static void board_power_config_pin(void)
+{
+    P0_MODE_IN_HIZ(GPIO_Pin_0);
+    P0_PULL_UP_DISABLE(GPIO_Pin_0);
+    P0_DIGIT_IN_DISABLE(GPIO_Pin_0);
+}
+
+static u8 board_power_config_adc(void)
+{
+    ADC_InitTypeDef adc_init;
+
+    adc_init.ADC_SMPduty = 31U;
+    adc_init.ADC_CsSetup = 0U;
+    adc_init.ADC_CsHold = 1U;
+    adc_init.ADC_Speed = ADC_SPEED_2X1T;
+    adc_init.ADC_AdjResult = ADC_RIGHT_JUSTIFIED;
+
+    if (ADC_Inilize(&adc_init) != SUCCESS) {
+        return 0U;
+    }
+    ADC_PowerControl(ENABLE);
+    NVIC_ADC_Init(DISABLE, Priority_0);
+    return 1U;
+}
+
+static void board_power_recover_adc(void)
+{
+    ADC_PowerControl(DISABLE);
+    ADC_START = 0;
+    ADC_FLAG = 0;
+    board_power_config_pin();
+    (void)board_power_config_adc();
+}
 
 static u16 board_power_raw_to_mv(u16 raw)
 {
@@ -58,25 +93,12 @@ static u8 board_power_raw_to_level(u16 raw)
 
 int8 board_power_init(void)
 {
-    ADC_InitTypeDef adc_init;
-
     if (board_power_ctx.ready != 0U) {
         return BOARD_POWER_OK;
     }
 
-    P0_MODE_IN_HIZ(GPIO_Pin_0);
-    P0_PULL_UP_DISABLE(GPIO_Pin_0);
-    P0_DIGIT_IN_DISABLE(GPIO_Pin_0);
-
-    adc_init.ADC_SMPduty = 31U;
-    adc_init.ADC_CsSetup = 0U;
-    adc_init.ADC_CsHold = 1U;
-    adc_init.ADC_Speed = ADC_SPEED_2X1T;
-    adc_init.ADC_AdjResult = ADC_RIGHT_JUSTIFIED;
-
-    board_power_ctx.ready = (ADC_Inilize(&adc_init) == SUCCESS) ? 1U : 0U;
-    ADC_PowerControl(ENABLE);
-    NVIC_ADC_Init(DISABLE, Priority_0);
+    board_power_config_pin();
+    board_power_ctx.ready = board_power_config_adc();
     board_power_ctx.level = BOARD_POWER_LEVEL_0;
     board_power_ctx.last.raw = 0U;
     board_power_ctx.last.adc_mv = 0U;
@@ -100,6 +122,10 @@ int8 board_power_read(board_power_sample_t *sample)
     }
 
     raw = Get_ADCResult(ADC_CH8);
+    if (raw >= BOARD_POWER_ADC_INVALID_RAW) {
+        board_power_recover_adc();
+        raw = Get_ADCResult(ADC_CH8);
+    }
     sample->raw = raw;
     sample->adc_mv = 0U;
     sample->bat_mv = 0UL;

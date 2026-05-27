@@ -51,6 +51,8 @@ u16	Get_ADCResult(u8 channel)	//channel = 0~15
 	u8	i;
 
 	if(channel > ADC_CH15)	return	4096;	//错误,返回4096,调用的程序判断	
+	ADC_START = 0;
+	ADC_FLAG = 0;
 	ADC_RES = 0;
 	ADC_RESL = 0;
 
@@ -75,5 +77,7 @@ u16	Get_ADCResult(u8 channel)	//channel = 0~15
 			return	adc;
 		}
 	}
+	ADC_START = 0;
+	ADC_FLAG = 0;
 	return	4096;	//错误,返回4096,调用的程序判断
 }

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- 2026-05-27 cruise and power ADC field fix:
+  - Fixed E-key cruise speed retention in `ShipControl_Tick()`: the requested cruise speed stays in `throttle_speed`, while `base_speed` remains the ramped motor-frame output, so cruise no longer collapses to the ramp minimum after the first frame.
+  - Cleared `ADC_START`/`ADC_FLAG` around polled ADC conversions and added a `board_power` recovery retry that reconfigures P0.0/ADC_CH8 after invalid `4096` samples.
+  - Aligned the host viewer cruise-speed constant with firmware `SHIP_CRUISE_KEY_SPEED = 760`.
+  - Updated README notes for diagnosing `adc not-ready rc=-3` and for interpreting `CTRL out th=760 base=520..760` during cruise ramp-up.
+
 - 2026-05-27 outsourcing handoff and host-viewer traceability:
   - Added `App/Inc/app_extension.h` and `App/Src/app_extension.c` as the stable App-layer extension point for future outsourced key actions, LED blinking and non-blocking event-driven additions.
   - Wired `app_extension_init()`, `app_extension_poll()` and `app_extension_on_ship_event()` into the App bring-up, main loop and protocol-event drain path.

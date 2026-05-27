@@ -333,6 +333,10 @@ static void ship_protocol_read_power_sample(ship_protocol_power_sample_t *sample
     sample->sampled = 1U;
     sample->status = board_power_read(&board_sample);
     if (sample->status != BOARD_POWER_OK) {
+        sample->raw = board_sample.raw;
+        sample->adc_mv = board_sample.adc_mv;
+        sample->bat_mv = board_sample.bat_mv;
+        sample->report = board_sample.level;
         sample->valid = 0U;
         return;
     }

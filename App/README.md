@@ -46,6 +46,8 @@
 ## 2026-05 v1.1 对齐补充
 
 - `ShipControl_Init()` 会强制输出一帧 `l=0 r=0` 的 `[CTRL] I: out ...`，没有遥控动作时上位机也能确认电机输出链路已接到 ShipControl。
+- E 键定速巡航由 `ship_protocol_handle_key_edge()` 请求，`ShipControl` 保存请求速度并单独输出 ramp 后的 `base`。上位机看到 `CRUISE_HEADING_HOLD`、`th=760`、`base=520..760` 时表示巡航正在正常斜坡加速。
 - 电量采样仍按 `SHIP_POWER_SAMPLE_DIVIDER` 降频、`SHIP_POWER_LOG_PERIOD_MS` 节流；但首个有效 ADC 样本会强制输出一次 `[SHIP] I: adc raw=... mv=... bat=... p=...`。
+- 若日志为 `adc not-ready rc=-3`，这是 ADC 采样无效而不是上位机解析错误；继续追 `BoardDevices/Src/board_power.c` 的 P0.0/ADC_CH8 采样链路。
 - `app_ahrs_poll()` 每约 1 秒输出一次 `[IMU] I: raw a=... g=...`，用于区分 QMI8658 原始加速度和原始陀螺仪。
 - `app_mag_observe_poll()` 独立于 AHRS 每约 1 秒读取一次 QMC6309 并输出 `[MAG] I: test raw=... norm1=...`；若读失败，会输出 `[MAG] W: read fail ...` 和 `addr/id/c1/c2` 诊断。

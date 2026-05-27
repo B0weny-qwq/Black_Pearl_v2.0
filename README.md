@@ -92,6 +92,11 @@ App/Src/app_extension.c
 
 如果上位机某张卡片为空，先看对应日志是否出现，再沿表格向下追到底层 API。
 
+现场判断补充：
+
+- E 键定速巡航成功时，控制模式应保持 `CRUISE_HEADING_HOLD`，`CTRL out` 中 `th=760` 表示请求定速，`base=520..760` 是启动斜坡输出，属于正常过程。
+- 电量日志若出现 `adc not-ready rc=-3`，表示底层 ADC 转换返回无效值。`board_power_read()` 会重新配置 P0.0/ADC_CH8 和 ADC 后重试；持续失败时继续检查 P0.0 电压、分压电阻和硬件连接。
+
 ## 当前状态
 
 - Keil 工程：`RVMDK/STC32G-LIB.uvproj`

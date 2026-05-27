@@ -591,6 +591,9 @@ static u8 ShipControl_ApplyYawHoldTargetEx(u16 target_heading_cd,
     } else {
         ship_ctrl.motion = SHIP_CONTROL_MOTION_STOP;
     }
+    /* throttle_speed keeps the requested auto speed; base_speed is the
+     * ramped/derated output used for this motor frame and log line.
+     */
     ship_ctrl.throttle_speed = base_speed;
     ship_ctrl.base_speed = yaw_base_speed;
     ship_ctrl.steering_speed = 0;
@@ -794,7 +797,7 @@ void ShipControl_Tick(u32 now_ms)
         ((now_ms - ship_ctrl.auto_last_apply_ms) >= SHIP_MANUAL_CONTROL_PERIOD_MS)) {
         ship_ctrl.auto_last_apply_ms = now_ms;
         (void)ShipControl_ApplyYawHoldTargetEx(ship_ctrl.yaw_hold_target_cd,
-                                               ship_ctrl.base_speed,
+                                               ship_ctrl.throttle_speed,
                                                SHIP_CONTROL_MODE_CRUISE_HEADING_HOLD,
                                                0U);
     }

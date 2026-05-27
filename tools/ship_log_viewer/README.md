@@ -344,6 +344,7 @@ meta 里还会显示：
 - 直推且左右输出差小于 20%，若航向 ready，应看到 `MANUAL_YAW_HOLD`
 - 明显打方向，应回到 `MANUAL_OPEN_LOOP`
 - 带符号油门 `>= +60` 时按 E，应看到 `CRUISE_HEADING_HOLD`
+- 进入定速后 `CTRL out` 里 `th=760` 是请求定速，`base=520..760` 是固件斜坡输出，不应把 `base` 的初始值误判成巡航失败
 - 定速巡航中再按一次 E，应看到 `STOP`，时间线显示 `cruise-toggle-stop`
 - 定速巡航中带符号油门 `<= -50`，应看到 `STOP`，时间线显示 `cruise-reverse-stop`
 
@@ -383,6 +384,8 @@ meta 里还会显示：
 - `0x12` 的 `power=0x..` 字节
 
 `power_level` 是 `0..4` 等级，不是原始 ADC。
+
+若现场出现 `[SHIP] W: adc not-ready rc=-3 ...`，表示固件底层 ADC 转换无效。当前固件会自动清 ADC 状态并重配 P0.0/ADC_CH8 后重试；仍持续出现时优先查板上 P0.0 分压输入。
 
 ### `地磁数据`
 

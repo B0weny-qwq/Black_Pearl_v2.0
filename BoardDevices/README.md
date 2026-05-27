@@ -16,6 +16,7 @@
 - `board_mag_get_diag()` 只暴露地址和关键寄存器快照，供 App 打印现场日志；App 仍不直接包含 `QMC6309.h`。
 - `board_motor`：左右电机 PWM 输出。
 - `board_power`：电池 ADC 采样和 `0..4` 电量等级。
+- `board_power` 当前绑定 P0.0/ADC_CH8。若 `Get_ADCResult()` 返回 4096，驱动会清 ADC 启动/完成标志，板级会重新配置 P0.0 和 ADC 后重试一次；持续失败通常是 P0.0 电压、分压或焊接问题。
 - `board_wireless` / `board_lt8920`：LT8920/KCT8206 无线链路。
 - `board_storage`：EEPROM/IAP 小配置存储。
 - `board_spi_ps`：SPI-PS 对等链路，当前受资源保护。

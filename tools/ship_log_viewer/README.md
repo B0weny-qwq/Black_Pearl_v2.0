@@ -145,7 +145,7 @@
 
 | 页面卡片 | 当前 v2 固件日志 | 固件源头 |
 | --- | --- | --- |
-| 控制模式 | `[CTRL] I: event=mode old=... new=... reason=... yaw=... tgt=...` | `App/Src/ship_control.c` |
+| 控制模式 | `[CTRL] I: event=mode old=... new=... reason=... yaw=... tgt=...` | `App/Src/ship_control*.c` |
 | 电机输出 | `[CTRL] I: out m=... mo=... th=... base=... st=... df=... l=... r=...` | `ShipControl_LogMotorOutput()` |
 | 遥控输入 | `[SHIP] I: rc cmd=0x11 lr=... ud=... tv=... sv=... key=...` | `ship_protocol_handle_throttle()` |
 | 按键状态 | `[SHIP] I: key edge key=... action=0..3`、`[EVT] I: key/act ...` | `ship_protocol_handle_key_edge()`、`app_dispatch_ship_event()` |
@@ -165,6 +165,9 @@
 若卡片为空，优先确认上表对应日志是否出现；如果固件没有输出该日志，上位机不会凭空生成卡片数据。
 
 当前固件默认关闭 `SHIP_PROTOCOL_VERBOSE_LOG_ENABLE` 和 `SHIP_APP_BRINGUP_VERBOSE_LOG_ENABLE`，以降低 C251 的 CODE/HCONST 占用。页面已同时兼容短日志和旧长日志；现场交付优先使用短日志，只有需要追 frame/payload 细节时再临时打开 verbose。
+
+控制模式、自稳定状态和电机输出以固件 `[CTRL] out` 为准。yaw 阻尼沿用 v1.1
+`gyro_z_dps100`，上位机不再解析 GX/GY/GZ 卡片，也不应把缺少 GY 当作阻尼缺失。
 
 ## 7.1 联调摘要区
 

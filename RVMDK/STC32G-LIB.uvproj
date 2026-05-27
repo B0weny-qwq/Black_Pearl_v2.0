@@ -390,6 +390,31 @@
               <FilePath>..\App\Src\app.c</FilePath>
             </File>
             <File>
+              <FileName>app_state.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\app_state.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_bringup.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\app_bringup.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_ahrs_core.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\app_ahrs_core.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_ahrs_poll.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\app_ahrs_poll.c</FilePath>
+            </File>
+            <File>
+              <FileName>app_mag_event.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\app_mag_event.c</FilePath>
+            </File>
+            <File>
               <FileName>app_extension.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\App\Src\app_extension.c</FilePath>
@@ -400,9 +425,59 @@
               <FilePath>..\App\Src\ship_control.c</FilePath>
             </File>
             <File>
+              <FileName>ship_control_core.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\ship_control_core.c</FilePath>
+            </File>
+            <File>
+              <FileName>ship_control_manual.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\ship_control_manual.c</FilePath>
+            </File>
+            <File>
+              <FileName>ship_control_yaw.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\ship_control_yaw.c</FilePath>
+            </File>
+            <File>
               <FileName>autodrive.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\App\Src\autodrive.c</FilePath>
+            </File>
+            <File>
+              <FileName>autodrive_points.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\autodrive_points.c</FilePath>
+            </File>
+            <File>
+              <FileName>autodrive_gps.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\autodrive_gps.c</FilePath>
+            </File>
+            <File>
+              <FileName>autodrive_control.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\autodrive_control.c</FilePath>
+            </File>
+            <File>
+              <FileName>autodrive_cmd.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\autodrive_cmd.c</FilePath>
+            </File>
+            <File>
+              <FileName>autodrive_nav.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\autodrive_nav.c</FilePath>
+            </File>
+            <File>
+              <FileName>autodrive_poll.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\autodrive_poll.c</FilePath>
+            </File>
+            <File>
+              <FileName>autodrive_diag.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\autodrive_diag.c</FilePath>
             </File>
             <File>
               <FileName>autodrive_config.c</FileName>
@@ -413,6 +488,46 @@
               <FileName>ship_protocol.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\App\Src\ship_protocol.c</FilePath>
+            </File>
+            <File>
+              <FileName>ship_protocol_state.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\ship_protocol_state.c</FilePath>
+            </File>
+            <File>
+              <FileName>ship_protocol_event.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\ship_protocol_event.c</FilePath>
+            </File>
+            <File>
+              <FileName>ship_protocol_power.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\ship_protocol_power.c</FilePath>
+            </File>
+            <File>
+              <FileName>ship_protocol_tx.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\ship_protocol_tx.c</FilePath>
+            </File>
+            <File>
+              <FileName>ship_protocol_link.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\ship_protocol_link.c</FilePath>
+            </File>
+            <File>
+              <FileName>ship_protocol_cmd.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\ship_protocol_cmd.c</FilePath>
+            </File>
+            <File>
+              <FileName>ship_protocol_points.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\ship_protocol_points.c</FilePath>
+            </File>
+            <File>
+              <FileName>ship_protocol_parse.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\App\Src\ship_protocol_parse.c</FilePath>
             </File>
             <File>
               <FileName>app_config.h</FileName>
@@ -430,9 +545,19 @@
               <FilePath>..\App\Inc\ship_control.h</FilePath>
             </File>
             <File>
+              <FileName>ship_control_internal.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\App\Inc\ship_control_internal.h</FilePath>
+            </File>
+            <File>
               <FileName>autodrive.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\App\Inc\autodrive.h</FilePath>
+            </File>
+            <File>
+              <FileName>autodrive_internal.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\App\Inc\autodrive_internal.h</FilePath>
             </File>
             <File>
               <FileName>autodrive_config.h</FileName>
@@ -443,6 +568,11 @@
               <FileName>ship_protocol.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\App\Inc\ship_protocol.h</FilePath>
+            </File>
+            <File>
+              <FileName>ship_protocol_internal.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\App\Inc\ship_protocol_internal.h</FilePath>
             </File>
           </Files>
         </Group>

@@ -1,8 +1,9 @@
 # 工程目录总览
 
-本工程采用 EmbedForge Level 1.5 风格组织，用于把 Black Pearl v1.0 代码
+本工程采用 EmbedForge Level 1.5 风格组织，用于把 Black Pearl v1.1 代码
 迁移到更清晰、可维护、可复用的结构中，同时保留 STC 官方驱动和芯片资料的
-参考价值。
+参考价值。旧工程路径以根目录 `README.md` 中记录的
+`C:\Users\S\Desktop\STC_PROJECT\Black_Pearl_v1.1` 为准。
 
 ## 目录结构
 
@@ -64,6 +65,8 @@ Black_Pearl_v2.0/
   `app_ahrs_poll()` 和 `board_motor_service()`。
 - 当前已有 `ship_protocol`、`ship_control`、`autodrive` 三个 App 状态机：
   协议负责收发和分发，控制负责电机所有权，AutoDrive 负责 GPS 返航/去点规划。
+  这些状态机已经拆成多个 `App/Src/*_*.c` 文件，单文件保持 300 行以内；
+  对接时按 `App/Src/README.md` 的职责表查找，不把新逻辑重新集中到大文件。
 - 当前已有 `app_extension` 外包扩展入口，按键联动、LED 闪烁等二次业务优先放在
   `App/Src/app_extension.c`，新硬件仍必须先经 `BoardDevices/` 暴露 API。
 - `App/Inc/app_config.h` 是当前应用运行档位入口，集中保存 v1.1 迁移来的手动控制、
@@ -119,7 +122,7 @@ Black_Pearl_v2.0/
 `Components/`
 
 - 预留给纯算法、滤波器、PID、状态机、解析器、缓冲区等可复用逻辑。
-- 当前已有 `PID` 和 `Filter` 两个组件，后续继续承接 v1.0 算法模块迁移。
+- 当前已有 `PID` 和 `Filter` 两个组件，后续继续承接 v1.1 算法模块迁移。
 - 不应包含 vendor 头文件，也不应直接访问板级资源。
 
 `Services/`
@@ -170,7 +173,7 @@ Drivers -> Platform config/STC registers
 
 ## 迁移原则
 
-从 v1.0 或本地参考代码迁移时，不要把 sample 代码直接粘到 `App/`。应先
+从 v1.1 或本地参考代码迁移时，不要把 sample 代码直接粘到 `App/`。应先
 识别它实际代表的硬件能力，再放入 `BoardDevices/` 或 `Platform/`；`App/`
 只保留高层调用顺序和业务状态。
 
@@ -191,7 +194,7 @@ Drivers -> Platform config/STC registers
 
 兼容入口：
 
-- `Services/Inc/Log.h` 仅转发到 `logger.h`，用于降低 v1.0 代码迁移时的 include
+- `Services/Inc/Log.h` 仅转发到 `logger.h`，用于降低 v1.1 代码迁移时的 include
   修改量。
 
 调用顺序：
@@ -268,7 +271,7 @@ app_loop()
   板级 EEPROM/IAP 存储接口，隐藏 STC EEPROM 驱动。
 - `Services/Inc/parameter_store.h`、`Services/Src/parameter_store.c`：
   轻量参数服务，当前用于保存 AutoDrive 返航开关和返航点配置。
-- `App/Inc/ship_protocol.h`、`App/Src/ship_protocol.c`：
+- `App/Inc/ship_protocol.h`、`App/Src/ship_protocol*.c`：
   船端协议状态机，状态为 `SHIP_PROTOCOL_STATE_BOOT_WAIT/PAIR_SEND/PAIR_WAIT_RSP/WORK_RX`。
   当前保留旧帧格式 `AA | len | cmd | payload | xor | BB`，固定 pair channel `0x7F`、
   seed `65 65 A0 65`、pair send count `10`，旧 seed 派生 `work_rx=13`、
@@ -285,11 +288,11 @@ app_loop()
   `SHIP_YAW_HOLD_DIFF_LIMIT_PERMILLE=320`、`SHIP_YAW_HOLD_GYRO_DAMP_Q10=4096`、
   `SHIP_YAW_HOLD_KP_Q10=384`、`SHIP_YAW_HOLD_KD_Q10=96` 和
   `SHIP_POWER_LOG_PERIOD_MS=10000 ms`。
-- `App/Inc/ship_control.h`、`App/Src/ship_control.c`：
+- `App/Inc/ship_control.h`、`App/Src/ship_control*.c`：
   船体控制状态机，模式覆盖开机保护、等待航向、手动开环、手动航向保持、
   E 键巡航、GPS 导航航向保持和 failsafe 停机。所有最终左右电机输出统一经过
   `board_motor`。
-- `App/Inc/autodrive.h`、`App/Src/autodrive.c`：
+- `App/Inc/autodrive.h`、`App/Src/autodrive*.c`：
   GPS AutoDrive 状态机，状态为 `IDLE/START/ALIGN/RUN/ARRIVE/REJECT/TIMEOUT/STOP`。
   它负责返航点、钓点表、距离/目标航向、对齐判定和诊断快照；电机输出仍通过
   `ShipControl_RequestGpsAlign()` / `ShipControl_RequestGpsNav()`。
@@ -384,7 +387,7 @@ To keep the old wireless/control behavior without breaking the v2 layering bound
 - `App/ship_control`: owns motor output and all manual/cruise/GPS yaw-hold modes.
 - `App/autodrive`: owns return-home/goto-point planning, fish-point table, target heading, arrival and diagnostics.
 
-This means the old protocol-visible behavior is restored in `App/Src/ship_protocol.c`, while physical resources stay behind BoardDevices:
+This means the old protocol-visible behavior is restored in `App/Src/ship_protocol*.c`, while physical resources stay behind BoardDevices:
 
 - old protocol behavior: kept
 - current hardware ADC pin/channel: `P0.0 / ADC_CH8`

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- 2026-05-28 App decoupling and v1.1 evidence pass:
+  - Split App-layer large files so each `App/*.c` and `App/*.h` is at most 300 lines by strict line count.
+  - Split `app.c`, `ship_control.c`, `ship_protocol.c`, and `autodrive.c` into focused App modules and added the new files to the Keil project.
+  - Added Chinese Doxygen/internal comments for the new App headers and concise Chinese comments in App `.c` files.
+  - Documented the v1.1 yaw damping evidence: old `ShipControl_ApplyYawHoldDamping()` uses `MainLoop_GetGyroZDps100()`, which is sourced from `att->gyro_z_dps100`; current `ship_control_yaw.c` keeps `gyro_z_dps100`.
+  - Updated handoff docs to point outsourced logic to the correct split files while keeping `app_extension.c` as the stable key/event/LED insertion API.
+  - Kept the duplicate root `ship_log_viewer/` removed; the canonical viewer documentation is `tools/ship_log_viewer/README.md`.
+  - Verified Keil C251 command-line build after the split: `Program Size: data=11.7 edata+hdata=3901 xdata=380 const=3092 code=60973`, `0 Error(s), 0 Warning(s)`.
+
 - 2026-05-27 host-viewer telemetry simplification:
   - Removed GX/GY/GZ from App-side AHRS/IMU logs and from host-viewer parsing; `[AHRS]` now reports `rpy/flg`, and `[IMU] raw` reports accel only.
   - Removed the host-viewer gyro card. The self-stabilize card now follows E-key cruise heading hold: `ON` after E + throttle `> 60`, `OFF` after E-toggle or reverse throttle `< -40`.
@@ -96,9 +105,9 @@
   - Verified Keil command-line build: `0 Error(s), 0 Warning(s)`.
 
 - 2026-05 GNSS/0x12/ADC old-version alignment update:
-  - Moved `board_gps_init()` into the startup bring-up path in `App/Src/app.c` and added explicit init return logging: `GPS init ok ready=%u` / `GPS init fail rc=%d`.
+  - Moved `board_gps_init()` into the startup bring-up path and added explicit init return logging: `GPS init ok ready=%u` / `GPS init fail rc=%d`.
   - Kept the current GNSS parser chain (`board_gps` -> `gnss_nmea`) while aligning the exported data used by the old upper layer, including `legacy_*`, `lat/lon_deg1e7`, `course_deg_x100`, and `satellites_used_gsa`.
-  - Updated `App/Src/ship_protocol.c` `0x12` payload build logic to match old handheld expectations:
+  - Updated `App/Src/ship_protocol_tx.c` `0x12` payload build logic to match old handheld expectations:
     - `payload[0]`: satellite count, prefer `satellites_used_gsa`, fallback `satellites_used`, clamp to 24.
     - `payload[1..2]`: heading degrees from `course_deg_x100 / 100`, big-endian.
     - `payload[4..7]` and `payload[9..12]`: prefer `legacy_lon1/lon2/lat1/lat2`, fallback to runtime conversion from `deg1e7` into old NMEA split fields.
@@ -118,13 +127,13 @@
   - Added `HeadingEstimator` under `Components`.
   - Added `MagCompass` under `Components` for QMC6309 compass heading, install offset, norm/jump gates, and IIR ready filtering.
   - Added `platform_scheduler_get_tick_ms()` for 1 ms tick snapshots.
-  - Wired `App/Src/app.c` to poll IMU at about 17 ms and MAG at about 100 ms, feed AHRS/MagCompass/HeadingEstimator, expose attitude/heading getters, and print low-rate `AHRS`/`HDG` diagnostics.
+  - Wired the App AHRS polling path to poll IMU at about 17 ms and MAG at about 100 ms, feed AHRS/MagCompass/HeadingEstimator, expose attitude/heading getters, and print low-rate `AHRS`/`HDG` diagnostics.
   - Added the new component files to the Keil project; command-line build passes with `0 Error(s), 0 Warning(s)`.
 
-- 将工程整理为 Black Pearl v2.0，作为 v1.0 的移植、解耦和重构基线。
+- 将工程整理为 Black Pearl v2.0，作为 v1.1 的移植、解耦和重构基线。
 - 移除旧版本中混杂的 `User/` 层。
 - 将真实应用入口移动到 `App/Src/main.c`。
-- 在 `App/Src/app.c` 中加入最小应用生命周期钩子。
+- 在 App 层加入最小应用生命周期钩子。
 - 将平台启动、时钟配置和调度胶水迁移到 `Platform/`。
 - 将 STC 启动汇编移动到 `Startup/`。
 - 将官方 STC 驱动目录从 `Driver/` 重命名为 `Drivers/`。
@@ -148,7 +157,7 @@
     `LOGI/LOGW/LOGE/LOGD/log_printf`。
   - 新增 `Services/Inc/Log.h` 作为旧 include 兼容入口。
   - `logger` 使用 128 字节有界缓冲，超长日志截断，不再依赖 `vsprintf()`。
-  - `App/Src/app.c` 当前负责 `board_console_init()`、`log_init()`、设备 bring-up
+  - App bring-up 当前负责 `board_console_init()`、`log_init()`、设备 bring-up
     和 GPS 初始化的高层顺序。
 - 更新 Keil 工程分组和 include path，加入 `Services`、`BoardDevices`、
   `McuAbstraction` 和 `logger` 相关文件。
@@ -173,7 +182,7 @@
   完成 LT8920 + KCT8206 板级 bring-up、SPI 路由和寄存器校验诊断。
 - `McuAbstraction/Inc/ef_spi.h`、`McuAbstraction/Src/ef_spi.c` 补充
   `ef_spi_transfer_byte()`，供 LT8920 全双工寄存器访问使用。
-- `App/Src/app.c` 在日志初始化后输出版本号，并串口打印 QMI8658、QMC6309、
+- App bring-up 在日志初始化后输出版本号，并串口打印 QMI8658、QMC6309、
   LT8920 的初始化结果；LT8920 校验失败时追加寄存器诊断信息。
 - 从本地待迁移参考代码迁移低通滤波模块：
   - 新增 `Components/Inc/Filter.h`、`Components/Src/Filter.c`。
@@ -191,11 +200,11 @@
   - 更新 Keil 工程分组，将 `ef_spi.c` 放入 `McuAbstraction`，并加入
     `board_spi_ps.c`、`board_sensor_bus.c`、`board_mag.c`、`board_lt8920.c`、
     `QMI8658.c` 以及迁移后的 `QMC6309`、`LT8920`、`KCT8206`。
-- 迁移 `old/wireless` 无线状态机的 Level 1.5 协议骨架：
+- 迁移 v1.1 `Code_boweny/Device/WIRELESS` 无线状态机的 Level 1.5 协议骨架：
   - 新增 `BoardDevices/Inc/board_wireless.h`、`BoardDevices/Src/board_wireless.c`，
     在 LT8920/KCT8206 板级绑定之上提供 `BOARD_WIRELESS_MODE_IDLE/RX/TX`、
     RX/TX、RF payload 队列、工作信道切换、sync 寄存器配置和天线 RSSI 扫描。
-  - 新增 `App/Inc/ship_protocol.h`、`App/Src/ship_protocol.c`，实现
+  - 新增 `App/Inc/ship_protocol.h`、`App/Src/ship_protocol*.c`，实现
     `SHIP_PROTOCOL_STATE_BOOT_WAIT/PAIR_SEND/WORK_RX` 船端协议状态机。
   - 保留旧协议帧格式 `AA | len | cmd | payload | xor | BB`，固定 pair channel
     `0x7F`、seed `65 65 A0 65`、pair send count `10`，合法帧后发送 cmd `0x12`
@@ -209,8 +218,9 @@
     输出钓点坐标事件，`0x15` 输出自动返航开关和可选返航点事件；该阶段未迁移
     `ShipControl/AutoDrive`、电机 PWM、灯控、钓点保存列表或返航闭环，已在
     2026-05-24 状态机移植中补齐除未确认灯控外的主链路。
-  - 复核 `old/WIRELESS/ship_protocol.h`、`old/WIRELESS/ship_protocol.c`、
-    `old/WIRELESS/README.md`、`old/AutoDrive/autodrive.c` 后修正协议语义：
+  - 复核 v1.1 `Code_boweny/Device/WIRELESS/ship_protocol.c`、
+    `Code_boweny/Device/WIRELESS/README.md`、`Code_boweny/Device/AutoDrive/autodrive.c`
+    后修正协议语义：
     保存/去钓点属于 `0x14 -> AutoDrive_SetFishPositionRaw()` 的状态判断结果，
     `0x15` 不是钓点 action，而是旧 `RETURN_SWITCH` 命令。
   - 修正 `ship_protocol_event_snapshot_t` 事件命名：移除错误的
@@ -220,7 +230,7 @@
     旧处理入口、旧工程动作和当前 Level 1.5 事件迁移目标。
   - 补充无线运行日志验收口径：启动、配对、工作 RX、协议事件、`0x12` 回包、
     RF 队列/CRC/超时日志均用于联调确认；日志只作为诊断输出，不改变层级依赖边界。
-  - `App/Src/app.c` 改为通过 `board_wireless_init()` 完成 RF bring-up，并在主循环中调用
+  - App bring-up 改为通过 `board_wireless_init()` 完成 RF bring-up，并在主循环中调用
     `board_wireless_poll()`、`ship_protocol_run_scheduler()` 和
     `board_wireless_search_signal_poll()`。
   - 更新 Keil 工程分组，加入 `board_wireless.c/h` 和 `ship_protocol.c/h`。

@@ -67,11 +67,34 @@ target_link_libraries(ef_services PRIVATE ef_boarddevices)
 
 add_library(ef_app
     App/Src/app.c
+    App/Src/app_ahrs_core.c
+    App/Src/app_ahrs_poll.c
+    App/Src/app_bringup.c
     App/Src/app_extension.c
+    App/Src/app_mag_event.c
+    App/Src/app_state.c
     App/Src/autodrive.c
+    App/Src/autodrive_cmd.c
     App/Src/autodrive_config.c
+    App/Src/autodrive_control.c
+    App/Src/autodrive_diag.c
+    App/Src/autodrive_gps.c
+    App/Src/autodrive_nav.c
+    App/Src/autodrive_points.c
+    App/Src/autodrive_poll.c
     App/Src/ship_control.c
+    App/Src/ship_control_core.c
+    App/Src/ship_control_manual.c
+    App/Src/ship_control_yaw.c
     App/Src/ship_protocol.c
+    App/Src/ship_protocol_cmd.c
+    App/Src/ship_protocol_event.c
+    App/Src/ship_protocol_link.c
+    App/Src/ship_protocol_parse.c
+    App/Src/ship_protocol_points.c
+    App/Src/ship_protocol_power.c
+    App/Src/ship_protocol_state.c
+    App/Src/ship_protocol_tx.c
 )
 target_include_directories(ef_app PUBLIC App/Inc Platform/Inc)
 target_link_libraries(ef_app PRIVATE ef_boarddevices ef_components ef_services)

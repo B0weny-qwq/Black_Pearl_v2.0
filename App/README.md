@@ -5,11 +5,11 @@
 ## 目录
 
 - `Inc/`：App 对外接口、运行档位、协议结构和控制状态机头文件。
-- `Src/app.c`：设备 bring-up、主循环调度、AHRS/MAG/Heading 融合、协议事件分发。
+- `Src/app*.c`：设备 bring-up、主循环调度、AHRS/MAG/Heading 融合、协议事件分发；`app.c` 保持薄入口。
 - `Src/app_extension.c`：外包二次业务预留入口。按键触发 LED 闪烁、蜂鸣器提示、现场联动逻辑优先写这里。
-- `Src/ship_protocol.c`：旧无线协议 `0x10/0x11/0x12/0x13/0x14/0x15/0x16`，负责解帧、配对、GPS 回包、电量事件和命令分发。
-- `Src/ship_control.c`：船体运动控制，最终电机输出统一从这里进入 `board_motor_set_both_speed()`。
-- `Src/autodrive.c`：GPS 返航、钓点、对准和定点航向保持状态机。
+- `Src/ship_protocol*.c`：旧无线协议 `0x10/0x11/0x12/0x13/0x14/0x15/0x16`，负责解帧、配对、GPS 回包、电量事件和命令分发。
+- `Src/ship_control*.c`：船体运动控制，最终电机输出统一从这里进入 `board_motor_set_both_speed()`。
+- `Src/autodrive*.c`：GPS 返航、钓点、对准和定点航向保持状态机。
 - `Src/main.c`：平台初始化和 App 调度入口，不放业务。
 
 ## 外包改动入口
@@ -21,6 +21,10 @@
 - `app_extension_on_ship_event(event)`：观察协议事件，适合按键触发逻辑。
 
 示例：要做“A 键 LED 闪烁”，先在 `BoardDevices/` 增加 `board_led_set()` 或 `board_led_toggle()`，再在 `app_extension_on_ship_event()` 里识别 `SHIP_PROTOCOL_EVENT_KEY_EDGE` 和 `SHIP_PROTOCOL_KEY_A_LIGHT`，记录闪烁状态，最后在 `app_extension_poll()` 中按时间翻转 LED。
+
+核心控制和协议文件已经拆分到 300 行以内。外包新增逻辑应按职责落到具体拆分文件；
+只做甲方业务扩展时，不改 `ship_protocol_cmd.c` 或 `ship_control_yaw.c`，优先在
+`app_extension.c` 观察事件后调用新的 `BoardDevices` API。
 
 ## 禁止事项
 
@@ -51,3 +55,6 @@
 - 若日志为 `adc not-ready rc=-3`，这是 ADC 采样无效而不是上位机解析错误；继续追 `BoardDevices/Src/board_power.c` 的 P0.0/ADC_CH8 采样链路。
 - `app_ahrs_poll()` 每约 1 秒输出一次 `[IMU] I: raw a=...`；GX/GY/GZ 不再发给上位机，AHRS 内部仍使用 gyro 参与解算。
 - `app_mag_observe_poll()` 独立于 AHRS 每约 1 秒读取一次 QMC6309 并输出 `[MAG] I: test raw=... norm1=...`；若读失败，会输出 `[MAG] W: read fail ...` 和 `addr/id/c1/c2` 诊断。
+- yaw 阻尼证据来自 v1.1：旧 `ShipControl_ApplyYawHoldDamping()` 读取
+  `MainLoop_GetGyroZDps100()`，该快照由 `att->gyro_z_dps100` 更新；当前
+  `ship_control_yaw.c` 继续使用 `gyro_z_dps100`，不是 `gyro_y_dps100`。

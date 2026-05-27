@@ -256,7 +256,6 @@ u8 AutoDrive_GetLastFishSaveResult(void);
  * @param snapshot 输出快照；为 NULL 时直接返回。
  */
 void AutoDrive_GetDebugSnapshot(AutoDrive_DebugSnapshot_t *snapshot);
-
 /**
  * @brief 估算两个旧协议点位之间的距离。
  * @param nowpositionData 当前点位，按 AutoDrive_PointRaw_t 布局解释。

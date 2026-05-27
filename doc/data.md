@@ -3,7 +3,8 @@
 ## 基本信息
 
 - 工程名称：Black Pearl v2.0
-- 来源基线：Black Pearl v1.0 与 STC32G 官方驱动资料
+- 来源基线：Black Pearl v1.1 与 STC32G 官方驱动资料
+- 旧工程路径：`C:\Users\S\Desktop\STC_PROJECT\Black_Pearl_v1.1`
 - 工程目的：移植、解耦、重构
 - 架构级别：EmbedForge Level 1.5
 - Keil 工程：`RVMDK/STC32G-LIB.uvproj`
@@ -110,6 +111,9 @@ main()
   非阻塞周期动作。
 - `App/` 当前已有 `autodrive` GPS 自动驾驶状态机。`0x13/0x14/0x15` 真实分发到
   AutoDrive，返航配置通过服务层持久化，钓点表为会话内 RAM 表。
+- `App/` 中 `app`、`ship_protocol`、`ship_control`、`autodrive` 已拆分为职责明确的
+  多个 `.c` 文件，并通过 `*_internal.h` 共享内部运行态；单个 App `.c/.h`
+  文件保持 300 行以内，便于外包按职责插入逻辑。
 - `BoardDevices/Src/board_sensor_bus.c` 已提供板级 DMA IIC 适配，当前固定：
   - 引脚组：P1.4/P1.5
   - 速度：100 kHz
@@ -119,7 +123,7 @@ main()
   - `QMI8658`：六轴 IMU 寄存器层驱动
   - `QMC6309`、`LT8920`、`KCT8206`：已整理进芯片驱动层，板级绑定按需接入
 - `Components/` 当前已有 `PID` 和 `Filter` 两个纯算法组件，后续继续承接
-  v1.0 算法模块迁移。
+  v1.1 算法模块迁移。
 - 旧版 LOG 模块已迁移为 `ef_uart`、`board_console`、`logger` 三层。
 - `ef_uart`、`ef_iic`、`ef_spi` 已从 `Drivers/` 拆分到 `McuAbstraction/`，
   便于和 STC 官方 SDK 文件分开查找。
@@ -212,13 +216,14 @@ main()
     AutoDrive 尝试返航。
   - 当前协议事件通过 8 深度环形队列暴露给日志、联调或后续观察。
     `ship_protocol_take_event()` 按 FIFO 消费，`ship_protocol_get_event_snapshot()` 只查看最近事件；
-    `App/Src/app.c` 的 `app_ship_event_poll()` 已在主循环中 drain 队列。
+    `App/Src/app_mag_event.c` 的 `app_ship_event_poll()` 已在主循环中 drain 队列。
     真实电机所有权仍在 `ShipControl`，自动驾驶规划仍在 `AutoDrive`，协议层不直接写 `board_motor`
 
 ## 旧无线命令对照表
 
-本表来自 `old/WIRELESS/ship_protocol.h`、`old/WIRELESS/ship_protocol.c`、
-`old/WIRELESS/README.md` 和 `old/AutoDrive/autodrive.c` 的分发链路。
+本表来自 v1.1 旧工程
+`Code_boweny/Device/WIRELESS/ship_protocol.c`、`Code_boweny/Device/WIRELESS/README.md`
+和 `Code_boweny/Device/AutoDrive/autodrive.c` 的分发链路。
 
 | Cmd | 旧名 | 方向 | payload | 当前状态机入口 | 当前动作 |
 |-----|------|------|---------|----------------|----------|
@@ -298,6 +303,11 @@ main()
   轴量程 `60`、yaw 差速限幅 `320 permille`、降额阈值 `1000/2000 cd`、
   gyro 阻尼 `4096`、PID `KP=384/KI=0/KD=96`。手动 yaw 自稳进入条件也按
   v1.1 恢复为“左右电机差速低于当前输入的 `20%`，并连续稳定 2 帧”。
+- yaw 阻尼轴向证据来自旧工程：
+  `Code_boweny/Device/Control/ShipControl.c::ShipControl_ApplyYawHoldDamping()`
+  调用 `User/MainLoop.c::MainLoop_GetGyroZDps100()`；该快照由
+  `att->gyro_z_dps100` 更新。因此当前 `App/Src/ship_control_yaw.c`
+  继续使用 `gyro_z_dps100`，不是 `gyro_y_dps100`。
 - 任意合法旧协议帧分发后都会在旧工作 RX 信道回发旧格式 `GPS_REPORT(0x12)`；船端还会在同一工作信道主动发送 `AUTODRIVE_DIAG(0x16)` 供调试观察。
 - 电源等级通过当前板子的 `P0.0 / ADC_CH8` 转成旧协议 `0..4` 等级。`bat_mv` 仍未按真实分压电阻标定，因此仅作为工程诊断值。
   电源采样仍约 `1000 ms` 更新一次，常规 ADC 日志按 `SHIP_POWER_LOG_PERIOD_MS=10000 ms` 节流。
@@ -331,11 +341,11 @@ main()
   - RXEN：P1.3
   - TXEN：P5.4
 - `RVMDK/STC32G-LIB.uvproj` 已加入：
-  - `App/Src/ship_protocol.c`
+  - `App/Src/ship_protocol*.c`
   - `App/Inc/ship_protocol.h`
-  - `App/Src/ship_control.c`
+  - `App/Src/ship_control*.c`
   - `App/Inc/ship_control.h`
-  - `App/Src/autodrive.c`
+  - `App/Src/autodrive*.c`
   - `App/Inc/autodrive.h`
   - `App/Src/autodrive_config.c`
   - `App/Inc/autodrive_config.h`
@@ -454,7 +464,7 @@ Public API documentation checkpoint:
 
 ## 2026-05 GNSS and 0x12 full-field alignment record
 
-Current `0x12` status/GPS payload alignment in `App/Src/ship_protocol.c`:
+Current `0x12` status/GPS payload alignment in `App/Src/ship_protocol_tx.c`:
 
 - `payload[0]`: `satellites_used_gsa` first, fallback `satellites_used`, clamp `<= 24`
 - `payload[1..2]`: `(course_deg_x100 / 100) % 360`, big-endian
@@ -486,7 +496,7 @@ Current board-side ADC facts:
 - ADC channel used by the current board: `ADC_CH8`
 - Old-board historical channel: `ADC_CH9`
 - Current hardware owner: `BoardDevices/Src/board_power.c`
-- App read point: `board_power_read()` in `App/Src/ship_protocol.c`
+- App read point: `board_power_read()` in `App/Src/ship_protocol_power.c`
 
 Current runtime sampling chain:
 

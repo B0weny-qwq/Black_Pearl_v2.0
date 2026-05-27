@@ -15,6 +15,83 @@ Keil 工程以及芯片资料对应。
   函数。
 - 为板级设备 API、纯算法组件和后续 YAML 生成接口预留稳定位置。
 
+## 外包对接指南
+
+本工程按 `App -> BoardDevices -> McuAbstraction/ChipDrivers/Drivers` 和
+`App -> Components` 分层。外包人员新增业务时先确认改动属于哪一层：
+
+- 只改按键动作、状态联动、LED 闪烁节奏、提示逻辑：改 `App/Src/app_extension.c`。
+- 新增真实硬件，例如 LED、蜂鸣器、舵机：先在 `BoardDevices/` 增加 `board_xxx` API，再由 `app_extension.c` 调用。
+- 改电机控制策略：改 `App/Src/ship_control.c`，最终输出仍必须走 `board_motor_set_both_speed()`。
+- 改无线协议、按键语义、GPS 回包：改 `App/Src/ship_protocol.c`。
+- 改返航、钓点、GPS 定点逻辑：改 `App/Src/autodrive.c`。
+- 改 AHRS、滤波、PID、航向算法：改 `Components/`，不要访问硬件。
+
+### 保留的扩展 API
+
+外包插入点固定在 `App/Inc/app_extension.h` 和 `App/Src/app_extension.c`：
+
+- `app_extension_init()`：扩展状态初始化。
+- `app_extension_poll(now_ms)`：主循环轮询，定时动作必须用 `now_ms` 非阻塞驱动。
+- `app_extension_on_ship_event(event)`：协议事件观察回调，按键、返航、钓点、电量、SPI-PS 事件都会经过这里。
+
+例子：后续要做“按 A 键 LED 闪烁”，不要在 `ship_protocol.c` 或 `app.c` 里直接写引脚。
+正确路径是：
+
+```text
+BoardDevices/Inc/board_led.h
+BoardDevices/Src/board_led.c
+  -> board_led_init()
+  -> board_led_set()
+
+App/Src/app.c
+  -> bring-up 阶段调用 board_led_init()
+
+App/Src/app_extension.c
+  -> app_extension_on_ship_event() 识别 SHIP_PROTOCOL_KEY_A_LIGHT
+  -> app_extension_poll(now_ms) 按时间翻转 board_led_set()
+```
+
+### 上位机卡片到底层链路
+
+当前上位机入口是 `tools/ship_log_viewer/ship_log_viewer.html`。每张卡片的数据源如下：
+
+| 卡片 | 固件日志 | App 源头 | 底层来源 |
+| --- | --- | --- | --- |
+| 控制模式 | `[CTRL] I: event=mode old=... new=...` | `ShipControl_LogModeEvent()` | `ShipControl_SetMode()` |
+| 电机输出 | `[CTRL] I: out m=... mo=... th=... base=... st=... df=... l=... r=...` | `ShipControl_LogMotorOutput()` | `board_motor_set_both_speed()` |
+| 角度闭环 | 同上，模式 `MANUAL_YAW_HOLD/CRUISE_HEADING_HOLD/GPS_NAV_HEADING_HOLD` | `ShipControl_ApplyYawHoldTargetEx()` | `app_get_heading_*()` + `PID` |
+| 遥控输入 | `[SHIP] I: rc cmd=0x11 lr=... ud=...` | `ship_protocol_handle_throttle()` | `board_wireless_receive()` |
+| 按键状态 | `[SHIP] I: key edge key=...`、`[EVT] I: key/act ...` | `ship_protocol_handle_key_edge()`、`app_dispatch_ship_event()` | 0x11 payload key 字节 |
+| 电量采样 | `[SHIP] I: adc raw=... mv=... bat=... p=...` | `ship_protocol_log_power_sample()` | `board_power_read()` |
+| AHRS R/P/Y | `[AHRS] I: rpy=... gy=... flg=...` | `app_ahrs_log()` | `board_imu_read()` + `AHRS_UpdateRaw6Axis()` |
+| 地磁数据 | `[MAG] I: raw=... norm=... yaw=... self=...` | `app_ahrs_log()` | `board_mag_read()` + `MagCompass_Update()` |
+| 船头朝向/HDG | `[HDG] I: abs=... rel=... mag=...` | `app_ahrs_log()` | `Heading_Update()` |
+| GPS 状态回包 | `[SHIP] I: tx cmd=12 ...`、`0x12` payload | `ship_protocol_build_gps_payload()` | `board_gps_get_state()` |
+| AutoDrive | `[SHIP] I: tx16 st=... md=...`、`0x13/0x14/0x15` 日志 | `AutoDrive_GetDebugSnapshot()`、`AutoDrive_*Raw()` | `board_gps_get_state()` + `ShipControl_RequestGps*()` |
+
+扩展到页面全部显示项的追踪关系如下：
+
+| 页面显示项 | 日志/事件来源 | 底层追踪 |
+| --- | --- | --- |
+| 配对状态 | `pair req sent`、`pair ok ...`、`enter work-state` | `ship_protocol_try_pair_send()` / `ship_protocol_handle_pair_rsp()` -> `board_wireless_*()` |
+| 遥控链路 | `rc cmd=0x11`、`remote timeout`、完整 AA...BB 帧 | `ship_protocol_poll_rx_frames()` -> `board_wireless_receive()` |
+| 动作 / 巡航 | `rc cmd=0x11`、`cruise enter/exit`、`CTRL out` | `ship_protocol_handle_throttle()` -> `ShipControl_UpdateManualInput()` |
+| 自稳定状态 | `CTRL out` 的 v2 模式 `5/6/7` | `ShipControl_ApplyYawHoldTargetEx()` -> `Heading_Update()` |
+| 状态回包 | `tx cmd=12 ch=... len=...` | `ship_protocol_send_gps_once()` -> `board_wireless_send_on_channel()` |
+| 定位有效 | `gps state fix=...` 或 `gps12 ... fix=...` | `board_gps_get_state()` -> `gnss_nmea` |
+| 卫星数 | `gps sat source ...`、`gps12 ... sat=...` | `board_gps_get_state()` |
+| 经度/纬度 | `gps state lon=... lat=...`、`gps12 ... lon=... lat=...` | `gnss_nmea` legacy/deg1e7 字段 |
+| 航向角 | `gps state angle=...`、`0x12 angle` | `board_gps_get_state()->course_deg_x100` |
+| 最近 0x12 | `tx cmd=12`、`gps12 ...` | `ship_protocol_build_gps_payload()` |
+| 遥控器旧格式 | `gps payload oldfmt`、`gps payload bytes`、`0x12` payload | `ship_protocol_to_legacy_nmea_coord()` |
+| 返航点 | `0x13 ret`、`coord return-home` | `AutoDrive_SetReturnPositionRaw()` |
+| 目标点 | `0x14 fish`、`0x14 rx ... save/nav` | `AutoDrive_SetFishPositionRaw()` |
+| 返航开关 | `0x15 sw=...` | `AutoDrive_SetSwitchRaw()` -> `parameter_store` |
+| 告警 / 错误 | `[... ] W/E: ...` | 对应模块日志，硬件问题继续追 BoardDevices |
+
+如果上位机某张卡片为空，先看对应日志是否出现，再沿表格向下追到底层 API。
+
 ## 当前状态
 
 - Keil 工程：`RVMDK/STC32G-LIB.uvproj`
@@ -33,6 +110,7 @@ Keil 工程以及芯片资料对应。
 - 板级存储：`BoardDevices/Src/board_storage.c`，当前隐藏 STC EEPROM/IAP 细节，供服务层保存少量配置。
 - 参数服务：`Services/Src/parameter_store.c`，当前通过 `board_storage` 保存 AutoDrive 返航开关和返航点配置。
 - 船端协议状态机：`App/Src/ship_protocol.c`，当前接入无线配对、旧帧截取、`0x11/0x13/0x14/0x15` 分发、事件快照队列、`0x12` GPS/status 回包和 `0x16` AutoDrive 诊断上报。
+- App 扩展入口：`App/Src/app_extension.c`，当前保留按键/事件回调和主循环轮询插入点，供外包追加 LED 闪烁等业务。
 - 应用运行档位：`App/Inc/app_config.h`，集中保存从 v1.1 迁移来的手动控制、yaw 自稳、协议配对和电源日志节流参数。
 - 船体控制状态机：`App/Src/ship_control.c`，当前拥有电机输出控制权，负责手动开环/航向保持、E 键巡航、GPS 对齐/导航输出和超时停机。
 - GPS AutoDrive 状态机：`App/Src/autodrive.c`，当前负责返航、去定点、对齐阶段、钓点表、配置加载保存和诊断快照。
@@ -135,6 +213,7 @@ main()
         -> ship_protocol_init()
         -> board_spi_ps_init()
         -> board_motor_init()
+        -> app_extension_init()
   -> loop
      -> platform_scheduler_run()
      -> app_loop()
@@ -143,6 +222,8 @@ main()
         -> ship_protocol_run_scheduler()
         -> board_wireless_search_signal_poll()
         -> app_spi_ps_poll()
+        -> app_ship_event_poll()
+        -> app_extension_poll()
         -> app_ahrs_poll()
         -> board_motor_service()
 ```

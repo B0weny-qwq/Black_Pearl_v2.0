@@ -82,7 +82,8 @@
 #define SHIP_POWER_SAMPLE_DIVIDER        100U
 #define SHIP_POWER_LOG_PERIOD_MS         10000UL
 #define SHIP_ADC_LOG_ENABLE              1
-#define SHIP_CONTROL_LOG_ENABLE          0U
+/* 上位机“控制模式/电机输出/角度闭环”卡片依赖 [CTRL] out 日志。 */
+#define SHIP_CONTROL_LOG_ENABLE          1U
 /** @} */
 
 #endif

@@ -6,6 +6,7 @@
 
 static AutoDrive_ReturnConfig_t autodrive_cfg_cache;
 
+/* 持久化格式固定 11 字节，和 0x15 返回开关/返航点 payload 保持一致。 */
 static void AutoDriveCfg_Default(AutoDrive_ReturnConfig_t *cfg)
 {
     if (cfg == 0) {
@@ -68,6 +69,7 @@ void AutoDriveCfg_Init(void)
     AutoDriveCfg_Default(&autodrive_cfg_cache);
 }
 
+/* 配置服务只经过 parameter_store，App 不直接访问 EEPROM/IAP。 */
 void AutoDriveCfg_Load(AutoDrive_ReturnConfig_t *cfg)
 {
     u8 buf[AUTODRIVE_CFG_WIRE_LEN];

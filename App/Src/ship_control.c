@@ -71,6 +71,7 @@ static ShipControl_Runtime_t ship_ctrl;
 static PID_Controller_t ship_ctrl_yaw_pid;
 static PID_Controller_t ship_ctrl_align_pid;
 
+/* 基础限幅和角度规整：所有电机输出在进入 BoardDevices 前都先走这里。 */
 static int16 ShipControl_LimitSpeed(int16 speed)
 {
     if (speed > SHIP_MOTOR_OUTPUT_MAX_COMMAND) {
@@ -131,11 +132,12 @@ static u8 ShipControl_YawHoldGateStable(void)
     return 1U;
 }
 
+/* 状态跳变日志：用于上位机控制模式卡片和现场判断停机原因。 */
 #if (SHIP_CONTROL_LOG_ENABLE != 0U)
 static void ShipControl_LogModeEvent(u8 old_mode, u8 new_mode, u8 reason)
 {
     LOGI(SHIP_CONTROL_TAG,
-         "ev %u>%u r=%u y=%u t=%u",
+         "event=mode old=%u new=%u reason=%u yaw=%u tgt=%u",
          (u16)old_mode,
          (u16)new_mode,
          (u16)reason,
@@ -164,6 +166,7 @@ static void ShipControl_SetMode(u8 mode)
     }
 }
 
+/* 电机输出日志：这里是上位机“电机输出”卡片追到底层 board_motor 的唯一 App 源头。 */
 #if (SHIP_CONTROL_LOG_ENABLE != 0U)
 static void ShipControl_LogMotorOutput(u8 force)
 {
@@ -186,10 +189,12 @@ static void ShipControl_LogMotorOutput(u8 force)
     ship_ctrl.motor_last_log_motion = (u8)ship_ctrl.motion;
 
     LOGI(SHIP_CONTROL_TAG,
-         "out m=%u mo=%u b=%d d=%d l=%d r=%d",
+         "out m=%u mo=%u th=%d base=%d st=%d df=%d l=%d r=%d",
          (u16)ship_ctrl.mode,
          (u16)ship_ctrl.motion,
+         ship_ctrl.throttle_speed,
          ship_ctrl.base_speed,
+         ship_ctrl.steering_speed,
          ship_ctrl.yaw_diff_speed,
          ship_ctrl.left_speed,
          ship_ctrl.right_speed);
@@ -202,6 +207,7 @@ static void ShipControl_SetMotorTargets(int16 left_speed, int16 right_speed)
 {
     ship_ctrl.left_speed = ShipControl_LimitSpeed(left_speed);
     ship_ctrl.right_speed = ShipControl_LimitSpeed(right_speed);
+    /* 最终电机写入点：App 不碰 PWM/引脚，只调用 BoardDevices。 */
     (void)board_motor_set_both_speed(ship_ctrl.left_speed, ship_ctrl.right_speed);
     ShipControl_LogMotorOutput(0U);
 }
@@ -270,6 +276,7 @@ static int16 ShipControl_ApplyAxisCurve(int16 value,
     return (int16)(sign * (int16)command);
 }
 
+/* 手动摇杆链路：原始 0x11 轴值 -> 滤波 -> 死区/曲线 -> 左右电机差速。 */
 static int16 ShipControl_ThrottleToSignedSpeed(int16 value)
 {
     return ShipControl_ApplyAxisCurve(value,
@@ -489,6 +496,7 @@ static int16 ShipControl_YawControlToSpeed(int16 yaw_control, int16 base_speed)
     return ShipControl_LimitSpeed((int16)yaw_speed);
 }
 
+/* 航向闭环链路：目标航向和 app_get_heading_* 快照 -> PID/阻尼/限幅 -> 左右电机。 */
 static u8 ShipControl_ApplyYawHoldTargetEx(u16 target_heading_cd,
                                            int16 base_speed,
                                            u8 mode,
@@ -591,6 +599,7 @@ static u8 ShipControl_ApplyYawHoldTargetEx(u16 target_heading_cd,
     return 1U;
 }
 
+/* 开环差速：只有手动摇杆明显转向或 AHRS 航向不可用时使用。 */
 static void ShipControl_ApplyOpenLoop(ShipControl_Motion_t motion,
                                       int16 left_speed,
                                       int16 right_speed,
@@ -613,6 +622,7 @@ static void ShipControl_ApplyOpenLoop(ShipControl_Motion_t motion,
     ShipControl_SetMotorTargets(left_speed, right_speed);
 }
 
+/* 手动控制入口：普通开环、直线 yaw 自稳、摇杆回中停机都在这里判定。 */
 static void ShipControl_ApplyManualControl(void)
 {
     int16 throttle_speed;

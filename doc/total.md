@@ -36,6 +36,10 @@ Black_Pearl_v2.0/
 │   └── Src/
 ├── Startup/
 ├── RVMDK/
+├── tools/
+│   ├── checks/
+│   ├── ship_log_viewer/
+│   └── ship_packet_builder/
 ├── .codex/
 │   └── skills/
 │       └── embedforge-project-standards/
@@ -53,14 +57,18 @@ Black_Pearl_v2.0/
 - 当前 `app_init()` 已接入 `board_console_init()`、`log_init()`、
   `board_gps_init()`、`board_imu_init()`、`board_mag_init()`、`board_power_init()`、
   `board_wireless_init()`、`ship_protocol_init()`、`board_spi_ps_init()` 和
-  `board_motor_init()`；
+  `board_motor_init()`，随后调用 `app_extension_init()`；
   `app_loop()` 当前周期调用 `board_gps_poll()`、
   `board_wireless_poll()`、`ship_protocol_run_scheduler()`、`board_wireless_search_signal_poll()`
-  、`app_spi_ps_poll()`、`app_ahrs_poll()` 和 `board_motor_service()`。
+  、`app_spi_ps_poll()`、`app_ship_event_poll()`、`app_extension_poll()`、
+  `app_ahrs_poll()` 和 `board_motor_service()`。
 - 当前已有 `ship_protocol`、`ship_control`、`autodrive` 三个 App 状态机：
   协议负责收发和分发，控制负责电机所有权，AutoDrive 负责 GPS 返航/去点规划。
+- 当前已有 `app_extension` 外包扩展入口，按键联动、LED 闪烁等二次业务优先放在
+  `App/Src/app_extension.c`，新硬件仍必须先经 `BoardDevices/` 暴露 API。
 - `App/Inc/app_config.h` 是当前应用运行档位入口，集中保存 v1.1 迁移来的手动控制、
-  yaw 自稳、协议节拍和电源日志节流参数。
+  yaw 自稳、协议节拍和电源日志节流参数；`SHIP_CONTROL_LOG_ENABLE` 当前开启，
+  供上位机控制模式和电机输出卡片取数。
 - 不应依赖 STC vendor 头文件、裸寄存器或裸端口。
 
 `Platform/`
@@ -133,6 +141,13 @@ Black_Pearl_v2.0/
   `Components`、`ChipDrivers`、`McuAbstraction`、`Services`、`Drivers`、
   `Drivers_ISR`、`Drivers_LIB`。
 
+`tools/`
+
+- 保存上位机、造包和本地检查工具。
+- `tools/ship_log_viewer/` 是当前日志上位机源码位置，解析 `[CTRL]`、`[SHIP]`、
+  `[AHRS]`、`[MAG]`、`[HDG]` 等日志卡片。
+- `tools/checks/` 保存分层边界检查脚本。
+
 `.codex/skills/embedforge-project-standards/`
 
 - 保存项目内自带的 EmbedForge 工程规范副本。
@@ -194,12 +209,15 @@ app_init()
   -> ship_protocol_init()
   -> board_spi_ps_init()
   -> board_motor_init()
+  -> app_extension_init()
 app_loop()
   -> board_gps_poll()
   -> board_wireless_poll()
   -> ship_protocol_run_scheduler()
   -> board_wireless_search_signal_poll()
   -> app_spi_ps_poll()
+  -> app_ship_event_poll()
+  -> app_extension_poll()
   -> app_ahrs_poll()
   -> board_motor_service()
 ```
@@ -207,6 +225,21 @@ app_loop()
 `App/` 可以调用日志宏，但不能直接初始化 UART，也不能包含 `STC32G_UART.h`。
 设备 bring-up 本身不依赖日志初始化；若 `board_console_init()` 失败，只是日志被丢弃，
 不会阻止 IMU、磁力计和无线链路继续初始化。
+
+### 上位机日志链路
+
+当前日志上位机每张卡片都对应明确固件日志和底层来源：
+
+| 卡片 | 固件日志 | 源头 |
+|------|----------|------|
+| 控制模式 | `[CTRL] I: event=mode old=... new=...` | `ShipControl_LogModeEvent()` |
+| 电机输出 | `[CTRL] I: out m=... mo=... th=... base=... st=... df=... l=... r=...` | `ShipControl_LogMotorOutput()` -> `board_motor_set_both_speed()` |
+| 电量采样 | `[SHIP] I: adc raw=... mv=... bat=... p=...` | `ship_protocol_log_power_sample()` -> `board_power_read()` |
+| AHRS | `[AHRS] I: rpy=... gy=... flg=...` | `app_ahrs_log()` -> `board_imu_read()` |
+| 地磁 | `[MAG] I: raw=... norm=... yaw=... self=...` | `app_ahrs_log()` -> `board_mag_read()` |
+| 航向 | `[HDG] I: abs=... rel=... mag=...` | `Heading_Update()` 快照 |
+| 遥控 | `[SHIP] I: rc cmd=0x11 ...` | `ship_protocol_handle_throttle()` -> `board_wireless_receive()` |
+| GPS/AutoDrive | `[SHIP] I: tx16 ...`、`0x13/0x14/0x15` | `AutoDrive_GetDebugSnapshot()` / `AutoDrive_*Raw()` |
 
 ### 传感器总线、QMI8658/QMC6309/LT8920 与滤波
 

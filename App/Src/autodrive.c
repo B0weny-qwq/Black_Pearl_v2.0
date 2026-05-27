@@ -66,6 +66,7 @@ static u32 last_poll_tick_ms = 0UL;
 static u32 last_link_tick_ms = 0UL;
 static u8 last_diag_reason = AUTODRIVE_DIAG_REASON_NONE;
 
+/* 旧坐标格式工具：0x13/0x14/0x15 使用 E/W + ddmm.mmmm 的历史线格式。 */
 static u16 AutoDrive_ReadU16Wire(const u8 *data_m)
 {
     return (u16)(((u16)data_m[0] << 8) | data_m[1]);
@@ -338,6 +339,7 @@ static void AutoDrive_SetDiagReason(u8 reason)
     last_diag_reason = reason;
 }
 
+/* 对准阶段判定：先原地对准目标航向，再进入前进闭环，避免刚启动就大偏航前冲。 */
 static void AutoDrive_ResetApproachTracker(void)
 {
     autodrive_base_speed = AUTODRIVE_CRUISE_BASE_SPEED;
@@ -538,6 +540,7 @@ static u8 AutoDrive_UpdateTargetHeading(const AutoDrive_PointRaw_t *current_poin
     return 1U;
 }
 
+/* ShipControl 适配点：AutoDrive 不直接写电机，只请求 GPS 对准/航向保持。 */
 static u8 AutoDrive_ApplyHeadingHold(u16 base_speed)
 {
     if ((autodrive_target_heading_valid == 0U) ||
@@ -609,6 +612,7 @@ u8 AutoDrive_IsBusy(void)
     return (autodrive_state != AUTO_DRIVE_IDLE) ? 1U : 0U;
 }
 
+/* 外部命令入口：来自 0x13/0x14/0x15 的目标点在这里完成合法性、距离和状态检查。 */
 u8 AutoDrive_IsCanActive(const AutoDrive_PointRaw_t *point)
 {
     AutoDrive_PointRaw_t current_point;
@@ -820,6 +824,7 @@ u8 AutoDrive_GetLastFishSaveResult(void)
     return last_fish_save_result;
 }
 
+/* 平面距离/方位估算：保留旧工程的分钟制整数算法，避免在 8051 侧引入重浮点计算。 */
 u8 AutoDrive_GetDirectionNowToDestination(const u8 *nowpositionData,
                                           const u8 *despositionData)
 {
@@ -1172,6 +1177,7 @@ void AutoDrive_Init(void)
     AutoDrive_StopMotion();
 }
 
+/* 链路保活：遥控帧持续到达则维持手动/自动安全状态，断链后按配置触发返航。 */
 void AutoDrive_LinkAliveKick(void)
 {
     link_alive_ticks = 0U;
@@ -1203,6 +1209,7 @@ void AutoDrive_LinkAliveTick(void)
     }
 }
 
+/* AutoDrive 状态机：START -> ALIGN -> RUN，输出只通过 ShipControl_RequestGps*。 */
 void AutoDrive_Poll(void)
 {
     const board_gps_state_t *gps;

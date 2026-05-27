@@ -1,0 +1,44 @@
+# App 层说明
+
+`App/` 是整船业务逻辑层，只编排状态机、协议、姿态航向、自动驾驶和扩展回调。这里可以调用 `BoardDevices/`、`Components/`、`Services/` 的公开 API，但不能直接包含 STC 寄存器头文件、裸引脚宏或官方外设驱动。
+
+## 目录
+
+- `Inc/`：App 对外接口、运行档位、协议结构和控制状态机头文件。
+- `Src/app.c`：设备 bring-up、主循环调度、AHRS/MAG/Heading 融合、协议事件分发。
+- `Src/app_extension.c`：外包二次业务唯一预留入口。按键触发 LED 闪烁、蜂鸣器提示、现场联动逻辑优先写这里。
+- `Src/ship_protocol.c`：旧无线协议 `0x10/0x11/0x12/0x13/0x14/0x15/0x16`，负责解帧、配对、GPS 回包、电量事件和命令分发。
+- `Src/ship_control.c`：船体运动控制，最终电机输出统一从这里进入 `board_motor_set_both_speed()`。
+- `Src/autodrive.c`：GPS 返航、钓点、对准和定点航向保持状态机。
+- `Src/autodrive_config.c`：AutoDrive 配置持久化适配，底层只经过 `parameter_store`。
+- `Src/main.c`：平台初始化和 App 调度入口，不放业务。
+
+## 外包改动入口
+
+新增业务优先改 `App/Src/app_extension.c`：
+
+- `app_extension_init()`：初始化扩展状态。
+- `app_extension_poll(now_ms)`：主循环轮询，定时动作在这里用 `now_ms` 驱动。
+- `app_extension_on_ship_event(event)`：观察协议事件，适合按键触发逻辑。
+
+示例：要做“A 键 LED 闪烁”，先在 `BoardDevices/` 增加 `board_led_set()` 或 `board_led_toggle()`，再在 `app_extension_on_ship_event()` 里识别 `SHIP_PROTOCOL_EVENT_KEY_EDGE` 和 `SHIP_PROTOCOL_KEY_A_LIGHT`，记录闪烁状态，最后在 `app_extension_poll()` 中按时间翻转 LED。
+
+## 禁止事项
+
+- 不在 `App/` 里 include `STC32G_*.h`、`config.h`、`stc32g.h`。
+- 不在 `App/` 里直接写 `P0/P1/P2/P3`、PWM 寄存器、ADC 寄存器。
+- 不在协议回调里长延时或阻塞等待。
+- 不绕过 `ShipControl` 直接写电机。
+
+## 上位机卡片来源
+
+| 上位机卡片 | 固件日志 | App 源头 | 底层来源 |
+| --- | --- | --- | --- |
+| 控制模式 | `[CTRL] I: event=mode ...` | `ShipControl_LogModeEvent()` | `ShipControl_SetMode()` |
+| 电机输出 | `[CTRL] I: out m=... l=... r=...` | `ShipControl_LogMotorOutput()` | `board_motor_set_both_speed()` |
+| 电量 | `[SHIP] I: adc raw=... bat=... p=...` | `ship_protocol_log_power_sample()` | `board_power_read()` |
+| AHRS R/P/Y 与 gyro | `[AHRS] I: rpy=... gy=... flg=...` | `app_ahrs_log()` | `board_imu_read()` + `AHRS_UpdateRaw6Axis()` |
+| 磁力计 | `[MAG] I: raw=... norm=... yaw=...` | `app_ahrs_log()` | `board_mag_read()` + `MagCompass_Update()` |
+| 航向调试 | `[HDG] I: abs=... rel=...` | `app_ahrs_log()` | `Heading_Update()` |
+| 遥控输入 | `[SHIP] I: rc cmd=0x11 ...` | `ship_protocol_handle_throttle()` | `board_wireless_receive()` |
+| GPS/AutoDrive | `[SHIP] I: tx16 ...`、`[SHIP] I: 0x13/0x14/0x15 ...` | `ship_protocol_*()`、`AutoDrive_*()` | `board_gps_get_state()` |

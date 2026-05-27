@@ -70,6 +70,7 @@ main()
       -> ship_protocol_init()
       -> board_spi_ps_init()
       -> board_motor_init()
+      -> app_extension_init()
   -> loop:
       -> platform_scheduler_run()
       -> app_loop()
@@ -78,6 +79,8 @@ main()
           -> ship_protocol_run_scheduler()
           -> board_wireless_search_signal_poll()
           -> app_spi_ps_poll()
+          -> app_ship_event_poll()
+          -> app_extension_poll()
           -> app_ahrs_poll()
           -> board_motor_service()
 ```
@@ -102,6 +105,9 @@ main()
   和 `throttle_online`。
 - `App/` 当前已有 `ship_control` 船体控制状态机。所有手动、电机停机、E 键巡航、
   GPS 对齐和 GPS 导航输出都统一通过 `ShipControl_*` 写入 `board_motor`。
+- `App/` 当前已有 `app_extension` 外包扩展入口。`app_extension_on_ship_event()`
+  观察按键、返航、钓点、电量和 SPI-PS 事件；`app_extension_poll()` 保留给 LED 闪烁等
+  非阻塞周期动作。
 - `App/` 当前已有 `autodrive` GPS 自动驾驶状态机。`0x13/0x14/0x15` 真实分发到
   AutoDrive，返航配置通过服务层持久化，钓点表为会话内 RAM 表。
 - `BoardDevices/Src/board_sensor_bus.c` 已提供板级 DMA IIC 适配，当前固定：
@@ -265,6 +271,15 @@ main()
 | 协议事件消费 | `[EVT] ...` | `app_ship_event_poll()` 从 `ship_protocol_take_event()` FIFO drain 事件；高频 throttle/power sample 默认不额外刷日志 |
 | SPI-PS RX | `SPI-PS init ok` / `disabled shared SPI` | SPI-PS 初始化成功后，`app_loop()` 轮询 RX 完整帧并发布 `SPI_PS_FRAME_RX`；当前生成配置默认禁用，且共用 SPI 护栏会阻止误启用 |
 | 链路异常 | `timeout` / `bad xor` / `queue full` | 用于确认超时、CRC/XOR 拒包和 RF payload 队列溢出 |
+
+当前上位机卡片直接适配这些 v2 日志：
+
+- 控制模式：`[CTRL] I: event=mode old=... new=... reason=... yaw=... tgt=...`
+- 电机输出：`[CTRL] I: out m=... mo=... th=... base=... st=... df=... l=... r=...`
+- 电量采样：`[SHIP] I: adc raw=... mv=... bat=... p=...`
+- AHRS：`[AHRS] I: rpy=... gy=... flg=0x..`
+- 地磁：`[MAG] I: raw=... norm=... yaw=... self=...`
+- 航向：`[HDG] I: abs=... rel=... mag=... rdy=... st=... set=... err=... pred=...`
 
 这些日志属于 `Services/logger` 诊断输出。`App/` 可以调用日志宏，但无线硬件访问仍必须通过
 `BoardDevices/`，不得在协议层引入 STC 寄存器头、裸 GPIO 或官方驱动 API。

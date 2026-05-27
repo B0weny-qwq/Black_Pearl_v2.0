@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- 2026-05-27 outsourcing handoff and host-viewer traceability:
+  - Added `App/Inc/app_extension.h` and `App/Src/app_extension.c` as the stable App-layer extension point for future outsourced key actions, LED blinking and non-blocking event-driven additions.
+  - Wired `app_extension_init()`, `app_extension_poll()` and `app_extension_on_ship_event()` into the App bring-up, main loop and protocol-event drain path.
+  - Re-enabled `SHIP_CONTROL_LOG_ENABLE` and changed the control output log to the viewer-compatible `CTRL out m/mo/th/base/st/df/l/r` format.
+  - Changed control mode logs to the explicit `event=mode old=... new=... reason=... yaw=... tgt=...` format so the host viewer can label v2 modes correctly.
+  - Added low-rate `[MAG] raw=... norm=... yaw=... self=...` output and allowed `[AHRS]`/`[HDG]` logs before heading seed completes, so AHRS, gyro, flags, MAG and HDG cards no longer stay blank during magnetometer settling.
+  - Forced an initial power-sample log after protocol initialization so the power card has a startup data source.
+  - Updated `tools/ship_log_viewer` mode mapping for the current v2 `ShipControl_Mode_t` enum.
+  - Added README files for the main source folders and their `Inc`/`Src` subfolders, plus tool/doc/startup/project directories, to make the outsourcing boundary visible from every code folder.
+  - Updated root README, `doc/total.md`, `doc/data.md` and `tools/ship_log_viewer/README.md` with card-to-firmware-to-bottom-layer traceability and the integration workflow.
+
 - 2026-05-27 protocol cadence and v1.1 compatibility follow-up:
   - Added `App/Inc/app_config.h` as the centralized v1.1 runtime profile for manual-control, yaw-hold, pairing cadence and power-log throttling values.
   - Aligned `ship_control` tuning with the current v1.1 profile: RC axis range `60`, yaw diff limit `320 permille`, derate thresholds `1000/2000 cd`, gyro damping `4096`, and PID `384/0/96`.

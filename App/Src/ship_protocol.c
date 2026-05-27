@@ -131,6 +131,7 @@ static void ship_protocol_event_queue_reset(void);
 static void ship_protocol_event_queue_push(const ship_protocol_event_snapshot_t *event);
 static void ship_protocol_clear_point_event(void);
 
+/* 旧遥控帧格式工具：所有 0x10..0x16 的组包/拆包都保持 AA len cmd payload xor BB。 */
 static u8 ship_protocol_xor(const u8 *buf, u8 len)
 {
     u8 i;
@@ -311,6 +312,7 @@ static void ship_protocol_to_legacy_nmea_coord(u32 abs_deg1e7, u16 *coord1, u16 
     *coord2 = (u16)(minutes_scaled1e4 % 10000UL);
 }
 
+/* 电源链路：BoardDevices 采样 -> 0..4 旧电量等级 -> 日志/事件/0x12 payload[13]。 */
 static void ship_protocol_power_init(void)
 {
     ship_protocol_rt.power_adc_ready =
@@ -450,6 +452,7 @@ static u8 ship_protocol_get_autodrive_status(void)
     return AutoDrive_InActive();
 }
 
+/* 0x12 兼容回包：GPS、离散电量和 AutoDrive 状态集中从这里发给旧上位机/遥控器。 */
 static void ship_protocol_build_gps_payload(u8 *payload)
 {
     const board_gps_state_t *gps;
@@ -696,6 +699,7 @@ static int8 ship_protocol_apply_work_rx(void)
     return ret;
 }
 
+/* 配对与工作信道：派生 seed/key/channel，但硬件收发仍走 board_wireless。 */
 static int8 ship_protocol_try_pair_send(u16 left_after_send)
 {
     u8 pair_xor;
@@ -987,6 +991,7 @@ static void ship_protocol_log_goto_point(const u8 *frame,
     }
 }
 
+/* 0x11 按键语义分发：A/E 兼容旧行为，B/C/D 只发事件，留给 app_extension 追加业务。 */
 static void ship_protocol_handle_key_edge(u8 key)
 {
     const char *name;
@@ -1132,6 +1137,7 @@ static void ship_protocol_handle_pair_rsp(const u8 *payload, u8 payload_len)
     }
 }
 
+/* 0x11 摇杆主入口：协议解析、启动保护、巡航退出和 ShipControl 手动输入都在这里汇合。 */
 static void ship_protocol_handle_throttle(const u8 *payload, u8 payload_len)
 {
     u32 now_ms;
@@ -1223,6 +1229,7 @@ static void ship_protocol_handle_throttle(const u8 *payload, u8 payload_len)
     AutoDrive_LinkAliveKick();
 }
 
+/* 0x13/0x14/0x15 自动驾驶入口：协议层只解帧和发事件，路径计算交给 AutoDrive。 */
 static void ship_protocol_handle_return_home(const u8 *payload, u8 payload_len)
 {
     if ((payload == 0) || (payload_len < SHIP_PROTOCOL_POINT_PAYLOAD_LEN)) {
@@ -1682,6 +1689,7 @@ void ship_protocol_init(void)
     ShipControl_Init();
     AutoDrive_Init();
     ship_protocol_initialized = 1U;
+    ship_protocol_log_power_sample(&ship_protocol_rt.power_sample, 1U);
 
     LOGI(SHIP_TAG, "scheduler init wait=%u pair=%u ch=%02X seed=%02X%02X%02X%02X",
          (u16)ship_protocol_rt.wait_ticks,
@@ -1693,6 +1701,7 @@ void ship_protocol_init(void)
          (u16)seed[3]);
 }
 
+/* 调度主循环：高频收字节，约 10 ms 推进配对、电量、超时、AutoDrive 和 ShipControl。 */
 void ship_protocol_run_scheduler(void)
 {
     u8 step_link_state;

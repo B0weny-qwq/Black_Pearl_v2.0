@@ -67,6 +67,7 @@ target_link_libraries(ef_services PRIVATE ef_boarddevices)
 
 add_library(ef_app
     App/Src/app.c
+    App/Src/app_extension.c
     App/Src/autodrive.c
     App/Src/autodrive_config.c
     App/Src/ship_control.c

@@ -141,6 +141,29 @@
 
 ## 7. 页面上每块看什么
 
+## 7.0 当前 v2 固件日志对照表
+
+| 页面卡片 | 当前 v2 固件日志 | 固件源头 |
+| --- | --- | --- |
+| 控制模式 | `[CTRL] I: event=mode old=... new=... reason=... yaw=... tgt=...` | `App/Src/ship_control.c` |
+| 电机输出 | `[CTRL] I: out m=... mo=... th=... base=... st=... df=... l=... r=...` | `ShipControl_LogMotorOutput()` |
+| 遥控输入 | `[SHIP] I: rc cmd=0x11 lr=... ud=... tv=... sv=... key=...` | `ship_protocol_handle_throttle()` |
+| 按键状态 | `[SHIP] I: key edge key=... action=...`、`[EVT] I: key/act ...` | `ship_protocol_handle_key_edge()`、`app_dispatch_ship_event()` |
+| 电量采样 | `[SHIP] I: adc raw=... mv=... bat=... p=...` | `ship_protocol_log_power_sample()` |
+| AHRS R/P/Y | `[AHRS] I: rpy=... gy=... flg=0x..` | `app_ahrs_log()` |
+| 地磁数据 | `[MAG] I: raw=... norm=... yaw=... self=...` | `app_ahrs_log()` |
+| 船头朝向/HDG | `[HDG] I: abs=... rel=... mag=... rdy=... st=... set=... err=... pred=...` | `Heading_Update()` 后的 App 快照 |
+| GPS 回包 | `[SHIP] I: tx cmd=12 ...` 和旧 `0x12` payload | `ship_protocol_build_gps_payload()` |
+| AutoDrive | `[SHIP] I: tx16 st=... md=...`、`0x13/0x14/0x15` 日志 | `AutoDrive_GetDebugSnapshot()` |
+| 配对状态 | `pair req sent`、`pair ok ...`、`enter work-state` | `ship_protocol_try_pair_send()` / `ship_protocol_handle_pair_rsp()` |
+| 遥控链路 | `rc cmd=0x11`、`remote timeout`、完整 AA...BB 帧 | `ship_protocol_poll_rx_frames()` |
+| 动作 / 巡航 | `rc cmd=0x11`、`cruise enter/exit`、`CTRL out` | `ship_protocol_handle_throttle()` / `ShipControl_UpdateManualInput()` |
+| 自稳定状态 | `CTRL out` 的 v2 模式 `5/6/7` | `ShipControl_ApplyYawHoldTargetEx()` |
+| GPS 摘要 | `gps state`、`gps sat source`、`gps12`、`0x12 payload` | `board_gps_get_state()` / `ship_protocol_build_gps_payload()` |
+| 返航点/目标点/返航开关 | `0x13 ret`、`0x14 fish`、`0x15 sw` | `AutoDrive_SetReturnPositionRaw()` / `AutoDrive_SetFishPositionRaw()` / `AutoDrive_SetSwitchRaw()` |
+
+若卡片为空，优先确认上表对应日志是否出现；如果固件没有输出该日志，上位机不会凭空生成卡片数据。
+
 ## 7.1 联调摘要区
 
 ### `AHRS R/P/Y`
@@ -284,6 +307,7 @@ meta 里还会显示：
 
 来源：
 
+- `[CTRL] I: out m=... mo=... th=... base=... st=... df=... l=... r=...`
 - `[CTRL] I: mode=... tgt=... err=... pid=... df=... th=... base=... l=... r=...`
 - `[SHIP] I: pwm pins mla=... mlb=... mra=... mrb=... period=...`
 
@@ -300,6 +324,8 @@ meta 里还会显示：
 
 来源：
 
+- `[CTRL] I: event=mode old=... new=... reason=... yaw=... tgt=...`
+- `[CTRL] I: out m=... mo=... th=... base=... st=... df=... l=... r=...`
 - `[CTRL] I: mode=... tgt=... err=... in=... pid=... diff=... throttle=... base=... steer=... left=... right=...`
 - `[DATA] I: cruise run req=... base=... l=... r=... err=... pid=... diff=... tgt=...`
 - `key action=E cruise-high / cruise-stop`

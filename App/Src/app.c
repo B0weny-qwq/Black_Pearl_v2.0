@@ -1,4 +1,5 @@
 #include "app.h"
+#include "app_extension.h"
 #include "board_console.h"
 #include "board_gps.h"
 #include "board_imu.h"
@@ -26,7 +27,12 @@ static u16 app_heading_deg100 = 0U;
 static int16 app_heading_rel_deg100 = 0;
 static u8 app_ahrs_started = 0U;
 static u8 app_spi_ps_ready = 0U;
+static int16 app_last_mag_x_raw = 0;
+static int16 app_last_mag_y_raw = 0;
+static int16 app_last_mag_z_raw = 0;
+static u8 app_last_mag_valid = 0U;
 
+/* 协议事件日志命名只服务现场排障，不参与控制判定。 */
 static const char *app_ship_event_name(ship_protocol_event_type_t type)
 {
 	switch(type)
@@ -65,6 +71,21 @@ static u32 app_abs32(int32 value)
 		return (u32)(-value);
 	}
 	return (u32)value;
+}
+
+static char app_cd_sign(int32 value)
+{
+	return (value < 0L) ? '-' : '+';
+}
+
+static u16 app_cd_abs_whole(int32 value)
+{
+	return (u16)(app_abs32(value) / 100UL);
+}
+
+static u16 app_cd_abs_frac(int32 value)
+{
+	return (u16)(app_abs32(value) % 100UL);
 }
 
 static int16 app_wrap_signed_deg100(int32 angle)
@@ -164,6 +185,7 @@ static void app_ahrs_reset(void)
 	app_heading_deg100 = 0U;
 	app_heading_rel_deg100 = 0;
 	app_ahrs_started = 1U;
+	app_last_mag_valid = 0U;
 }
 
 static void app_log_imu_diag(void)
@@ -255,6 +277,7 @@ static void app_read_imu_once(void)
 	}
 }
 
+/* 板级 bring-up 顺序：App 只调用 BoardDevices API，不直接碰外设寄存器。 */
 static void app_bring_up_devices(void)
 {
 	int8 ret;
@@ -344,6 +367,8 @@ static void app_ahrs_log(const AHRS_State_t *att,
 {
 	int32 heading_err_cd;
 	int32 heading_pred_cd;
+	int32 mag_yaw_cd;
+	u32 mag_norm;
 
 	if(att == 0)
 	{
@@ -360,6 +385,23 @@ static void app_ahrs_log(const AHRS_State_t *att,
 		 att->gyro_y_dps100,
 		 att->gyro_z_dps100,
 		 (u16)att->flags);
+	if(app_last_mag_valid != 0U)
+	{
+		mag_yaw_cd = (mag_state != 0) ? (int32)mag_state->heading_deg100 :
+					 (int32)app_heading_deg100;
+		mag_norm = app_abs32((int32)app_last_mag_x_raw) +
+				   app_abs32((int32)app_last_mag_y_raw) +
+				   app_abs32((int32)app_last_mag_z_raw);
+		LOGI("MAG", "raw=%d %d %d norm=%lu yaw=%c%u.%02u self=%u",
+			 app_last_mag_x_raw,
+			 app_last_mag_y_raw,
+			 app_last_mag_z_raw,
+			 mag_norm,
+			 app_cd_sign(mag_yaw_cd),
+			 app_cd_abs_whole(mag_yaw_cd),
+			 app_cd_abs_frac(mag_yaw_cd),
+			 (u16)(((heading_static != 0U) && (heading_mag_settled != 0U)) ? 1U : 0U));
+	}
 	LOGI("HDG", "abs=%u rel=%d mag=%u rdy=%u st=%u set=%u err=%ld pred=%ld",
 		 app_heading_deg100,
 		 app_heading_rel_deg100,
@@ -371,6 +413,7 @@ static void app_ahrs_log(const AHRS_State_t *att,
 		 heading_pred_cd);
 }
 
+/* AHRS/Heading 主链路：IMU 原始值 -> AHRS，MAG 原始值 -> Compass，最终给 ShipControl 航向快照。 */
 static void app_ahrs_poll(void)
 {
 	static u8 timing_started = 0U;
@@ -388,6 +431,7 @@ static void app_ahrs_poll(void)
 	u8 stable_mag_valid;
 	u8 heading_static;
 	u8 heading_mag_settled;
+	u8 log_due;
 	board_imu_sample_t imu_sample;
 	board_mag_sample_t mag_sample;
 	const AHRS_State_t *att;
@@ -475,6 +519,7 @@ static void app_ahrs_poll(void)
 	}
 
 	stable_mag_valid = 0U;
+	log_due = 0U;
 	mag_state = MagCompass_GetState();
 	stable_mag_heading_cd = (mag_state != 0) ? mag_state->heading_deg100 : 0U;
 	if((board_mag_is_ready() != 0U) &&
@@ -483,6 +528,10 @@ static void app_ahrs_poll(void)
 		last_mag_ms = now_ms;
 		if(board_mag_read(&mag_sample) == BOARD_MAG_OK)
 		{
+			app_last_mag_x_raw = mag_sample.mag_x_raw;
+			app_last_mag_y_raw = mag_sample.mag_y_raw;
+			app_last_mag_z_raw = mag_sample.mag_z_raw;
+			app_last_mag_valid = 1U;
 			if(Filter_MagLowPass(mag_sample.mag_x_raw,
 								 mag_sample.mag_y_raw,
 								 mag_sample.mag_z_raw,
@@ -505,12 +554,26 @@ static void app_ahrs_poll(void)
 		return;
 	}
 
+	if(sample_div < APP_AHRS_LOG_DECIMATION)
+	{
+		sample_div++;
+	}
+	else
+	{
+		sample_div = 0U;
+		log_due = 1U;
+	}
+
 	if(heading_seeded == 0U)
 	{
 		mag_state = MagCompass_GetState();
 		if((mag_state == 0) || (mag_state->ready == 0U) || (heading_mag_settled == 0U))
 		{
 			app_heading_ready = 0U;
+			if(log_due != 0U)
+			{
+				app_ahrs_log(att, mag_state, heading_static, heading_mag_settled);
+			}
 			return;
 		}
 		heading_seed_deg = (float)mag_state->heading_deg100 * 0.01f;
@@ -530,15 +593,13 @@ static void app_ahrs_poll(void)
 	app_heading_rel_deg100 = app_wrap_signed_deg100(Heading_GetRelativeDeg100(&app_heading));
 	app_heading_ready = 1U;
 
-	if(sample_div < APP_AHRS_LOG_DECIMATION)
+	if(log_due != 0U)
 	{
-		sample_div++;
-		return;
+		app_ahrs_log(att, MagCompass_GetState(), heading_static, heading_mag_settled);
 	}
-	sample_div = 0U;
-	app_ahrs_log(att, MagCompass_GetState(), heading_static, heading_mag_settled);
 }
 
+/* SPI-PS 只在板级资源允许时转成协议事件，避免 App 直接处理 SPI 细节。 */
 static void app_spi_ps_poll(void)
 {
 	u8 buffer[APP_SPI_PS_RX_EVENT_MAX];
@@ -623,6 +684,8 @@ static void app_dispatch_ship_event(const ship_protocol_event_snapshot_t *event)
 	default:
 		break;
 	}
+
+	app_extension_on_ship_event(event);
 }
 
 static void app_ship_event_poll(void)
@@ -643,6 +706,7 @@ void app_init(void)
 	}
 
 	app_bring_up_devices();
+	app_extension_init();
 }
 
 void app_loop(void)
@@ -653,6 +717,7 @@ void app_loop(void)
 	(void)board_wireless_search_signal_poll();
 	app_spi_ps_poll();
 	app_ship_event_poll();
+	app_extension_poll(platform_scheduler_get_tick_ms());
 	app_ahrs_poll();
 	(void)board_motor_service();
 }

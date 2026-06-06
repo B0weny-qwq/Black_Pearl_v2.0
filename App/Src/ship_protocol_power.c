@@ -1,6 +1,7 @@
 #include "ship_protocol_internal.h"
 #include "autodrive.h"
 #include "logger.h"
+#include "north_calib.h"
 #include "ship_control.h"
 
 /* 电源链路：BoardDevices 采样 -> 旧 0..4 电量等级 -> 日志/事件/0x12。 */
@@ -119,6 +120,7 @@ void ship_protocol_low_power_check(void)
     }
     if ((ship_protocol_rt.lowpower_return_latched == 0U) &&
         (ship_protocol_rt.lowpower_check_ticks > SHIP_LOWPOWER_CHECK_TICKS) &&
+        (NorthCalib_IsBusy() == 0U) &&
         (AutoDrive_GetMode() == AUTO_DRIVE_CLOSE) &&
         (ShipControl_GetManualAccelerator() < SHIP_LOWPOWER_ACCEL_MAX)) {
         ship_protocol_rt.lowpower_return_latched = 1U;

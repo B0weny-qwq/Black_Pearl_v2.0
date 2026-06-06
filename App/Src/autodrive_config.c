@@ -2,11 +2,12 @@
 #include "parameter_store.h"
 #include "logger.h"
 
-#define AUTODRIVE_CFG_WIRE_LEN  11U
+#define AUTODRIVE_CFG_ORIGIN_WIRE_LEN      AUTODRIVE_LEGACY_POINT_WIRE_LEN
+#define AUTODRIVE_CFG_LEGACY_WIRE_LEN      (1U + AUTODRIVE_LEGACY_POINT_WIRE_LEN)
 
 static AutoDrive_ReturnConfig_t autodrive_cfg_cache;
 
-/* 持久化格式固定 11 字节，和 0x15 返回开关/返航点 payload 保持一致。 */
+/* flash 只保存 10 字节返航原点；返航开关由遥控器在本次运行态下发。 */
 static void AutoDriveCfg_Default(AutoDrive_ReturnConfig_t *cfg)
 {
     if (cfg == 0) {
@@ -33,34 +34,41 @@ static u16 AutoDriveCfg_ReadU16(const u8 *src)
     return (u16)(((u16)src[0] << 8) | src[1]);
 }
 
-static void AutoDriveCfg_Pack(const AutoDrive_ReturnConfig_t *cfg, u8 *buf)
+static void AutoDriveCfg_PackOrigin(const AutoDrive_ReturnConfig_t *cfg, u8 *buf)
 {
     if ((cfg == 0) || (buf == 0)) {
         return;
     }
 
-    buf[0] = cfg->auto_ret_onoff;
-    buf[1] = cfg->ret_point.lon_ew;
-    AutoDriveCfg_WriteU16(&buf[2], cfg->ret_point.lon_whole);
-    AutoDriveCfg_WriteU16(&buf[4], cfg->ret_point.lon_frac);
-    buf[6] = cfg->ret_point.lat_ns;
-    AutoDriveCfg_WriteU16(&buf[7], cfg->ret_point.lat_whole);
-    AutoDriveCfg_WriteU16(&buf[9], cfg->ret_point.lat_frac);
+    buf[0] = cfg->ret_point.lon_ew;
+    AutoDriveCfg_WriteU16(&buf[1], cfg->ret_point.lon_whole);
+    AutoDriveCfg_WriteU16(&buf[3], cfg->ret_point.lon_frac);
+    buf[5] = cfg->ret_point.lat_ns;
+    AutoDriveCfg_WriteU16(&buf[6], cfg->ret_point.lat_whole);
+    AutoDriveCfg_WriteU16(&buf[8], cfg->ret_point.lat_frac);
 }
 
-static void AutoDriveCfg_Unpack(AutoDrive_ReturnConfig_t *cfg, const u8 *buf)
+static void AutoDriveCfg_UnpackOrigin(AutoDrive_ReturnConfig_t *cfg, const u8 *buf)
 {
     if ((cfg == 0) || (buf == 0)) {
         return;
     }
 
-    cfg->auto_ret_onoff = buf[0];
-    cfg->ret_point.lon_ew = buf[1];
-    cfg->ret_point.lon_whole = AutoDriveCfg_ReadU16(&buf[2]);
-    cfg->ret_point.lon_frac = AutoDriveCfg_ReadU16(&buf[4]);
-    cfg->ret_point.lat_ns = buf[6];
-    cfg->ret_point.lat_whole = AutoDriveCfg_ReadU16(&buf[7]);
-    cfg->ret_point.lat_frac = AutoDriveCfg_ReadU16(&buf[9]);
+    cfg->ret_point.lon_ew = buf[0];
+    cfg->ret_point.lon_whole = AutoDriveCfg_ReadU16(&buf[1]);
+    cfg->ret_point.lon_frac = AutoDriveCfg_ReadU16(&buf[3]);
+    cfg->ret_point.lat_ns = buf[5];
+    cfg->ret_point.lat_whole = AutoDriveCfg_ReadU16(&buf[6]);
+    cfg->ret_point.lat_frac = AutoDriveCfg_ReadU16(&buf[8]);
+}
+
+static void AutoDriveCfg_UnpackLegacy(AutoDrive_ReturnConfig_t *cfg, const u8 *buf)
+{
+    if ((cfg == 0) || (buf == 0)) {
+        return;
+    }
+
+    AutoDriveCfg_UnpackOrigin(cfg, &buf[1]);
 }
 
 void AutoDriveCfg_Init(void)
@@ -72,7 +80,7 @@ void AutoDriveCfg_Init(void)
 /* 配置服务只经过 parameter_store，App 不直接访问 EEPROM/IAP。 */
 void AutoDriveCfg_Load(AutoDrive_ReturnConfig_t *cfg)
 {
-    u8 buf[AUTODRIVE_CFG_WIRE_LEN];
+    u8 buf[AUTODRIVE_CFG_LEGACY_WIRE_LEN];
     int8 ret;
 
     if (cfg == 0) {
@@ -80,11 +88,19 @@ void AutoDriveCfg_Load(AutoDrive_ReturnConfig_t *cfg)
     }
 
     AutoDriveCfg_Default(cfg);
-    ret = parameter_store_load_autodrive(buf, AUTODRIVE_CFG_WIRE_LEN);
+    ret = parameter_store_load_autodrive(buf, AUTODRIVE_CFG_ORIGIN_WIRE_LEN);
     if (ret == PARAMETER_STORE_OK) {
-        AutoDriveCfg_Unpack(cfg, buf);
+        AutoDriveCfg_UnpackOrigin(cfg, buf);
         autodrive_cfg_cache = *cfg;
-        LOGI("ADCFG", "ld ok %02X", (u16)cfg->auto_ret_onoff);
+        LOGI("ADCFG", "ld origin ok");
+        return;
+    }
+
+    ret = parameter_store_load_autodrive(buf, AUTODRIVE_CFG_LEGACY_WIRE_LEN);
+    if (ret == PARAMETER_STORE_OK) {
+        AutoDriveCfg_UnpackLegacy(cfg, buf);
+        autodrive_cfg_cache = *cfg;
+        LOGI("ADCFG", "ld legacy origin");
         return;
     }
 
@@ -94,18 +110,18 @@ void AutoDriveCfg_Load(AutoDrive_ReturnConfig_t *cfg)
 
 u8 AutoDriveCfg_Save(const AutoDrive_ReturnConfig_t *cfg)
 {
-    u8 buf[AUTODRIVE_CFG_WIRE_LEN];
+    u8 buf[AUTODRIVE_CFG_ORIGIN_WIRE_LEN];
     int8 ret;
 
     if (cfg == 0) {
         return 0U;
     }
 
-    AutoDriveCfg_Pack(cfg, buf);
-    ret = parameter_store_save_autodrive(buf, AUTODRIVE_CFG_WIRE_LEN);
+    AutoDriveCfg_PackOrigin(cfg, buf);
+    ret = parameter_store_save_autodrive(buf, AUTODRIVE_CFG_ORIGIN_WIRE_LEN);
     if (ret == PARAMETER_STORE_OK) {
         autodrive_cfg_cache = *cfg;
-        LOGI("ADCFG", "sv ok %02X", (u16)cfg->auto_ret_onoff);
+        LOGI("ADCFG", "sv origin ok");
         return 1U;
     }
 

@@ -58,24 +58,6 @@ void AutoDrive_ClearPoint(AutoDrive_PointRaw_t *point)
     point->lat_frac = 0U;
 }
 
-void AutoDrive_ClearFishPoints(void)
-{
-    u8 i;
-
-    for (i = 0U; i < AUTODRIVE_FISH_POINT_COUNT; i++) {
-        AutoDrive_ClearPoint(&fish_points.point[i]);
-    }
-    fish_points.valid_mask = 0U;
-    fish_points.next_index = 0U;
-    fish_points.latest_index = 0xFFU;
-}
-
-u8 AutoDrive_FishPointsReady(void)
-{
-    return ((fish_points.valid_mask & ((1U << AUTODRIVE_FISH_POINT_COUNT) - 1U)) ==
-            ((1U << AUTODRIVE_FISH_POINT_COUNT) - 1U)) ? 1U : 0U;
-}
-
 u8 AutoDrive_PointRawEqual(const AutoDrive_PointRaw_t *lhs,
                            const AutoDrive_PointRaw_t *rhs)
 {
@@ -88,46 +70,6 @@ u8 AutoDrive_PointRawEqual(const AutoDrive_PointRaw_t *lhs,
             (lhs->lat_ns == rhs->lat_ns) &&
             (lhs->lat_whole == rhs->lat_whole) &&
             (lhs->lat_frac == rhs->lat_frac)) ? 1U : 0U;
-}
-
-u8 AutoDrive_FindFishPointIndex(const AutoDrive_PointRaw_t *point)
-{
-    u8 i;
-
-    if ((point == 0) || (AutoDrive_PointRawValid(point) == 0U)) {
-        return 0U;
-    }
-    for (i = 0U; i < AUTODRIVE_FISH_POINT_COUNT; i++) {
-        if ((fish_points.valid_mask & (u8)(1U << i)) == 0U) {
-            continue;
-        }
-        if (AutoDrive_PointRawEqual(point, &fish_points.point[i]) != 0U) {
-            return (u8)(i + 1U);
-        }
-    }
-    return 0U;
-}
-
-u8 AutoDrive_StoreFishPoint(const AutoDrive_PointRaw_t *point)
-{
-    u8 index;
-
-    if ((point == 0) || (AutoDrive_PointRawValid(point) == 0U)) {
-        return 0xFFU;
-    }
-    if (AutoDrive_FishPointsReady() != 0U) {
-        return 0xFFU;
-    }
-
-    index = fish_points.next_index;
-    if (index >= AUTODRIVE_FISH_POINT_COUNT) {
-        return 0xFFU;
-    }
-    AutoDrive_CopyPoint(&fish_points.point[index], point);
-    fish_points.valid_mask |= (u8)(1U << index);
-    fish_points.latest_index = index;
-    fish_points.next_index = (u8)(index + 1U);
-    return fish_points.latest_index;
 }
 
 u8 AutoDrive_IsFishRxDuplicate(const AutoDrive_PointRaw_t *point, u32 now_ms)

@@ -79,6 +79,53 @@ def i2c_speed_macro(speed_hz: str) -> str:
         raise SystemExit(f"unsupported sensor_i2c speed_hz: {speed_hz}")
 
 
+def i2c_route_id(mux: str) -> int:
+    mapping = {
+        "I2C_P14_P15": 0,
+        "I2C_P24_P25": 1,
+        "I2C_P76_P77": 2,
+        "I2C_P33_P32": 3,
+    }
+    try:
+        return mapping[mux.strip()]
+    except KeyError:
+        raise SystemExit(f"unsupported sensor I2C mux: {mux}")
+
+
+def i2c_pin_group_macro(mux: str) -> str:
+    mapping = {
+        "I2C_P14_P15": "EF_IIC_PIN_P14_P15",
+        "I2C_P24_P25": "EF_IIC_PIN_P24_P25",
+        "I2C_P76_P77": "EF_IIC_PIN_P76_P77",
+        "I2C_P33_P32": "EF_IIC_PIN_P33_P32",
+    }
+    try:
+        return mapping[mux.strip()]
+    except KeyError:
+        raise SystemExit(f"unsupported sensor I2C mux: {mux}")
+
+
+def spi_route_id(mux: str) -> int:
+    mapping = {
+        "SPI_P54_P13_P14_P15": 0,
+        "SPI_P22_P23_P24_P25": 1,
+        "SPI_P54_P40_P41_P43": 2,
+        "SPI_P35_P34_P33_P32": 3,
+    }
+    try:
+        return mapping[mux.strip()]
+    except KeyError:
+        raise SystemExit(f"unsupported LT8920 SPI mux: {mux}")
+
+
+def sensor_i2c_lt8920_spi_conflict(i2c_route: int, spi_route: int) -> bool:
+    return (
+        (i2c_route == 0 and spi_route == 0) or
+        (i2c_route == 1 and spi_route == 1) or
+        (i2c_route == 3 and spi_route == 3)
+    )
+
+
 def emit_header(text: str) -> str:
     console = block(text, "uart1_console")
     gnss = block(text, "uart2_gnss")
@@ -92,6 +139,16 @@ def emit_header(text: str) -> str:
     sensor_bus = block(text, "sensor_i2c")
     radio_bus = block(text, "radio_spi")
     sensor_i2c_speed_hz = field(sensor_bus, "speed_hz")
+    sensor_i2c_mux = field(sensor_i2c, "mux")
+    radio_spi_mux = field(radio_spi, "mux")
+    sensor_i2c_route = i2c_route_id(sensor_i2c_mux)
+    radio_spi_route = spi_route_id(radio_spi_mux)
+
+    if sensor_i2c_lt8920_spi_conflict(sensor_i2c_route, radio_spi_route):
+        raise SystemExit(
+            "resource conflict: sensor_i2c pins overlap LT8920 SPI pins "
+            f"({sensor_i2c_mux} vs {radio_spi_mux})"
+        )
 
     lt8920_reset = gpio_pin(text, "lt8920_reset")
     ant_sel = gpio_pin(text, "kct8206_ant_sel")
@@ -124,15 +181,17 @@ def emit_header(text: str) -> str:
 #define EF_BOARD_GNSS_TX_PIN_MASK          {pin_mask(pin(gnss, "tx"))}
 
 /* Shared sensor I2C */
-#define EF_BOARD_SENSOR_I2C_PIN_GROUP      EF_IIC_PIN_P14_P15
-#define EF_BOARD_SENSOR_I2C_MUX            {field(sensor_i2c, "mux")}
+#define EF_BOARD_SENSOR_I2C_ROUTE_ID       {sensor_i2c_route}U
+#define EF_BOARD_SENSOR_I2C_PIN_GROUP      {i2c_pin_group_macro(sensor_i2c_mux)}
+#define EF_BOARD_SENSOR_I2C_MUX            {sensor_i2c_mux}
 #define EF_BOARD_SENSOR_I2C_SPEED          {i2c_speed_macro(sensor_i2c_speed_hz)}
 #define EF_BOARD_SENSOR_I2C_SPEED_HZ       {sensor_i2c_speed_hz}UL
 #define EF_BOARD_SENSOR_I2C_SCL_PIN_MASK   {pin_mask(pin(sensor_i2c, "scl"))}
 #define EF_BOARD_SENSOR_I2C_SDA_PIN_MASK   {pin_mask(pin(sensor_i2c, "sda"))}
 
 /* LT8920 SPI */
-#define EF_BOARD_LT8920_SPI_MUX            {field(radio_spi, "mux")}
+#define EF_BOARD_LT8920_SPI_ROUTE_ID       {radio_spi_route}U
+#define EF_BOARD_LT8920_SPI_MUX            {radio_spi_mux}
 #define EF_BOARD_LT8920_SPI_SPEED          EF_SPI_SPEED_FOSC_16
 #define EF_BOARD_LT8920_SPI_CS_PIN_MASK    {pin_mask(pin(radio_spi, "cs"))}
 #define EF_BOARD_LT8920_SPI_SCLK_PIN_MASK  {pin_mask(pin(radio_spi, "sclk"))}
@@ -165,6 +224,12 @@ def emit_header(text: str) -> str:
 /* SPI-PS peer link is not active in the current firmware. */
 #define EF_BOARD_SPI_PS_ENABLED            0U
 #define EF_BOARD_SPI_PS_SHARES_LT8920_SPI  1U
+
+#if ((EF_BOARD_SENSOR_I2C_ROUTE_ID == 0U) && (EF_BOARD_LT8920_SPI_ROUTE_ID == 0U)) || \\
+    ((EF_BOARD_SENSOR_I2C_ROUTE_ID == 1U) && (EF_BOARD_LT8920_SPI_ROUTE_ID == 1U)) || \\
+    ((EF_BOARD_SENSOR_I2C_ROUTE_ID == 3U) && (EF_BOARD_LT8920_SPI_ROUTE_ID == 3U))
+#error "resource conflict: LT8920 SPI route overlaps sensor I2C route"
+#endif
 
 #endif
 """

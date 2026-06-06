@@ -1,0 +1,1052 @@
+{
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Inc\\app.h": {
+    "mtime": 1780743116.9279,
+    "ast_hash": "e76fd6fa2d25474d37ca78798902af93",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Inc\\app_config.h": {
+    "mtime": 1779893076.8772051,
+    "ast_hash": "0173199089f39ae0dd81fa1313d77872",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Inc\\app_extension.h": {
+    "mtime": 1779869538.2751415,
+    "ast_hash": "e35d4ffea2c6e492d0688acefe4840cb",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Inc\\autodrive.h": {
+    "mtime": 1780747502.367277,
+    "ast_hash": "d4e10aa3f757bca985c2a97ed95cf1dd",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Inc\\autodrive_config.h": {
+    "mtime": 1780747309.1124616,
+    "ast_hash": "0ffe222a9b40e58a3eaecf4b4495c272",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Inc\\autodrive_internal.h": {
+    "mtime": 1780747509.5490954,
+    "ast_hash": "bc07d54f0a7f55d8df6d01a462c01ff5",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Inc\\north_calib.h": {
+    "mtime": 1780741902.5950024,
+    "ast_hash": "3b7fdffa9b4c0071f5ea5886cfadca18",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Inc\\ship_control.h": {
+    "mtime": 1779812585.9865193,
+    "ast_hash": "6e49d35f6474d8140b3711598f5684ba",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Inc\\ship_control_internal.h": {
+    "mtime": 1779901010.6744828,
+    "ast_hash": "45755f509a88e9de90965866c45ffb73",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Inc\\ship_protocol.h": {
+    "mtime": 1779812766.9137762,
+    "ast_hash": "84ae211b15343124b4c12ae14bfc0817",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Inc\\ship_protocol_internal.h": {
+    "mtime": 1780742128.6487002,
+    "ast_hash": "3f71f8c17987f8046e6c148dfd27abc8",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\app.c": {
+    "mtime": 1780743067.2057736,
+    "ast_hash": "f6085e08020322fc8499b6561b6de04e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\app_ahrs_core.c": {
+    "mtime": 1780742105.236936,
+    "ast_hash": "a6ddce241dfd561909579eb396c4d71b",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\app_ahrs_poll.c": {
+    "mtime": 1780742366.4996617,
+    "ast_hash": "0ad07a88da68ada37522ceb33b5d878d",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\app_bringup.c": {
+    "mtime": 1780742105.2414224,
+    "ast_hash": "c0ae7877b2289d5ca80cf61a01b21692",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\app_extension.c": {
+    "mtime": 1779888627.5126977,
+    "ast_hash": "c7f95e6711ca9d00f78e27637473aaf7",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\app_internal.h": {
+    "mtime": 1780742105.2349336,
+    "ast_hash": "f15c358ccfe94aa977ab8bde2d133848",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\app_mag_event.c": {
+    "mtime": 1779902693.8784902,
+    "ast_hash": "50d5c2671952ec8d0cf072e591219e87",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\app_state.c": {
+    "mtime": 1780742105.2359421,
+    "ast_hash": "4e4a9e8cea571b9f88b1b5602796542e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\autodrive.c": {
+    "mtime": 1780747521.0327284,
+    "ast_hash": "8c85b8654aa6c6fa810ae90ead6f248e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\autodrive_cmd.c": {
+    "mtime": 1780747710.3206174,
+    "ast_hash": "feebd6d10291c4b5526c72ea415066b5",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\autodrive_config.c": {
+    "mtime": 1780747252.9712324,
+    "ast_hash": "94ff9b2a3d3a3c6b956f598639ff6030",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\autodrive_control.c": {
+    "mtime": 1779902434.1102488,
+    "ast_hash": "b17339f44b76f23b92077b8eec2fb5a7",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\autodrive_diag.c": {
+    "mtime": 1779902434.1122475,
+    "ast_hash": "22e3ae29185e28dd45623c1c58d9002d",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\autodrive_gps.c": {
+    "mtime": 1779902693.8802218,
+    "ast_hash": "d39c13d268c1b46643f9e533c38086ec",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\autodrive_nav.c": {
+    "mtime": 1779902434.1112478,
+    "ast_hash": "6614cce66c1985bdb6894304dfa81b51",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\autodrive_points.c": {
+    "mtime": 1780747192.4698691,
+    "ast_hash": "225cf6b4ad4be71e0cc4aeabd0509d9b",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\autodrive_poll.c": {
+    "mtime": 1779902434.1112478,
+    "ast_hash": "ef5eae077158520744caebd7150f99a0",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\main.c": {
+    "mtime": 1779869843.7495947,
+    "ast_hash": "4b7e66467b1494a8faf6fbc8b57dd121",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\north_calib.c": {
+    "mtime": 1780742070.9040217,
+    "ast_hash": "b5098bc1526aa13a37874ca7fe1020ab",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\ship_control.c": {
+    "mtime": 1779901010.675986,
+    "ast_hash": "a13320c80a249b052f73fdd1e9b887cd",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\ship_control_core.c": {
+    "mtime": 1779901010.6769907,
+    "ast_hash": "69f2a3d08b46a026802a3d8b41bc4148",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\ship_control_manual.c": {
+    "mtime": 1779901010.6769907,
+    "ast_hash": "9c29303e54a1703ca0fd2304eb738698",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\ship_control_yaw.c": {
+    "mtime": 1779901010.6783607,
+    "ast_hash": "321124cdb92f746ee7138ecf733d67a8",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\ship_protocol.c": {
+    "mtime": 1780742136.9412413,
+    "ast_hash": "45e5e5067a9d81a8e2837eb639efd9d9",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\ship_protocol_cmd.c": {
+    "mtime": 1780742241.763201,
+    "ast_hash": "0d516a02d8d23f851f1648be6e5a8c9a",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\ship_protocol_event.c": {
+    "mtime": 1779902693.8823035,
+    "ast_hash": "2545650f9a48f4d47f44fab45acac492",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\ship_protocol_link.c": {
+    "mtime": 1779901704.8650525,
+    "ast_hash": "978c5daa2851464547072c4391e523c4",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\ship_protocol_parse.c": {
+    "mtime": 1779902693.883778,
+    "ast_hash": "81ba4aeaa7fce01cbdf12d3a4b0c97db",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\ship_protocol_points.c": {
+    "mtime": 1780747553.407722,
+    "ast_hash": "7db52c48fdce21fb94cc05735fdfd420",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\ship_protocol_power.c": {
+    "mtime": 1780742267.3389044,
+    "ast_hash": "bfef49d2a84860490567308086fc02ae",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\ship_protocol_state.c": {
+    "mtime": 1779901704.8621116,
+    "ast_hash": "aa4b4e90a07af8da42c9b93a12d9f619",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\ship_protocol_tx.c": {
+    "mtime": 1779901704.8637903,
+    "ast_hash": "a8aa230601705adc95792c06591d5df6",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Inc\\board_console.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "5ee73fd0b0376af524fe653a3549b75d",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Inc\\board_gps.h": {
+    "mtime": 1779812681.5863369,
+    "ast_hash": "105446c15cc67e7912a87ab2ef92c63e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Inc\\board_imu.h": {
+    "mtime": 1779850703.4593544,
+    "ast_hash": "89353e19841aceb66e03003f7abd8d47",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Inc\\board_lt8920.h": {
+    "mtime": 1779812681.5883377,
+    "ast_hash": "463f218220bd477759bd7f99fba21c28",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Inc\\board_mag.h": {
+    "mtime": 1780128219.3686073,
+    "ast_hash": "2ee21c761b4ed0011eaa0ac59fff73d0",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Inc\\board_motor.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "3831f9f0ea2ef04e9bdd9068d0714070",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Inc\\board_power.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "3baab07ff825ed2f4fee9e36d567894c",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Inc\\board_spi_ps.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "62ad94411af435804536644836993a2a",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Inc\\board_storage.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "a09dbadcf43c20615138f1fc194aab65",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Inc\\board_wireless.h": {
+    "mtime": 1779812681.5903392,
+    "ast_hash": "72d2d96e973ce58ee31fdd6f9e51251a",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Src\\board_console.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "e711b5e884eabde6cb9b527d538004fd",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Src\\board_gps.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "d37c438fedd2a75ff357ddf24ab3abfb",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Src\\board_imu.c": {
+    "mtime": 1779850087.6160507,
+    "ast_hash": "8ce805c89cc5bba4ab7cddabbe5e25ee",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Src\\board_lt8920.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "51ab1d71e63274ad82c91e848c888407",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Src\\board_mag.c": {
+    "mtime": 1780129289.8435898,
+    "ast_hash": "2a7d087481d693c6ceda7e5390853255",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Src\\board_motor.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "f62a3ddea93e0c270359cd63659f2803",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Src\\board_power.c": {
+    "mtime": 1779895397.5518866,
+    "ast_hash": "9acf540a16d2fe3782832ada40a4917c",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Src\\board_sensor_bus.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "4a6ea9d89345b179d741b257e34199d9",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Src\\board_sensor_bus.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "fa73555a08b940d351222d881e6e80fb",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Src\\board_spi_ps.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "4fffe7f8bad6b5f86d3d25016f698191",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Src\\board_storage.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "1339b79a108a7f384e03520b95a0e17e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Src\\board_wireless.c": {
+    "mtime": 1779811747.1742237,
+    "ast_hash": "39d6ab0a037e67dec011f8145482c20e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\ChipDrivers\\Inc\\gnss_nmea.h": {
+    "mtime": 1779812681.5913365,
+    "ast_hash": "375111e542a1acc3a5012fefe1b72d5c",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\ChipDrivers\\Inc\\KCT8206.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "000d2af5245806412eea51c6d8382215",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\ChipDrivers\\Inc\\LT8920.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "9424717a99cdba10ad52f1dded485ced",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\ChipDrivers\\Inc\\QMC6309.h": {
+    "mtime": 1780129315.4123156,
+    "ast_hash": "428aef90892e8cb5d1d6705e18cad7dc",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\ChipDrivers\\Inc\\QMI8658.h": {
+    "mtime": 1779850703.4573486,
+    "ast_hash": "eca402e0758c974f5eef8957eff9ec27",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\ChipDrivers\\Src\\gnss_nmea.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "a7504c09f02d52877d274c90815a3707",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\ChipDrivers\\Src\\KCT8206.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "63781518132c654b1577c23c7e0f51b5",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\ChipDrivers\\Src\\LT8920.c": {
+    "mtime": 1779850889.344391,
+    "ast_hash": "574c8ea116e7a7ba27b3efcf88872f78",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\ChipDrivers\\Src\\QMC6309.c": {
+    "mtime": 1780129200.133428,
+    "ast_hash": "4f325520b7a8d897c0033757640f266b",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\ChipDrivers\\Src\\QMI8658.c": {
+    "mtime": 1779849991.8986328,
+    "ast_hash": "870b45b8ef8ca8406558165b23ae2df0",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Components\\Inc\\AHRS.h": {
+    "mtime": 1779811747.175227,
+    "ast_hash": "2dcc2328265592455b13f814da69e5f4",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Components\\Inc\\Filter.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "7856b5fdead0290ed5c5d63bb57aece7",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Components\\Inc\\HeadingEstimator.h": {
+    "mtime": 1779811747.1765647,
+    "ast_hash": "15d053a32f6e4d9c9a6fd9e2a171b0c6",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Components\\Inc\\MagCompass.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "e3a34e9311e619a65c501923ab16f6d8",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Components\\Inc\\PID.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "f5e966a8ed4d8f58937f44058436df45",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Components\\Src\\AHRS.c": {
+    "mtime": 1779811747.175227,
+    "ast_hash": "63f250898f9a498516e5ac4c2207d1d8",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Components\\Src\\Filter.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "c6c4ef3fd7f44401ded3bd7784635634",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Components\\Src\\HeadingEstimator.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "1ed0048eafa95ace9a58a7f646289048",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Components\\Src\\MagCompass.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "97b8e81948a3db61bda7be5255c67b76",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Components\\Src\\PID.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "9425536eb4b90deb5589a2c6b0ac07e6",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\STC32G_ADC.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "d2fee6d4cc6f15164c15b7c5c7056870",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\STC32G_CAN.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "9ca653912f291d8baa1770d6bd5358b0",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\STC32G_Clock.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "271b1c0eed5f17d42f1cc96d03d5ba4f",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\STC32G_Compare.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "2336128552dcc6dff6a069b57cadd16c",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\STC32G_Delay.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "0b3887f28160b77f2bb4d8c8f39b2c0b",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\STC32G_DMA.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "c9d9b5fd41a66380760ffbeec2676caf",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\STC32G_EEPROM.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "a1f51fc6138e5bf194d98776bd1435a9",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\STC32G_Exti.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "e3dc498d5122ad938d9f886742606c74",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\STC32G_GPIO.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "6d1489213cdd95c86c9ae9ce54ca5939",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\STC32G_I2C.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "6af01a2a55248d1049f1949eab9447fd",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\STC32G_LCM.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "e48003ac342dedbd853e818b6b18c958",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\STC32G_LIN.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "e276d8bff97416d7a1e6227c786195d0",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\STC32G_NVIC.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "73c90b8130e5bdd79a539370180b91f0",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\STC32G_PWM.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "9068f3f11162016eec7a26159990e31a",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\STC32G_RTC.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "fada7c4fe91290bf98709d12b9272632",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\STC32G_Soft_I2C.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "92d627eee1e170e1439c359a6bfa571f",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\STC32G_Soft_UART.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "a9b239af6f458a9e1db869f4a34ad059",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\STC32G_SPI.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "083add174c50b142ea5763778e61d704",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\STC32G_Switch.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "2857ba8d47fcafd691e894996964dbdb",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\STC32G_Timer.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "09a73fa146fd771534c4a464e34b5e1f",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\STC32G_UART.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "c42497d62511bc1b770bc104e16f4eb7",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\STC32G_USART_LIN.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "860ffdf377b04b2f172349426cfb31cc",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\STC32G_WDT.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "3d0543b6940ce47e093d597ad807c792",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Isr\\STC32G_ADC_Isr.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "580f1bd48d9a7096e819b34259779a86",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Isr\\STC32G_CAN_Isr.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "97583329a49103afc8608c602dc3a048",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Isr\\STC32G_Compare_Isr.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "495734a5a22f17fbd15af8e53060970b",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Isr\\STC32G_DMA_Isr.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "06aa52ab299cef161f05f9653135d42e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Isr\\STC32G_Exti_Isr.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "dd5c0ba623cfadbcf65636a8f5a69f6a",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Isr\\STC32G_GPIO_Isr.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "753842c8f38f498ec1bc80c22dda4f77",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Isr\\STC32G_I2C_Isr.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "0bcc7cb7b76e96d2440d494eaf377c9c",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Isr\\STC32G_LCM_Isr.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "09dc4a49f89dca1afb40d559d2feaf80",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Isr\\STC32G_LIN_Isr.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "54245cf0e48730d173a872113ab3da24",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Isr\\STC32G_PWM_Isr.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "be5838a883acd07ef65555115cc3906c",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Isr\\STC32G_RTC_Isr.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "fccc4ceb49388a449e0e1c3822c57426",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Isr\\STC32G_SPI_Isr.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "89f2bc070902296850aaae756101594c",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Isr\\STC32G_Timer_Isr.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "6497934ddf185288e60febfacad34722",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Isr\\STC32G_UART_Isr.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "f379eb704e59f45c17be3ed4f420d2a4",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Src\\STC32G_ADC.c": {
+    "mtime": 1779895493.8315928,
+    "ast_hash": "14a38c6f4f866b8a4ca3d4b0032a070e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Src\\STC32G_CAN.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "eee89c084b6b632dfc8db118aaa91569",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Src\\STC32G_Clock.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "87294acb78cca47fa281105e723185b5",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Src\\STC32G_Compare.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "fc32a6f73982bb74da02bfe8a99d2cbe",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Src\\STC32G_Delay.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "7a71d9d838f905bf5196d6be972ced49",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Src\\STC32G_DMA.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "7cf5edfe0498034cc5297a3b4fe5b9a6",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Src\\STC32G_EEPROM.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "a0f34923c856835bdd37125d8b63d5d1",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Src\\STC32G_Exti.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "6d1146d0bdfcb7dd8ad2042e81ab7029",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Src\\STC32G_GPIO.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "77be25fa538c5a8713af82ab1aa30a67",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Src\\STC32G_I2C.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "2167b37588cdcbc6286679da31e3ccd8",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Src\\STC32G_LCM.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "de9e5444ac60a23e4bede67d0681b82f",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Src\\STC32G_LIN.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "b9734392724f88d4f64b16c69c509666",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Src\\STC32G_NVIC.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "a34e5aa83317a7f4f8c29b701e2f20ef",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Src\\STC32G_PWM.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "27c71e52dd4ec80ee4e9ac6e08ae6193",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Src\\STC32G_RTC.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "69d209bc0ded1c0bbcf522b1b2cee0f4",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Src\\STC32G_Soft_I2C.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "55c8c204790b0d90d0ae45521f0f453e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Src\\STC32G_Soft_UART.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "4d826530d2676e1320fe0f241b5d3e16",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Src\\STC32G_SPI.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "df55989aa056356128b39a77bc478096",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Src\\STC32G_Timer.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "bd4cea103ea407714d9660838991b045",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Src\\STC32G_UART.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "c3b0dfb8c08ede1f05c9fa6bc4e6673c",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Src\\STC32G_USART_LIN.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "2e7264b9c994b72a828dcf388a4acb17",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Src\\STC32G_WDT.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "93e5eb00379d147d876d6aa431409fb5",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\McuAbstraction\\Inc\\ef_iic.h": {
+    "mtime": 1779812755.508549,
+    "ast_hash": "50f3d5cd87a7cfecd78ec85a08a00093",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\McuAbstraction\\Inc\\ef_spi.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "6f697545823a9b3beebec75b815577a6",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\McuAbstraction\\Inc\\ef_uart.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "6628077afe8745e5dc21d156b6f3e5d0",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\McuAbstraction\\Src\\ef_iic.c": {
+    "mtime": 1780126356.4633553,
+    "ast_hash": "877d7430338321df2c2a9b9ef3358d9c",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\McuAbstraction\\Src\\ef_spi.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "22179a36548c84630fc73ac7bf8e4754",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\McuAbstraction\\Src\\ef_uart.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "ccce0716f524c2c5f58033be52944cc4",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Platform\\Inc\\config.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "0ceed8178a7af02f3a215e97c6f6acbf",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Platform\\Inc\\platform.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "4919633b8cb1ff061570af6949cddb56",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Platform\\Inc\\platform_scheduler.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "bf33d0b2d40ae15b604c421e19ae7106",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Platform\\Inc\\stc32g.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "feaceedfa262119ac283c63fa5e72955",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Platform\\Inc\\type_def.h": {
+    "mtime": 1779850889.3413494,
+    "ast_hash": "7d210f266ae2557239bc9a8be4214295",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Platform\\Src\\platform.c": {
+    "mtime": 1779852093.4288003,
+    "ast_hash": "5cd49d3c45ae99c5042e00a1448ca662",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Platform\\Src\\platform_scheduler.c": {
+    "mtime": 1779816475.0,
+    "ast_hash": "072026ca3bc039e9cd55d43b99c0c9d1",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Services\\Inc\\Log.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "6f460d2592ec2aec197e5c051b83d68f",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Services\\Inc\\logger.h": {
+    "mtime": 1779816475.0,
+    "ast_hash": "8e8622edbff984cda8937cad7aa31178",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Services\\Inc\\parameter_store.h": {
+    "mtime": 1780747413.3442354,
+    "ast_hash": "ae4f82e7782629809334c6183c2ef9a0",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Services\\Src\\logger.c": {
+    "mtime": 1779851089.6756375,
+    "ast_hash": "54007dc72297cf04b3d4c1338cece2d3",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Services\\Src\\parameter_store.c": {
+    "mtime": 1780742386.7460067,
+    "ast_hash": "ca4bd6acf464d7793d985c0477b194e1",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\tools\\gen_board_resources.py": {
+    "mtime": 1780126297.9414985,
+    "ast_hash": "4a51c6d7145ba5eaacc3519a2db4fda5",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\tools\\checks\\check_boundaries.sh": {
+    "mtime": 1779816475.0,
+    "ast_hash": "1f94c4a05d39e1ba6b709242b8c195db",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\tools\\ship_log_viewer\\start_ship_log_viewer.ps1": {
+    "mtime": 1779816475.0,
+    "ast_hash": "56766244607e5e06409a8ec412c364fe",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\tools\\ship_log_viewer\\start_ship_log_viewer.py": {
+    "mtime": 1779816475.0,
+    "ast_hash": "001f6705226ef4e99ffa78065966e5f8",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\tools\\ship_packet_builder\\build_ship_packet.py": {
+    "mtime": 1779816475.0,
+    "ast_hash": "0499fb6a246c1488920f6582f5362c58",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\CMakeLists.txt": {
+    "mtime": 1780742274.9257946,
+    "ast_hash": "c8d47002d6c298e739da6f7ba3485f80",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\embedforge.yaml": {
+    "mtime": 1780126432.3665776,
+    "ast_hash": "8f696f1afab5038acadf3fe23f19c1c4",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\README.md": {
+    "mtime": 1779903069.2541654,
+    "ast_hash": "b7c36f72b483d3a11a7a5307e2e4a49f",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\.codex\\skills\\embedforge-project-standards\\SKILL.md": {
+    "mtime": 1779816475.0,
+    "ast_hash": "27aedffcdf15431f29100f082d8f8b31",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\README.md": {
+    "mtime": 1779902869.2041802,
+    "ast_hash": "a719e14a9d0c737badc16d011e9aa513",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Inc\\README.md": {
+    "mtime": 1779902869.2079198,
+    "ast_hash": "4f2c911fe5ece011c9486e8ca8fff643",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\App\\Src\\README.md": {
+    "mtime": 1780747316.6207936,
+    "ast_hash": "556af5adef40d3cdfaae18725680dad5",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\README.md": {
+    "mtime": 1779895556.8371296,
+    "ast_hash": "987846a02bbd6d16741ce7ca1084bbcd",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Inc\\README.md": {
+    "mtime": 1779870771.692369,
+    "ast_hash": "a7b729a6c2d1377ebbc779be9ebd1a17",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\BoardDevices\\Src\\README.md": {
+    "mtime": 1779870771.6933742,
+    "ast_hash": "92dffb9c6f6ee8452c4c43668c20c454",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\ChipDrivers\\README.md": {
+    "mtime": 1779870771.6954188,
+    "ast_hash": "0199d210e7d0075ebaa967a064da2059",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\ChipDrivers\\Inc\\README.md": {
+    "mtime": 1779870771.6944146,
+    "ast_hash": "1ce7c8aa0d463df3509f408de2a0615f",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\ChipDrivers\\Src\\README.md": {
+    "mtime": 1779870771.6964207,
+    "ast_hash": "1efc37757c876d64a5e67e498af43ab9",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Components\\README.md": {
+    "mtime": 1779870771.6974192,
+    "ast_hash": "494b701dcb197ba91871af9a7fcc91f1",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Components\\Inc\\README.md": {
+    "mtime": 1779870771.6974192,
+    "ast_hash": "d2a9563b48d118016551a090a3be109e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Components\\Src\\README.md": {
+    "mtime": 1779870771.698419,
+    "ast_hash": "25849e98f9d7c864809cab577551f403",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\doc\\CHANGELOG.md": {
+    "mtime": 1780747628.213575,
+    "ast_hash": "4ea783490c489050bd3ea14279a6dce7",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\doc\\data.md": {
+    "mtime": 1780747594.471153,
+    "ast_hash": "233bcd30a3d0490da413f4c0ac0e4377",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\doc\\persistent_goal.md": {
+    "mtime": 1780747378.7233834,
+    "ast_hash": "6c5ca27f9596a72298d2808778529a04",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\doc\\README.md": {
+    "mtime": 1780746429.4928055,
+    "ast_hash": "6e6ccff4f155f06195a63243d8dcd6b0",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\doc\\state_machines.md": {
+    "mtime": 1780742453.6286075,
+    "ast_hash": "6e497e9dce838db5126aa15673bda6b7",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\doc\\total.md": {
+    "mtime": 1780747603.0907905,
+    "ast_hash": "1b36510c0b782360746b160d85605708",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\README.md": {
+    "mtime": 1779870771.7024198,
+    "ast_hash": "3f3759ab3191b644a4878c2250694e32",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Inc\\README.md": {
+    "mtime": 1779870771.70042,
+    "ast_hash": "a9062de00f76cde3368125c0ce3eb08b",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Isr\\README.md": {
+    "mtime": 1779870771.70042,
+    "ast_hash": "b6367ed793979c777ca3f5b2d5573a50",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Lib\\README.md": {
+    "mtime": 1779870771.7014196,
+    "ast_hash": "b1bd572d628fa5c8318dcf4b1a9256e4",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Drivers\\Src\\README.md": {
+    "mtime": 1779870771.7034197,
+    "ast_hash": "aa116c119faeccd59b7bac546fae0628",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\McuAbstraction\\README.md": {
+    "mtime": 1779870771.7134192,
+    "ast_hash": "e1ab6bef7995a0409a8a7464923c165f",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\McuAbstraction\\Inc\\README.md": {
+    "mtime": 1779870771.7044194,
+    "ast_hash": "12fdffc11a8e818fbe1f6c3544eabea1",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\McuAbstraction\\Src\\README.md": {
+    "mtime": 1779870771.7144184,
+    "ast_hash": "67858eebd5cd64350a8ff8335c722857",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Platform\\README.md": {
+    "mtime": 1779870771.7154193,
+    "ast_hash": "15b6538d6850005fb2ee2abeef73ef87",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Platform\\Inc\\README.md": {
+    "mtime": 1779870771.7144184,
+    "ast_hash": "6fb54e8ac6376f8859bd9dfe68d39083",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Platform\\Src\\README.md": {
+    "mtime": 1779870771.7164237,
+    "ast_hash": "4b2ff45004f26899fca8ade5cd55beec",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\RVMDK\\README.md": {
+    "mtime": 1779870771.7164237,
+    "ast_hash": "43e7b31763183dce0ec93e930205e55b",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Services\\README.md": {
+    "mtime": 1780747325.940286,
+    "ast_hash": "40387633e6b451ec18f5c6061d4507ca",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Services\\Inc\\README.md": {
+    "mtime": 1779870771.7174194,
+    "ast_hash": "530d3104484629889cd258acd7db5bad",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Services\\Src\\README.md": {
+    "mtime": 1779870771.7184184,
+    "ast_hash": "37d29618980347355d0f26a06808f447",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\Startup\\README.md": {
+    "mtime": 1779870771.71942,
+    "ast_hash": "50f650ecd6a3d168c3e243294cdcc1c2",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\tools\\README.md": {
+    "mtime": 1779870771.7204196,
+    "ast_hash": "24822acd2c5530e6c3db774dc2ef8dfe",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\tools\\checks\\README.md": {
+    "mtime": 1779870771.7204196,
+    "ast_hash": "159373bb8338416193c62126f554a729",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\tools\\ship_log_viewer\\README.md": {
+    "mtime": 1779903004.9933662,
+    "ast_hash": "38430703b3cccdc35336c3aec8bd2227",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\tools\\ship_log_viewer\\ship_log_viewer.html": {
+    "mtime": 1780747577.9291298,
+    "ast_hash": "c3e39a342c867d34d766aab677a60c02",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\S\\Desktop\\STC_PROJECT\\Black_Pearl_v2.0-main\\tools\\ship_packet_builder\\README.md": {
+    "mtime": 1779816475.0,
+    "ast_hash": "55d52b9faf353b13389e0d977ce90392",
+    "semantic_hash": ""
+  }
+}

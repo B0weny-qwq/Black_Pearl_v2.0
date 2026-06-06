@@ -10,12 +10,20 @@
 #ifndef __LOGGER_H__
 #define __LOGGER_H__
 
+#include "app_config.h"
 #include "type_def.h"
 
+#if (SHIP_LOG_ENABLE != 0U)
 #define LOGI(tag, ...)   log_info((u8 *)(tag), __VA_ARGS__)
 #define LOGW(tag, ...)   log_warn((u8 *)(tag), __VA_ARGS__)
 #define LOGE(tag, ...)   log_error((u8 *)(tag), __VA_ARGS__)
 #define LOGD(tag, ...)   log_debug((u8 *)(tag), __VA_ARGS__)
+#else
+#define LOGI(tag, ...)
+#define LOGW(tag, ...)
+#define LOGE(tag, ...)
+#define LOGD(tag, ...)
+#endif
 
 /**
  * @brief 打开日志输出。

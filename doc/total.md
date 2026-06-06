@@ -129,7 +129,7 @@ Black_Pearl_v2.0/
 
 - 保存轻量系统服务，例如日志、控制台、参数管理。
 - 当前已有 `logger` 日志服务，公开 `LOGI/LOGW/LOGE/LOGD/log_printf`。
-- 当前已有 `parameter_store`，通过 `board_storage` 保存 AutoDrive 配置字节。
+- 当前已有 `parameter_store`，通过 `board_storage` 保存 AutoDrive 返航原点字节。
 - 服务层不能直接调用 STC 官方驱动或裸寄存器；硬件输出通过 `BoardDevices/`
   或抽象接口完成。
 
@@ -294,10 +294,11 @@ app_loop()
   `board_motor`。
 - `App/Inc/autodrive.h`、`App/Src/autodrive*.c`：
   GPS AutoDrive 状态机，状态为 `IDLE/START/ALIGN/RUN/ARRIVE/REJECT/TIMEOUT/STOP`。
-  它负责返航点、钓点表、距离/目标航向、对齐判定和诊断快照；电机输出仍通过
+  它负责返航原点、当前钓点目标、距离/目标航向、对齐判定和诊断快照；电机输出仍通过
   `ShipControl_RequestGpsAlign()` / `ShipControl_RequestGpsNav()`。
 - `App/Inc/autodrive_config.h`、`App/Src/autodrive_config.c`：
-  AutoDrive 配置适配层，通过 `parameter_store` 读写配置，不触碰 STC EEPROM 驱动。
+  AutoDrive 返航原点适配层，通过 `parameter_store` 读写原点，不触碰 STC EEPROM 驱动；
+  钓点和返航开关只保存在本次运行态。
 - `Components/Inc/Filter.h`、`Components/Src/Filter.c`：三轴传感器一阶低通
   滤波组件，保留旧 `Filter_*` 接口命名，便于后续接入 QMI8658/QMC6309。
 
@@ -409,7 +410,7 @@ The current `0x12`, power and AutoDrive chain should therefore be understood as:
 12. `app_ship_event_poll()` drains all queued protocol events in FIFO order once per main loop.
 13. Link timeout can trigger AutoDrive/ShipControl through explicit state-machine APIs.
 
-Default release logging is size-conscious for C251. `SHIP_PROTOCOL_VERBOSE_LOG_ENABLE=0` keeps protocol output to card-critical short logs such as `rc cmd=0x11`, `0x14 rx save=... nav=... idx=...`, `tx16 st=...` and errors; `SHIP_APP_BRINGUP_VERBOSE_LOG_ENABLE=0` suppresses startup success banners and first-frame IMU diagnostics. Re-enable either switch only for short debug sessions, because long strings increase CODE/HCONST pressure.
+Default release logging is size-conscious for C251. `SHIP_PROTOCOL_VERBOSE_LOG_ENABLE=0` keeps protocol output to card-critical short logs such as `rc cmd=0x11`, `0x14 rx rt=... nav=... idx=...`, `tx16 st=...` and errors; `SHIP_APP_BRINGUP_VERBOSE_LOG_ENABLE=0` suppresses startup success banners and first-frame IMU diagnostics. Re-enable either switch only for short debug sessions, because long strings increase CODE/HCONST pressure.
 
 ## 烧录后业务逻辑
 

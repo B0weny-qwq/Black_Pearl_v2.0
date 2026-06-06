@@ -26,10 +26,20 @@ typedef struct
 
 typedef struct
 {
+    int8 chip_error;
     u8 addr;
     u8 chip_id;
+    u8 status;
     u8 control_1;
     u8 control_2;
+    u8 i2c_op;
+    u8 i2c_stage;
+    int8 i2c_ret;
+    u8 i2c_state_before;
+    u8 i2c_state_after;
+    int8 i2c_recover_ret;
+    u8 i2c_msst;
+    u8 i2c_mscr;
 } board_mag_diag_t;
 
 /** @brief 初始化板级磁力计并完成最小 bring-up。 */

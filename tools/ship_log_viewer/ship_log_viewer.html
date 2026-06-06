@@ -1055,15 +1055,14 @@
       return actionCode || keyHex || "unknown";
     }
 
-    function fishSaveText(codeText) {
+    function fishRuntimeText(codeText) {
       const code = Number(codeText);
       const map = {
         0: "none",
         1: "stored",
         2: "exists",
-        3: "full-temp",
-        4: "busy",
-        5: "invalid"
+        3: "busy",
+        4: "invalid"
       };
       return `${codeText}(${map[code] || "unknown"})`;
     }
@@ -2349,31 +2348,31 @@
         important = true;
       }
 
-      const gotoDiag = line.match(/\[SHIP\] I: 0x14 rx fl=(\d+) pl=(\d+) xor=([0-9A-Fa-f]{2})\/([0-9A-Fa-f]{2})(?: save=(\d+)\(([^)]+)\) nav=(\d+)\(([^)]+)\)| res=(\d+)\(([^)]+)\)) idx=(\d+)/);
+      const gotoDiag = line.match(/\[SHIP\] I: 0x14 rx fl=(\d+) pl=(\d+) xor=([0-9A-Fa-f]{2})\/([0-9A-Fa-f]{2})(?: (?:save|rt)=(\d+)\(([^)]+)\) nav=(\d+)\(([^)]+)\)| res=(\d+)\(([^)]+)\)) idx=(\d+)/);
       if (gotoDiag) {
-        const saveText = gotoDiag[6] ? `${gotoDiag[5]}(${gotoDiag[6]})` : "--";
+        const runtimeText = gotoDiag[6] ? `${gotoDiag[5]}(${gotoDiag[6]})` : "--";
         const navCode = gotoDiag[7] || gotoDiag[9];
         const navText = gotoDiag[8] || gotoDiag[10];
         const idxText = gotoDiag[11];
         state.coordTarget = "goto-point";
         state.last.gpsRawInfo =
-          `0x14 fl=${gotoDiag[1]} pl=${gotoDiag[2]} xor=${gotoDiag[3]}/${gotoDiag[4]} save=${saveText} nav=${navCode}(${navText}) idx=${idxText}`;
+          `0x14 fl=${gotoDiag[1]} pl=${gotoDiag[2]} xor=${gotoDiag[3]}/${gotoDiag[4]} rt=${runtimeText} nav=${navCode}(${navText}) idx=${idxText}`;
         state.last.autoDriveValue = "GOTO_POINT";
-        state.last.autoDriveMeta = `0x14 save=${saveText} nav=${navText} idx=${idxText}`;
-        pushTimeline(`0x14 目标点：save=${saveText} nav=${navText} idx=${idxText}`);
+        state.last.autoDriveMeta = `0x14 rt=${runtimeText} nav=${navText} idx=${idxText}`;
+        pushTimeline(`0x14 目标点：rt=${runtimeText} nav=${navText} idx=${idxText}`);
         important = true;
       }
 
-      const gotoDiagShort = line.match(/\[SHIP\] I: 0x14 rx save=(\d+) nav=(\d+) idx=(\d+)/);
+      const gotoDiagShort = line.match(/\[SHIP\] I: 0x14 rx (?:save|rt)=(\d+) nav=(\d+) idx=(\d+)/);
       if (gotoDiagShort) {
-        const saveText = fishSaveText(gotoDiagShort[1]);
+        const runtimeText = fishRuntimeText(gotoDiagShort[1]);
         const navText = fishNavText(gotoDiagShort[2]);
         const idxText = gotoDiagShort[3];
         state.coordTarget = "goto-point";
-        state.last.gpsRawInfo = `0x14 save=${saveText} nav=${navText} idx=${idxText}`;
+        state.last.gpsRawInfo = `0x14 rt=${runtimeText} nav=${navText} idx=${idxText}`;
         state.last.autoDriveValue = "GOTO_POINT";
-        state.last.autoDriveMeta = `0x14 save=${saveText} nav=${navText} idx=${idxText}`;
-        pushTimeline(`0x14 目标点：save=${saveText} nav=${navText} idx=${idxText}`);
+        state.last.autoDriveMeta = `0x14 rt=${runtimeText} nav=${navText} idx=${idxText}`;
+        pushTimeline(`0x14 目标点：rt=${runtimeText} nav=${navText} idx=${idxText}`);
         important = true;
       }
 
@@ -2531,6 +2530,16 @@
         }
         pushTimeline(`MAG：raw=${magRaw[1]} ${magRaw[2]} ${magRaw[3]} yaw=${magRaw[5]} self=${magRaw[6]}`);
         important = true;
+      }
+
+      const magReadFailEx = line.match(/\[MAG\] W: read fail rc=(-?\d+) chip=(-?\d+) addr=0x([0-9A-Fa-f]{2}) id=0x([0-9A-Fa-f]{2}) st=0x([0-9A-Fa-f]{2}) c1=0x([0-9A-Fa-f]{2}) c2=0x([0-9A-Fa-f]{2}) i2c=(-?\d+)\/(\d+) b=([0-9A-Fa-f]{2})\/([0-9A-Fa-f]{2})/);
+      if (magReadFailEx) {
+        state.last.magValue = "READ FAIL";
+        state.last.magMeta =
+          `rc=${magReadFailEx[1]} chip=${magReadFailEx[2]} addr=0x${magReadFailEx[3].toUpperCase()} id=0x${magReadFailEx[4].toUpperCase()} st=0x${magReadFailEx[5].toUpperCase()} c1=0x${magReadFailEx[6].toUpperCase()} c2=0x${magReadFailEx[7].toUpperCase()} i2c=${magReadFailEx[8]}/${magReadFailEx[9]} b=${magReadFailEx[10].toUpperCase()}/${magReadFailEx[11].toUpperCase()}`;
+        state.last.warnInfo = `MAG read fail ${state.last.magMeta}`;
+        important = true;
+        return important;
       }
 
       const magReadFail = line.match(/\[MAG\] W: read fail rc=(-?\d+)(?: addr=0x([0-9A-Fa-f]{2}) id=0x([0-9A-Fa-f]{2}) c1=0x([0-9A-Fa-f]{2}) c2=0x([0-9A-Fa-f]{2}))?/);

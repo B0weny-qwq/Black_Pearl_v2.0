@@ -2,6 +2,7 @@
 
 HeadingEstimator_t app_heading;
 u8 app_heading_ready = 0U;
+u16 app_raw_heading_deg100 = 0U;
 u16 app_heading_deg100 = 0U;
 int16 app_heading_rel_deg100 = 0;
 u8 app_ahrs_started = 0U;

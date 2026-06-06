@@ -262,6 +262,7 @@ static int8 ef_iic_prepare_transaction(u8 op, u8 dev_addr, u8 reg_addr)
 
     ef_iic_diag_begin(op, dev_addr, reg_addr);
     ef_iic_last_diag.stage = EF_IIC_STAGE_PREPARE;
+    ef_iic_config_pins(ef_iic_pin_group);
 
     if (ef_iic_get_bus_state() != 0U) {
         ret = ef_iic_bus_recover_internal();

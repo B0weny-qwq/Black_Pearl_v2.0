@@ -6,6 +6,7 @@
 #include "board_spi_ps.h"
 #include "board_wireless.h"
 #include "logger.h"
+#include "north_calib.h"
 #include "ship_protocol.h"
 
 /* 按 v1.1 迁移后的启动顺序拉起板级设备和 App 状态机。 */
@@ -39,6 +40,31 @@ static void app_log_imu_diag(void)
          (u16)imu_diag.i2c_msst,
          (u16)imu_diag.i2c_mscr);
 #endif
+    (void)0;
+}
+
+static void app_log_mag_diag(void)
+{
+    board_mag_diag_t mag_diag;
+
+    if (board_mag_get_diag(&mag_diag) != BOARD_MAG_OK) {
+        return;
+    }
+
+    LOGE("MAG", "diag chip=%d addr=0x%02X id=0x%02X st=0x%02X c1=0x%02X c2=0x%02X",
+         mag_diag.chip_error,
+         (u16)mag_diag.addr,
+         (u16)mag_diag.chip_id,
+         (u16)mag_diag.status,
+         (u16)mag_diag.control_1,
+         (u16)mag_diag.control_2);
+    LOGE("MAG", "i2c op=%u stg=%u rc=%d b=%02X/%02X rec=%d",
+         (u16)mag_diag.i2c_op,
+         (u16)mag_diag.i2c_stage,
+         mag_diag.i2c_ret,
+         (u16)mag_diag.i2c_state_before,
+         (u16)mag_diag.i2c_state_after,
+         mag_diag.i2c_recover_ret);
 }
 
 static void app_try_imu_after_bringup(void)
@@ -95,6 +121,7 @@ void app_bring_up_devices(void)
     ret = board_mag_init();
     if (ret != BOARD_MAG_OK) {
         LOGE("MAG", "QMC6309 init fail rc=%d", ret);
+        app_log_mag_diag();
     }
 
     ret = board_power_init();
@@ -130,4 +157,5 @@ void app_bring_up_devices(void)
 
     app_read_imu_once();
     app_ahrs_reset();
+    NorthCalib_Init();
 }

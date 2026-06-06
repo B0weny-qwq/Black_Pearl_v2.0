@@ -16,10 +16,10 @@
 - `ship_control_manual.c`：手动开环和手动 yaw hold 入口。
 - `ship_control_yaw.c`：航向保持、E 键巡航、GPS 对齐/导航 yaw 控制；阻尼使用 v1.1 的 `gyro_z_dps100`。
 - `autodrive.c`：AutoDrive 运行态、初始化、停止和链路保活。
-- `autodrive_cmd.c` / `autodrive_points.c`：`0x13/0x14/0x15` 命令入口、旧坐标和钓点表。
+- `autodrive_cmd.c` / `autodrive_points.c`：`0x13/0x14/0x15` 命令入口、旧坐标和当前钓点目标。
 - `autodrive_nav.c` / `autodrive_control.c` / `autodrive_poll.c`：旧整数距离/方位算法、目标航向控制和 START/ALIGN/RUN 状态机。
 - `autodrive_gps.c` / `autodrive_diag.c`：GPS ready/current 快照和 AutoDrive 诊断快照。
-- `autodrive_config.c`：AutoDrive 配置保存/加载。
+- `autodrive_config.c`：AutoDrive 返航原点保存/加载；钓点和返航开关不写 flash。
 - `main.c`：只做平台初始化和 App 调度。
 
 本目录可以调用 BoardDevices/Components/Services，但不能直接访问寄存器或裸引脚。

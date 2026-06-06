@@ -1,5 +1,6 @@
 #include "ship_protocol_internal.h"
 #include "logger.h"
+#include "north_calib.h"
 
 #if (SHIP_PROTOCOL_VERBOSE_LOG_ENABLE != 0U)
 static const char *ship_protocol_fish_result_name(u8 result)
@@ -37,12 +38,12 @@ static void ship_protocol_log_goto_point(const u8 *frame,
     ship_protocol_point_t point;
 #endif
     u8 idx;
-    u8 save_result;
+    u8 rx_result;
 
     idx = AutoDrive_GetLastFishCommandIndex();
-    save_result = AutoDrive_GetLastFishSaveResult();
-    LOGI(SHIP_TAG, "0x14 rx save=%u nav=%u idx=%u",
-         (u16)save_result,
+    rx_result = AutoDrive_GetLastFishRxResult();
+    LOGI(SHIP_TAG, "0x14 rx rt=%u nav=%u idx=%u",
+         (u16)rx_result,
          (u16)result,
          (u16)idx);
 #if (SHIP_PROTOCOL_VERBOSE_LOG_ENABLE != 0U)
@@ -72,6 +73,10 @@ void ship_protocol_handle_return_home(const u8 *payload, u8 payload_len)
     if ((payload == 0) || (payload_len < SHIP_PROTOCOL_POINT_PAYLOAD_LEN)) {
         LOGW(SHIP_TAG, "0x13 short len=%u", (u16)payload_len);
         ship_protocol_publish_error_event(SHIP_CMD_RETURN_HOME, payload_len);
+        return;
+    }
+    if (NorthCalib_IsBusy() != 0U) {
+        LOGW(SHIP_TAG, "0x13 ignored north-calib busy");
         return;
     }
     ship_protocol_clear_event_payload();
@@ -107,6 +112,17 @@ u8 ship_protocol_handle_fish_point(const u8 *payload,
                                      AUTODRIVE_FISH_CMD_INVALID);
         return AUTODRIVE_FISH_CMD_INVALID;
     }
+    if (NorthCalib_IsBusy() != 0U) {
+        LOGW(SHIP_TAG, "0x14 ignored north-calib busy");
+        ship_protocol_log_goto_point(frame,
+                                     frame_len,
+                                     payload,
+                                     payload_len,
+                                     xor_calc,
+                                     xor_recv,
+                                     AUTODRIVE_FISH_CMD_BUSY);
+        return AUTODRIVE_FISH_CMD_BUSY;
+    }
     ship_protocol_clear_event_payload();
     ship_protocol_parse_point_payload(payload, &ship_protocol_rt.event.point);
     ship_protocol_rt.event.switch_state = 0U;
@@ -126,6 +142,10 @@ void ship_protocol_handle_return_switch(const u8 *payload, u8 payload_len)
     if ((payload == 0) || (payload_len < 1U)) {
         LOGW(SHIP_TAG, "0x15 short len=%u", (u16)payload_len);
         ship_protocol_publish_error_event(SHIP_CMD_RETURN_SWITCH, payload_len);
+        return;
+    }
+    if (NorthCalib_IsBusy() != 0U) {
+        LOGW(SHIP_TAG, "0x15 ignored north-calib busy");
         return;
     }
     ship_protocol_clear_event_payload();

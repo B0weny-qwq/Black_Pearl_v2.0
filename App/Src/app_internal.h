@@ -21,6 +21,7 @@
 
 extern HeadingEstimator_t app_heading;
 extern u8 app_heading_ready;
+extern u16 app_raw_heading_deg100;
 extern u16 app_heading_deg100;
 extern int16 app_heading_rel_deg100;
 extern u8 app_ahrs_started;

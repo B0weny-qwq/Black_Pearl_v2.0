@@ -1,9 +1,10 @@
 /**
  * @file autodrive_config.h
- * @brief AutoDrive 配置持久化接口。
+ * @brief AutoDrive 返航原点持久化接口。
  *
- * 本接口属于 App 层业务配置边界，只暴露返航开关和返航点配置的
- * 加载/保存动作，实际非易失存储由 Services/parameter_store 承担。
+ * 本接口属于 App 层业务配置边界，只把返航原点保存到 flash。
+ * 钓点由遥控器每次下发，自动返航开关也只作为本次运行态输入。
+ * 实际非易失存储由 Services/parameter_store 承担。
  */
 
 #ifndef __AUTODRIVE_CONFIG_H__
@@ -20,13 +21,13 @@
 void AutoDriveCfg_Init(void);
 
 /**
- * @brief 读取返航配置。
+ * @brief 读取返航原点配置。
  * @param cfg 输出配置，不能为 NULL；读取失败时写入默认关闭返航配置。
  */
 void AutoDriveCfg_Load(AutoDrive_ReturnConfig_t *cfg);
 
 /**
- * @brief 保存返航配置。
+ * @brief 保存返航原点配置。
  * @param cfg 输入配置，不能为 NULL。
  * @return 1 保存成功，0 参数为空或参数服务写入失败。
  */

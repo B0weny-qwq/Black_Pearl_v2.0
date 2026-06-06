@@ -1,5 +1,6 @@
 #include "ship_protocol_internal.h"
 #include "autodrive.h"
+#include "north_calib.h"
 #include "platform_scheduler.h"
 #include "ship_control.h"
 
@@ -42,6 +43,9 @@ void ship_protocol_init(void)
     ship_protocol_rt.power_adc_ready = 0U;
     ship_protocol_rt.power_first_valid_logged = 0U;
     ship_protocol_rt.lowpower_return_latched = 0U;
+    ship_protocol_rt.d_key_pressed = 0U;
+    ship_protocol_rt.d_key_click_waiting = 0U;
+    ship_protocol_rt.d_key_first_click_ms = 0UL;
     ship_protocol_rt.power_sample_divider_count = 0U;
     ship_protocol_rt.lowpower_check_ticks = 0U;
     ship_protocol_rt.power_sample_period_ms = (u32)SHIP_POWER_SAMPLE_DIVIDER * 10UL;
@@ -83,6 +87,7 @@ void ship_protocol_init(void)
     }
     ShipControl_Init();
     AutoDrive_Init();
+    NorthCalib_Init();
     ship_protocol_initialized = 1U;
     ship_protocol_log_power_sample(&ship_protocol_rt.power_sample, 1U);
 #if (SHIP_PROTOCOL_VERBOSE_LOG_ENABLE != 0U)
@@ -132,6 +137,7 @@ void ship_protocol_run_scheduler(void)
         }
     }
     AutoDrive_Poll();
+    NorthCalib_Poll();
     ship_protocol_service_autodrive_diag(now_ms);
     ShipControl_Tick(now_ms);
 }

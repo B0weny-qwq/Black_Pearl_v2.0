@@ -45,9 +45,8 @@ extern AutoDrive_PointRaw_t now_position;
 extern AutoDrive_PointRaw_t last_position;
 extern AutoDrive_PointRaw_t return_position;
 extern AutoDrive_PointRaw_t fish_position;
-extern AutoDrive_FishPointStore_t fish_points;
 extern u8 last_fish_cmd_index;
-extern u8 last_fish_save_result;
+extern u8 last_fish_rx_result;
 extern AutoDrive_PointRaw_t last_fish_rx_point;
 extern u32 last_fish_rx_ms;
 extern u8 last_fish_rx_valid;
@@ -93,21 +92,9 @@ void AutoDrive_CopyPoint(AutoDrive_PointRaw_t *dst,
 /** @brief 清空点位结构。 */
 void AutoDrive_ClearPoint(AutoDrive_PointRaw_t *point);
 
-/** @brief 清空临时钓点表。 */
-void AutoDrive_ClearFishPoints(void);
-
-/** @brief 判断钓点表是否已经写满。 */
-u8 AutoDrive_FishPointsReady(void);
-
 /** @brief 比较两个旧协议点位是否完全一致。 */
 u8 AutoDrive_PointRawEqual(const AutoDrive_PointRaw_t *lhs,
                            const AutoDrive_PointRaw_t *rhs);
-
-/** @brief 在钓点表中查找已有点位，返回 1 起始索引。 */
-u8 AutoDrive_FindFishPointIndex(const AutoDrive_PointRaw_t *point);
-
-/** @brief 存入新的钓点，返回 0 起始槽位或 0xFF。 */
-u8 AutoDrive_StoreFishPoint(const AutoDrive_PointRaw_t *point);
 
 /** @brief 判断短时间内重复收到同一钓点。 */
 u8 AutoDrive_IsFishRxDuplicate(const AutoDrive_PointRaw_t *point, u32 now_ms);

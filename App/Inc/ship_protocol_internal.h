@@ -33,6 +33,7 @@
 #define SHIP_CRUISE_GYRO_START_MAX_DPS   8
 #define SHIP_AUTODRIVE_DIAG_PERIOD_MS    1000UL
 #define SHIP_AUTODRIVE_DIAG_MIN_GAP_MS   200UL
+#define SHIP_NORTH_CALIB_DOUBLE_CLICK_MS 1000UL
 
 /** @brief 旧电量采样缓存，兼容 0x12 payload[13] 的 0..4 等级。 */
 typedef struct
@@ -103,6 +104,9 @@ typedef struct
     u8 power_adc_ready;
     u8 power_first_valid_logged;
     u8 lowpower_return_latched;
+    u8 d_key_pressed;
+    u8 d_key_click_waiting;
+    u32 d_key_first_click_ms;
     u16 power_sample_divider_count;
     u16 lowpower_check_ticks;
     u32 power_sample_period_ms;

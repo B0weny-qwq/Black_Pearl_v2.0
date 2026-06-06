@@ -30,6 +30,7 @@ build/*
 !build/generated/
 build/generated/*
 !build/generated/ef_board_resources.h
+graphify-out/cache/
 
 # Local reference material, not part of the tracked project
 Examples/

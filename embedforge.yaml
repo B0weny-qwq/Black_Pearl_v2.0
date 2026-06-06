@@ -284,6 +284,14 @@ resource_conflicts:
     rule: Current firmware only enables the LT8920 SPI mux on P3.2-P3.5.
     guard: EF_BOARD_SPI_PS_SHARES_LT8920_SPI keeps board_spi_ps_init() disabled until hardware confirms an independent SPI path or a safe bus arbitration strategy.
 
+  - name: lt8920_spi_must_not_overlap_sensor_i2c
+    resource: pins
+    users:
+      - sensor_i2c
+      - radio_spi
+    rule: LT8920 SPI must not use a route that shares pins with the sensor I2C bus.
+    guard: tools/gen_board_resources.py emits route IDs and fails generation if LT8920 SPI overlaps sensor_i2c.
+
 memory_layout:
   c251:
     edata_budget_bytes: 4096

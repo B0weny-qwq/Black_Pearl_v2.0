@@ -14,9 +14,8 @@ AutoDrive_PointRaw_t now_position;
 AutoDrive_PointRaw_t last_position;
 AutoDrive_PointRaw_t return_position;
 AutoDrive_PointRaw_t fish_position;
-AutoDrive_FishPointStore_t fish_points;
 u8 last_fish_cmd_index = 0U;
-u8 last_fish_save_result = AUTODRIVE_FISH_SAVE_NONE;
+u8 last_fish_rx_result = AUTODRIVE_FISH_RX_NONE;
 AutoDrive_PointRaw_t last_fish_rx_point;
 u32 last_fish_rx_ms = 0UL;
 u8 last_fish_rx_valid = 0U;
@@ -122,9 +121,8 @@ void AutoDrive_Init(void)
     }
     AutoDrive_CopyPoint(&return_position, &autodrv_cfg.ret_point);
     AutoDrive_ClearPoint(&fish_position);
-    AutoDrive_ClearFishPoints();
     last_fish_cmd_index = 0U;
-    last_fish_save_result = AUTODRIVE_FISH_SAVE_NONE;
+    last_fish_rx_result = AUTODRIVE_FISH_RX_NONE;
     AutoDrive_ClearPoint(&last_fish_rx_point);
     last_fish_rx_ms = 0UL;
     last_fish_rx_valid = 0U;

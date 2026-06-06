@@ -81,12 +81,13 @@
  */
 #define SHIP_POWER_SAMPLE_DIVIDER        100U
 #define SHIP_POWER_LOG_PERIOD_MS         10000UL
-#define SHIP_ADC_LOG_ENABLE              1
-#define SHIP_IMU_RAW_LOG_ENABLE          1U
-#define SHIP_MAG_STANDALONE_LOG_ENABLE   1U
+#define SHIP_LOG_ENABLE                  0U
+#define SHIP_ADC_LOG_ENABLE              0
+#define SHIP_IMU_RAW_LOG_ENABLE          0U
+#define SHIP_MAG_STANDALONE_LOG_ENABLE   0U
 #define SHIP_MAG_STANDALONE_LOG_PERIOD_MS 1000UL
 /* 上位机“控制模式/电机输出/角度闭环”卡片依赖 [CTRL] out 日志。 */
-#define SHIP_CONTROL_LOG_ENABLE          1U
+#define SHIP_CONTROL_LOG_ENABLE          0U
 /* C251 CODE/HCONST 空间紧张，默认只保留上位机卡片必需短日志。 */
 #define SHIP_PROTOCOL_VERBOSE_LOG_ENABLE 0U
 #define SHIP_APP_BRINGUP_VERBOSE_LOG_ENABLE 0U

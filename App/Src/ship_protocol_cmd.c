@@ -1,10 +1,42 @@
 #include "ship_protocol_internal.h"
 #include "app.h"
 #include "logger.h"
+#include "north_calib.h"
 #include "platform_scheduler.h"
 #include "ship_control.h"
 
 /* 0x11 按键语义：E 键巡航，B/C/D 仅发事件给外包扩展入口。 */
+static void ship_protocol_service_north_calib_key(u8 key, u32 now_ms)
+{
+    if (key == SHIP_PROTOCOL_KEY_D_UNUSED) {
+        if (ship_protocol_rt.d_key_pressed == 0U) {
+            ship_protocol_rt.d_key_pressed = 1U;
+            if ((ship_protocol_rt.d_key_click_waiting != 0U) &&
+                ((now_ms - ship_protocol_rt.d_key_first_click_ms) <=
+                 SHIP_NORTH_CALIB_DOUBLE_CLICK_MS)) {
+                ship_protocol_rt.d_key_click_waiting = 0U;
+                ship_protocol_rt.d_key_first_click_ms = 0UL;
+                if (NorthCalib_RequestStart() != 0U) {
+                    LOGI(SHIP_TAG, "key action=D north-calib-start");
+                } else {
+                    LOGW(SHIP_TAG, "key action=D north-calib-reject");
+                }
+            } else {
+                ship_protocol_rt.d_key_click_waiting = 1U;
+                ship_protocol_rt.d_key_first_click_ms = now_ms;
+            }
+        }
+    } else {
+        ship_protocol_rt.d_key_pressed = 0U;
+        if ((ship_protocol_rt.d_key_click_waiting != 0U) &&
+            ((now_ms - ship_protocol_rt.d_key_first_click_ms) >
+             SHIP_NORTH_CALIB_DOUBLE_CLICK_MS)) {
+            ship_protocol_rt.d_key_click_waiting = 0U;
+            ship_protocol_rt.d_key_first_click_ms = 0UL;
+        }
+    }
+}
+
 static void ship_protocol_handle_key_edge(u8 key)
 {
     ship_protocol_key_action_t key_action;
@@ -122,6 +154,11 @@ void ship_protocol_handle_throttle(const u8 *payload, u8 payload_len)
     ship_protocol_rt.throttle_recover_done = 0U;
     ship_protocol_rt.throttle_online = 1U;
     now_ms = platform_scheduler_get_tick_ms();
+    NorthCalib_UpdateRemoteInput(ship_protocol_rt.lr,
+                                 ship_protocol_rt.ud,
+                                 ship_protocol_rt.key,
+                                 now_ms);
+    ship_protocol_service_north_calib_key(ship_protocol_rt.key, now_ms);
     ship_protocol_rt.event.throttle.lr = ship_protocol_rt.lr;
     ship_protocol_rt.event.throttle.ud = ship_protocol_rt.ud;
     ship_protocol_rt.event.throttle.key = ship_protocol_rt.key;
@@ -157,13 +194,23 @@ void ship_protocol_handle_throttle(const u8 *payload, u8 payload_len)
         ship_protocol_rt.manual_boot_ready_logged = 1U;
         LOGI(SHIP_TAG, "boot ready t=%lums hd=%u", now_ms, (u16)app_get_heading_ready());
     }
-    if (ship_protocol_rt.key != ship_protocol_rt.last_key) {
-        ship_protocol_handle_key_edge(ship_protocol_rt.key);
+    if (NorthCalib_IsBusy() != 0U) {
+        if ((ship_protocol_rt.key != ship_protocol_rt.last_key) &&
+            (ship_protocol_rt.key == SHIP_PROTOCOL_KEY_E_RESERVED)) {
+            NorthCalib_Cancel(NORTH_CALIB_FAIL_USER_CANCEL);
+            LOGI(SHIP_TAG, "key action=E north-calib-cancel");
+        }
         ship_protocol_rt.last_key = ship_protocol_rt.key;
+        AutoDrive_LinkAliveKick();
+        return;
     }
     if (AutoDrive_IsBusy() != 0U) {
         AutoDrive_LinkAliveKick();
         return;
+    }
+    if (ship_protocol_rt.key != ship_protocol_rt.last_key) {
+        ship_protocol_handle_key_edge(ship_protocol_rt.key);
+        ship_protocol_rt.last_key = ship_protocol_rt.key;
     }
     if ((ShipControl_GetMode() == SHIP_CONTROL_MODE_CRUISE_HEADING_HOLD) &&
         (ship_protocol_raw_ud_to_input(ship_protocol_rt.ud) < SHIP_CRUISE_KEY_STOP_INPUT)) {

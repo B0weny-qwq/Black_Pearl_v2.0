@@ -102,9 +102,10 @@ AutoDriveCfg_Save/Load -> parameter_store -> board_storage -> STC32G_EEPROM
 
 当前用途：
 
-- 保存自动返航开关 `auto_ret_onoff`。
-- 保存 10 字节旧格式返航点。
-- 通过 `ADCFG ld ok/ld def`、`ADCFG sv ok/sv fail` 日志确认配置读写结果。
+- 保存 10 字节旧格式返航原点。
+- 不保存钓点；`0x14` 钓点由遥控器每次下发，船端只保留当前运行态目标。
+- 不保存自动返航开关；`0x15` 的开关值只影响本次运行态，带返航原点时才触发 flash 写入。
+- 通过 `ADCFG ld origin/ld def`、`ADCFG sv origin/sv fail` 日志确认原点读写结果。
 
 服务层仍然不直接包含 STC EEPROM 头文件；EEPROM/IAP 细节只允许出现在
 `BoardDevices/Src/board_storage.c`。

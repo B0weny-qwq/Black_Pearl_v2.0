@@ -13,12 +13,18 @@ void app_log_mag_read_fail(int8 ret)
     board_mag_diag_t diag;
 
     if (board_mag_get_diag(&diag) == BOARD_MAG_OK) {
-        LOGW("MAG", "read fail rc=%d addr=0x%02X id=0x%02X c1=0x%02X c2=0x%02X",
+        LOGW("MAG", "read fail rc=%d chip=%d addr=0x%02X id=0x%02X st=0x%02X c1=0x%02X c2=0x%02X i2c=%d/%u b=%02X/%02X",
              ret,
+             diag.chip_error,
              (u16)diag.addr,
              (u16)diag.chip_id,
+             (u16)diag.status,
              (u16)diag.control_1,
-             (u16)diag.control_2);
+             (u16)diag.control_2,
+             diag.i2c_ret,
+             (u16)diag.i2c_stage,
+             (u16)diag.i2c_state_before,
+             (u16)diag.i2c_state_after);
     } else {
         LOGW("MAG", "read fail rc=%d", ret);
     }
@@ -109,6 +115,7 @@ void app_ahrs_reset(void)
     Filter_ResetMagLowPass();
     Filter_ResetGyroLowPass();
     app_heading_ready = 0U;
+    app_raw_heading_deg100 = 0U;
     app_heading_deg100 = 0U;
     app_heading_rel_deg100 = 0;
     app_ahrs_started = 1U;

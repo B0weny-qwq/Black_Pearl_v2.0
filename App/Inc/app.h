@@ -42,7 +42,13 @@ const AHRS_State_t *app_get_attitude_state(void);
 u8 app_get_heading_ready(void);
 
 /**
- * @brief 获取绝对航向。
+ * @brief 获取未叠加北向校准 offset 的原始融合航向。
+ * @return 0..35999 范围的航向角，单位 deg*100。
+ */
+u16 app_get_raw_heading_deg100(void);
+
+/**
+ * @brief 获取叠加北向校准 offset 后的导航航向。
  * @return 0..35999 范围的航向角，单位 deg*100。
  */
 u16 app_get_heading_deg100(void);

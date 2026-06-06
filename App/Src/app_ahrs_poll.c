@@ -3,6 +3,7 @@
 #include "Filter.h"
 #include "logger.h"
 #include "MagCompass.h"
+#include "north_calib.h"
 #include "platform_scheduler.h"
 
 static void app_ahrs_log(const AHRS_State_t *att,
@@ -147,6 +148,9 @@ void app_ahrs_poll(void)
     last_heading_static = heading_static;
     if ((att->flags & AHRS_FLAG_READY) == 0U) {
         app_heading_ready = 0U;
+        app_raw_heading_deg100 = 0U;
+        app_heading_deg100 = 0U;
+        app_heading_rel_deg100 = 0;
         Heading_Init(&app_heading);
         return;
     }
@@ -190,6 +194,9 @@ void app_ahrs_poll(void)
         mag_state = MagCompass_GetState();
         if ((mag_state == 0) || (mag_state->ready == 0U) || (heading_mag_settled == 0U)) {
             app_heading_ready = 0U;
+            app_raw_heading_deg100 = 0U;
+            app_heading_deg100 = 0U;
+            app_heading_rel_deg100 = 0;
             if (log_due != 0U) {
                 app_ahrs_log(att, mag_state, heading_static, heading_mag_settled);
             }
@@ -208,7 +215,9 @@ void app_ahrs_poll(void)
                    stable_mag_valid,
                    heading_static,
                    (float)dt_ms * 0.001f);
-    app_heading_deg100 = app_wrap_heading_deg100(Heading_GetDeg100(&app_heading));
+    app_raw_heading_deg100 = app_wrap_heading_deg100(Heading_GetDeg100(&app_heading));
+    app_heading_deg100 = app_wrap_heading_deg100((int32)app_raw_heading_deg100 +
+                                                 (int32)NorthCalib_GetHeadingOffsetCd());
     app_heading_rel_deg100 = app_wrap_signed_deg100(Heading_GetRelativeDeg100(&app_heading));
     app_heading_ready = 1U;
 

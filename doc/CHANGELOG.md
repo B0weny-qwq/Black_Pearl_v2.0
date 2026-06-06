@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- 2026-06-06 AutoDrive persistence narrowed to return origin:
+  - Stopped treating `0x14` fishing points as a local point table. The boat now keeps only the current runtime target from the latest remote command and duplicate debounce state.
+  - Narrowed AutoDrive flash storage to the 10-byte return origin. `0x15` switch-only packets update runtime state without erasing/writing flash.
+  - Renamed the compact `0x14` short log field from `save=` to `rt=`. The ship log viewer accepts both old `save=` and new `rt=` logs.
+
 - 2026-05-28 App decoupling and v1.1 evidence pass:
   - Split App-layer large files so each `App/*.c` and `App/*.h` is at most 300 lines by strict line count.
   - Split `app.c`, `ship_control.c`, `ship_protocol.c`, and `autodrive.c` into focused App modules and added the new files to the Keil project.

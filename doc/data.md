@@ -97,7 +97,7 @@ main()
   以及 QMI8658 板级 IMU、QMC6309 板级磁力计、LT8920 板级无线 bring-up 和
   `board_wireless` 链路管理、双电机 PWM、`board_power` 电池采样和 `board_storage`
   EEPROM/IAP 封装。
-- `Services/` 当前已有 `logger` 和 `parameter_store`；AutoDrive 配置保存通过
+- `Services/` 当前已有 `logger` 和 `parameter_store`；AutoDrive 返航原点保存通过
   `parameter_store -> board_storage` 完成。
 - `App/` 当前已有 `ship_protocol` 协议状态机。运行状态变量统一为
   `ship_protocol_runtime_t ship_protocol_rt`，关键字段包括 `lr`、`ud`、`key`、
@@ -110,7 +110,7 @@ main()
   观察按键、返航、钓点、电量和 SPI-PS 事件；`app_extension_poll()` 保留给 LED 闪烁等
   非阻塞周期动作。
 - `App/` 当前已有 `autodrive` GPS 自动驾驶状态机。`0x13/0x14/0x15` 真实分发到
-  AutoDrive，返航配置通过服务层持久化，钓点表为会话内 RAM 表。
+  AutoDrive，flash 只保存返航原点；`0x14` 钓点由遥控器每次下发，船端只保留当前运行态目标。
 - `App/` 中 `app`、`ship_protocol`、`ship_control`、`autodrive` 已拆分为职责明确的
   多个 `.c` 文件，并通过 `*_internal.h` 共享内部运行态；单个 App `.c/.h`
   文件保持 300 行以内，便于外包按职责插入逻辑。
@@ -207,13 +207,12 @@ main()
     `lon1/lon2/lat1/lat2` 均为大端 u16；解析后生成 `SHIP_PROTOCOL_EVENT_RETURN_HOME`，
     并调用 `AutoDrive_SetReturnPositionRaw()`
   - `0x14`：payload[0..9] 为钓点坐标，格式同 `0x13`；解析后生成
-    `SHIP_PROTOCOL_EVENT_FISH_POINT`。旧工程的“首次保存、重复过滤、匹配后去钓点”
-    是 `AutoDrive_SetFishPositionRaw()` 根据 RAM 钓点表判断的结果，不是空口 action 字节；
-    当前会记录结果码和命中 index。
+    `SHIP_PROTOCOL_EVENT_FISH_POINT`。船端不把钓点写入 flash，也不维护跨任务点表；
+    `AutoDrive_SetFishPositionRaw()` 只把本次下发坐标作为当前运行态目标，并做短时重复帧抑制。
   - `0x15`：payload[0]=自动返航开关状态；payload[1..10] 可选携带返航点，
     格式同 `0x13`；解析后生成 `SHIP_PROTOCOL_EVENT_RETURN_SWITCH`。旧工程默认/关闭值为
-    `0x30`，当前会调用 `AutoDrive_SetSwitchRaw()` 保存配置；开关不为 `0x30` 时由
-    AutoDrive 尝试返航。
+    `0x30`，当前会调用 `AutoDrive_SetSwitchRaw()` 更新运行态开关；只有携带返航点时才保存
+    返航原点，开关不为 `0x30` 时由 AutoDrive 尝试返航。
   - 当前协议事件通过 8 深度环形队列暴露给日志、联调或后续观察。
     `ship_protocol_take_event()` 按 FIFO 消费，`ship_protocol_get_event_snapshot()` 只查看最近事件；
     `App/Src/app_mag_event.c` 的 `app_ship_event_poll()` 已在主循环中 drain 队列。
@@ -232,8 +231,8 @@ main()
 | `0x11` | `THROTTLE` | 遥控器 -> 船 | `lr, ud, key` | `ship_protocol_handle_throttle()` -> `ShipControl_UpdateManualInput()` | 开机/航向保护内只保活；AutoDrive busy 时不抢电机；正常时更新手动控制；A/E/unknown 保持 `KEY_EDGE`；B/C/D 发布 `KEY_ACTION_*_NOOP`；E 键可进入/退出巡航 |
 | `0x12` | `GPS_REPORT` | 船 -> 遥控器 | 固定 15 字节 | `ship_protocol_send_gps_once()` | 任意合法 `0x0F/0x11/0x13/0x14/0x15` 分发后回包；方向字节继续固定 `E/W` |
 | `0x13` | `RETURN_HOME` | 遥控器 -> 船 | 10 字节旧点位 | `AutoDrive_SetReturnPositionRaw()` | 保存返航点到配置并尝试进入返航；随后统一回 `0x12` |
-| `0x14` | `GOTO_POINT` | 遥控器 -> 船 | 10 字节旧点位 | `AutoDrive_SetFishPositionRaw()` | RAM 5 点表查重；未知点在表未满时先存储并立即尝试去点，快速重复帧抑制；日志拆分 save/nav 结果和 index |
-| `0x15` | `RETURN_SWITCH` | 遥控器 -> 船 | `switch` + 可选 10 字节返航点 | `AutoDrive_SetSwitchRaw()` | 保存返航开关和可选返航点；开关不为 `0x30` 时尝试返航；随后统一回 `0x12` |
+| `0x14` | `GOTO_POINT` | 遥控器 -> 船 | 10 字节旧点位 | `AutoDrive_SetFishPositionRaw()` | 不写 flash；每次下发覆盖当前钓点目标，快速重复帧抑制；日志中的 `rt` 是运行态接收结果，不是持久化结果 |
+| `0x15` | `RETURN_SWITCH` | 遥控器 -> 船 | `switch` + 可选 10 字节返航点 | `AutoDrive_SetSwitchRaw()` | 开关只影响本次运行态；仅 payload 带返航点时保存返航原点到 flash；开关不为 `0x30` 时尝试返航；随后统一回 `0x12` |
 | `0x16` | `AUTODRIVE_DIAG` | 船 -> 遥控器/调试 | 固定 36 字节 | `ship_protocol_send_autodrive_diag_once()` | 船端主动诊断上报 AutoDrive 状态、模式、原因、距离、当前点和目标点；不替代 `0x12` |
 
 10 字节点位格式固定为：
@@ -266,12 +265,12 @@ main()
 | 巡航状态 | `cruise enter` / `cruise exit` / `cruise reject` | E 键巡航准入、退出和拒绝原因 |
 | 电机输出 | `CTRL out m=` | `ShipControl` 统一输出 mode、motion、throttle、base、steer、diff、left、right |
 | 返航点事件 | `0x13 ret` | 解析 10 字节返航点并调用 AutoDrive 返航入口 |
-| 钓点事件 | `0x14 fish` | 解析 10 字节钓点坐标，并进入 5 点表保存/查重/启动状态机 |
-| 钓点诊断 | `0x14 rx save=... nav=... idx=...` | 默认短日志只打印保存结果、导航结果和命中 index；verbose 档位才打印 frame/payload/xor 长诊断 |
-| 返航开关事件 | `0x15 sw=` | 解析 `switch_state` 和可选返航点，保存配置并按开关触发返航 |
+| 钓点事件 | `0x14 fish` | 解析 10 字节钓点坐标，作为当前运行态目标尝试启动去点 |
+| 钓点诊断 | `0x14 rx rt=... nav=... idx=...` | 默认短日志打印运行态接收结果、导航结果和当前目标 index；verbose 档位才打印 frame/payload/xor 长诊断 |
+| 返航开关事件 | `0x15 sw=` | 解析 `switch_state` 和可选返航点；开关不持久化，带返航点时才保存返航原点 |
 | GPS 回包 | `0x12` payload；verbose 档位下另有 `tx cmd=12` | 任意合法协议帧分发后发送固定 15 字节 GPS payload |
 | AutoDrive 诊断 | `tx16 st=` | 主动上报 state、mode、switch、reason、GPS、卫星数和距离 |
-| 配置保存 | `ADCFG ld` / `ADCFG sv` | AutoDrive 配置经 `parameter_store -> board_storage` 读写 |
+| 原点保存 | `ADCFG ld` / `ADCFG sv` | 返航原点经 `parameter_store -> board_storage` 读写；钓点和返航开关不写 flash |
 | 电源采样 | `POWER init ok` / `adc raw=` / `low power latched` | 电源底层初始化、电量采样、`POWER_SAMPLE` / `POWER_LEVEL_CHANGED` 观察事件和低电返航触发；`bat_mv` 未标定时启动日志会提示 `bat_mv uncal` |
 | 协议事件消费 | `[EVT] ...` | `app_ship_event_poll()` 从 `ship_protocol_take_event()` FIFO drain 事件；高频 throttle/power sample 默认不额外刷日志 |
 | SPI-PS RX | `SPI-PS init ok` / `disabled shared SPI` | SPI-PS 初始化成功后，`app_loop()` 轮询 RX 完整帧并发布 `SPI_PS_FRAME_RX`；当前生成配置默认禁用，且共用 SPI 护栏会阻止误启用 |
@@ -391,8 +390,8 @@ main()
   `0..4` 电量等级；`bat_mv` 当前仍按 `BOARD_POWER_BAT_SCALE_NUM/DEN = 1/1`
   输出占位值。
 - 存储底层：`board_storage` 已封装 STC EEPROM/IAP 读写和扇区擦除。
-- 服务层：`logger` 和 `parameter_store` 已实现；AutoDrive 配置通过
-  `parameter_store -> board_storage` 保存。
+- 服务层：`logger` 和 `parameter_store` 已实现；AutoDrive 返航原点通过
+  `parameter_store -> board_storage` 保存，钓点和返航开关不进入 flash。
 
 ### 未实现底层
 
@@ -556,7 +555,7 @@ Current protocol event snapshot extensions:
 Current C251 log-footprint policy:
 
 - `SHIP_PROTOCOL_VERBOSE_LOG_ENABLE = 0U` and `SHIP_APP_BRINGUP_VERBOSE_LOG_ENABLE = 0U` are the default C251 build profile.
-- The default profile keeps the logs used by the maintained upper-computer cards and field triage, including `[CTRL]`, `[AHRS]`, `[HDG]`, `adc raw`, `rc cmd=0x11`, `key edge key=... action=0..3`, `0x14 rx save=... nav=... idx=...`, `tx16 st=...`, warnings and errors.
+- The default profile keeps the logs used by the maintained upper-computer cards and field triage, including `[CTRL]`, `[AHRS]`, `[HDG]`, `adc raw`, `rc cmd=0x11`, `key edge key=... action=0..3`, `0x14 rx rt=... nav=... idx=...`, `tx16 st=...`, warnings and errors.
 - Verbose protocol logs restore transmit-success lines, pair payload details and 0x14 frame/payload diagnostics. Verbose bring-up logs restore startup success banners and first-frame IMU diagnostics.
 - Enabling either verbose switch increases CODE/HCONST use. On C251 this can re-open the HCONST overflow risk, so keep them disabled for release handoff unless a short debug session requires the extra text.
 

@@ -2,7 +2,7 @@
  * @file autodrive.h
  * @brief GPS 返航/定点自动驾驶状态机接口。
  *
- * 协议层通过本接口提交返航点、钓点和返航开关命令；本模块负责点位表、
+ * 协议层通过本接口提交返航点、钓点和返航开关命令；本模块负责当前点位、
  * 目标航向、对齐阶段、运行阶段和诊断快照。
  */
 
@@ -53,7 +53,6 @@ typedef struct
 } AutoDrive_PointRaw_t;
 
 #define AUTODRIVE_LEGACY_POINT_WIRE_LEN 10U
-#define AUTODRIVE_FISH_POINT_COUNT      5U
 
 #define AUTODRIVE_FISH_CMD_BUSY            0U
 #define AUTODRIVE_FISH_CMD_STORED          1U
@@ -63,26 +62,17 @@ typedef struct
 #define AUTODRIVE_FISH_CMD_STARTED         5U
 #define AUTODRIVE_FISH_CMD_INVALID         6U
 
-#define AUTODRIVE_FISH_SAVE_NONE           0U
-#define AUTODRIVE_FISH_SAVE_STORED         1U
-#define AUTODRIVE_FISH_SAVE_EXISTS         2U
-#define AUTODRIVE_FISH_SAVE_FULL_TEMP      3U
-#define AUTODRIVE_FISH_SAVE_BUSY           4U
-#define AUTODRIVE_FISH_SAVE_INVALID        5U
+#define AUTODRIVE_FISH_RX_NONE             0U
+#define AUTODRIVE_FISH_RX_STORED           1U
+#define AUTODRIVE_FISH_RX_EXISTS           2U
+#define AUTODRIVE_FISH_RX_BUSY             3U
+#define AUTODRIVE_FISH_RX_INVALID          4U
 
 typedef struct
 {
     u8 auto_ret_onoff;
     AutoDrive_PointRaw_t ret_point;
 } AutoDrive_ReturnConfig_t;
-
-typedef struct
-{
-    AutoDrive_PointRaw_t point[AUTODRIVE_FISH_POINT_COUNT];
-    u8 valid_mask;
-    u8 next_index;
-    u8 latest_index;
-} AutoDrive_FishPointStore_t;
 
 typedef enum
 {
@@ -118,7 +108,7 @@ typedef struct
 /**
  * @brief 初始化自动驾驶状态机。
  *
- * 函数会加载返航配置、清空钓点缓存、复位链路超时计数和目标航向状态。
+ * 函数会加载返航原点、清空当前钓点目标、复位链路超时计数和目标航向状态。
  * 不直接访问底层 GPS/UART/电机硬件，运动输出通过 ShipControl 请求完成。
  */
 void AutoDrive_Init(void);
@@ -143,7 +133,7 @@ void AutoDrive_Stop(void);
  * @brief 仅停止当前自动驾驶运动输出。
  *
  * 清除目标航向、对齐/接近状态并通知 ShipControl 退出 GPS 导航；
- * 不修改已保存的返航点和钓点。
+ * 不修改已保存的返航原点和当前钓点目标。
  */
 void AutoDrive_StopMotion(void);
 
@@ -198,6 +188,10 @@ void AutoDrive_SetReturnPositionRaw(const u8 *data_m);
 
 /**
  * @brief 从旧协议 10 字节点位载荷接收钓点命令。
+ *
+ * 钓点由遥控器每次下发，船端只保留本次运行态目标，不写 flash，
+ * 也不维护断电或跨任务钓点表。
+ *
  * @param data_m 旧协议点位数据，长度必须至少为 AUTODRIVE_LEGACY_POINT_WIRE_LEN。
  * @return AUTODRIVE_FISH_CMD_* 命令处理结果。
  */
@@ -211,7 +205,10 @@ u8 AutoDrive_SetFishPositionRaw(const u8 *data_m);
 void AutoDrive_SetSwitchRaw(const u8 *data_m, u8 len);
 
 /**
- * @brief 获取当前已加载的返航配置。
+ * @brief 获取当前已加载的返航运行配置。
+ *
+ * flash 只保存返航原点；自动返航开关来自默认值或本次遥控器 0x15 输入。
+ *
  * @param cfg 输出配置；为 NULL 时直接返回。
  */
 void AutoDrive_GetStoredConfig(AutoDrive_ReturnConfig_t *cfg);
@@ -237,19 +234,19 @@ u8 AutoDrive_GetReturnPositionRaw(AutoDrive_PointRaw_t *point);
 u8 AutoDrive_GetFishPositionRaw(AutoDrive_PointRaw_t *point);
 
 /**
- * @brief 按 1 起始索引读取缓存钓点。
- * @param index 钓点序号，范围 1..AUTODRIVE_FISH_POINT_COUNT。
+ * @brief 兼容读取当前钓点目标。
+ * @param index 仅支持 1；钓点不再有本地表。
  * @param point 输出钓点；可为 NULL。
- * @return 1 点位有效，0 索引无效或槽位为空。
+ * @return 1 当前目标有效，0 索引无效或当前无钓点目标。
  */
 u8 AutoDrive_GetFishPositionByIndexRaw(u8 index, AutoDrive_PointRaw_t *point);
 
 /**
- * @brief 获取最近一次钓点命令匹配的槽位索引。
- * @return 0 表示未匹配；1..AUTODRIVE_FISH_POINT_COUNT 表示钓点槽位。
+ * @brief 获取最近一次钓点命令的运行态目标索引。
+ * @return 0 表示未接收有效钓点；1 表示当前钓点目标。
  */
 u8 AutoDrive_GetLastFishCommandIndex(void);
-u8 AutoDrive_GetLastFishSaveResult(void);
+u8 AutoDrive_GetLastFishRxResult(void);
 
 /**
  * @brief 获取自动驾驶诊断快照。

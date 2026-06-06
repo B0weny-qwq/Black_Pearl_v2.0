@@ -73,6 +73,7 @@ add_library(ef_app
     App/Src/app_extension.c
     App/Src/app_mag_event.c
     App/Src/app_state.c
+    App/Src/north_calib.c
     App/Src/autodrive.c
     App/Src/autodrive_cmd.c
     App/Src/autodrive_config.c

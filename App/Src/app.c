@@ -5,6 +5,7 @@
 #include "board_motor.h"
 #include "board_wireless.h"
 #include "logger.h"
+#include "north_calib.h"
 #include "platform_scheduler.h"
 #include "ship_protocol.h"
 
@@ -13,6 +14,7 @@ void app_init(void)
 {
     if (board_console_init() == BOARD_CONSOLE_OK) {
         log_init();
+        LOGI("SYS", "fw bp2-magdiag-20260530");
     }
 
     app_bring_up_devices();
@@ -45,7 +47,16 @@ u8 app_get_heading_ready(void)
 
 u16 app_get_heading_deg100(void)
 {
-    return app_heading_deg100;
+    if (app_heading_ready == 0U) {
+        return 0U;
+    }
+    return app_wrap_heading_deg100((int32)app_raw_heading_deg100 +
+                                   (int32)NorthCalib_GetHeadingOffsetCd());
+}
+
+u16 app_get_raw_heading_deg100(void)
+{
+    return app_raw_heading_deg100;
 }
 
 int16 app_get_heading_relative_deg100(void)

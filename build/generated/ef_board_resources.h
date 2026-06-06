@@ -19,6 +19,7 @@
 #define EF_BOARD_GNSS_TX_PIN_MASK          GPIO_Pin_1
 
 /* Shared sensor I2C */
+#define EF_BOARD_SENSOR_I2C_ROUTE_ID       0U
 #define EF_BOARD_SENSOR_I2C_PIN_GROUP      EF_IIC_PIN_P14_P15
 #define EF_BOARD_SENSOR_I2C_MUX            I2C_P14_P15
 #define EF_BOARD_SENSOR_I2C_SPEED          EF_IIC_SPEED_100K
@@ -27,6 +28,7 @@
 #define EF_BOARD_SENSOR_I2C_SDA_PIN_MASK   GPIO_Pin_5
 
 /* LT8920 SPI */
+#define EF_BOARD_LT8920_SPI_ROUTE_ID       3U
 #define EF_BOARD_LT8920_SPI_MUX            SPI_P35_P34_P33_P32
 #define EF_BOARD_LT8920_SPI_SPEED          EF_SPI_SPEED_FOSC_16
 #define EF_BOARD_LT8920_SPI_CS_PIN_MASK    GPIO_Pin_5
@@ -60,5 +62,11 @@
 /* SPI-PS peer link is not active in the current firmware. */
 #define EF_BOARD_SPI_PS_ENABLED            0U
 #define EF_BOARD_SPI_PS_SHARES_LT8920_SPI  1U
+
+#if ((EF_BOARD_SENSOR_I2C_ROUTE_ID == 0U) && (EF_BOARD_LT8920_SPI_ROUTE_ID == 0U)) || \
+    ((EF_BOARD_SENSOR_I2C_ROUTE_ID == 1U) && (EF_BOARD_LT8920_SPI_ROUTE_ID == 1U)) || \
+    ((EF_BOARD_SENSOR_I2C_ROUTE_ID == 3U) && (EF_BOARD_LT8920_SPI_ROUTE_ID == 3U))
+#error "resource conflict: LT8920 SPI route overlaps sensor I2C route"
+#endif
 
 #endif

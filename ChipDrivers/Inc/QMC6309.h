@@ -15,6 +15,8 @@
 /** 旧工程保留的 QMC6309 地址值；7 位/8 位地址格式由外部 I2C 回调决定。 */
 #define QMC6309_I2C_ADDR_PRIMARY        0x7CU
 #define QMC6309_I2C_ADDR_ALT            0x0CU
+#define QMC6309_I2C_ADDR_PRIMARY_7BIT   0x3EU
+#define QMC6309_I2C_ADDR_ALT_7BIT       0x06U
 
 /** 芯片上电并正常响应后，0x00 寄存器应读到的 ID。 */
 #define QMC6309_CHIP_ID_VALUE           0x90U
@@ -27,20 +29,24 @@
 #define QMC6309_REG_DATA_Y_H            0x04U
 #define QMC6309_REG_DATA_Z_L            0x05U
 #define QMC6309_REG_DATA_Z_H            0x06U
+#define QMC6309_REG_STATUS              0x09U
 #define QMC6309_REG_CONTROL_1           0x0AU
 #define QMC6309_REG_CONTROL_2           0x0BU
 
 /** 从旧 QMC6309 初始化代码迁移来的控制寄存器值。 */
 #define QMC6309_CTRL1_STANDBY           0x00U
-#define QMC6309_CTRL1_ACTIVE            0x1BU
-#define QMC6309_CTRL2_INIT              0x10U
+#define QMC6309_CTRL1_ACTIVE            0x63U
+#define QMC6309_CTRL2_INIT              0x00U
 #define QMC6309_CTRL2_SOFT_RESET        0x80U
+#define QMC6309_STATUS_DRDY             0x01U
 
 /** 芯片初始化和软复位流程使用的默认等待时间。 */
 #define QMC6309_POWER_UP_DELAY_MS       1000U
 #define QMC6309_RESET_ENTER_DELAY_MS    5U
 #define QMC6309_RESET_EXIT_DELAY_MS     10U
-#define QMC6309_ENABLE_DELAY_MS         2U
+#define QMC6309_ENABLE_DELAY_MS         20U
+#define QMC6309_DRDY_TIMEOUT_MS         80U
+#define QMC6309_DRDY_POLL_DELAY_MS      5U
 
 /** 驱动返回值，0 表示成功，负数表示错误。 */
 #define QMC6309_OK                      0
@@ -101,12 +107,20 @@ typedef struct
 {
     qmc6309_bus_t bus;
     u8 addr;
+    u8 initialized;
+    u8 data_ready;
+    int8 last_error;
+    u8 last_id;
+    u8 last_status;
+    u8 last_control_1;
+    u8 last_control_2;
 } qmc6309_t;
 
 /** 用于 bring-up 和寄存器检查的关键寄存器快照。 */
 typedef struct
 {
     u8 chip_id;
+    u8 status;
     u8 control_1;
     u8 control_2;
 } qmc6309_regs_t;
@@ -155,6 +169,8 @@ int8 QMC6309_ReadRegs(qmc6309_t *dev, u8 start_reg, u8 *buf, u8 len);
 /** @brief 读取芯片 ID 寄存器。 */
 int8 QMC6309_ReadID(qmc6309_t *dev, u8 *chip_id);
 
+int8 QMC6309_ReadStatus(qmc6309_t *dev, u8 *status);
+
 /**
  * @brief 读取原始 X/Y/Z 地磁数据。
  *
@@ -168,5 +184,9 @@ int8 QMC6309_SetODR(qmc6309_t *dev, u8 odr);
 
 /** @brief 读取关键寄存器，供底层诊断使用。 */
 int8 QMC6309_ReadDiagRegs(qmc6309_t *dev, qmc6309_regs_t *regs);
+
+u8 QMC6309_IsReady(const qmc6309_t *dev);
+u8 QMC6309_HasDataReady(const qmc6309_t *dev);
+int8 QMC6309_GetLastError(const qmc6309_t *dev);
 
 #endif
